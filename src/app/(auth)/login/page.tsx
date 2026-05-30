@@ -11,19 +11,27 @@ import { loginSchema, type LoginInput } from "@/types";
 const ERROR_MAP: Record<string, { title: string; text: string }> = {
   account_locked: {
     title: "Account Locked",
-    text: "ખાતું 1 કલાક માટે લૉક — 5 ખોટા પ્રયાસ. Account locked for 1 hour.",
+    text: "Too many failed attempts. Account locked for 1 hour.",
   },
   account_inactive: {
     title: "Account Inactive",
-    text: "ખાતું નિષ્ક્રિય — ઍડ્મિનનો સંપર્ક કરો. Contact the admin.",
+    text: "Your account is inactive. Contact the admin.",
   },
-  invalid_credentials: {
-    title: "Invalid Credentials",
-    text: "ખોટો ઇ-મેઇલ અથવા પાસવર્ડ. Wrong email or password.",
+  invalid_email: {
+    title: "Email Not Found",
+    text: "No account found with this email address.",
+  },
+  invalid_password: {
+    title: "Wrong Password",
+    text: "The password you entered is incorrect.",
+  },
+  configuration: {
+    title: "Server Error",
+    text: "Authentication is not configured correctly. Contact the admin.",
   },
   default: {
     title: "Error",
-    text: "કંઈ ભૂલ થઈ. ફરી પ્રયાસ કરો. Something went wrong.",
+    text: "Something went wrong. Please try again.",
   },
 };
 
@@ -50,8 +58,9 @@ export default function LoginPage() {
       router.refresh();
       return;
     }
-    const code = (result as unknown as Record<string, unknown>).code as string | undefined;
-    setErrorCode(code ?? "default");
+    // result.error contains the code thrown by the CredentialsSignin subclass
+    const code = result.error.toLowerCase();
+    setErrorCode(code);
   };
 
   const errInfo = errorCode ? (ERROR_MAP[errorCode] ?? ERROR_MAP.default) : null;

@@ -12,7 +12,7 @@ import { loginSchema } from "@/types";
 import { authConfig } from "./auth.config";
 
 // ─── Custom error classes ─────────────────────────────────────────────────────
-// These codes appear as result.code on the client after a failed signIn().
+// These codes surface in result.error on the client after a failed signIn().
 
 class AccountLockedError extends CredentialsSignin {
   code = "account_locked";
@@ -22,8 +22,12 @@ class AccountInactiveError extends CredentialsSignin {
   code = "account_inactive";
 }
 
-class InvalidCredentialsError extends CredentialsSignin {
-  code = "invalid_credentials";
+class InvalidEmailError extends CredentialsSignin {
+  code = "invalid_email";
+}
+
+class InvalidPasswordError extends CredentialsSignin {
+  code = "invalid_password";
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -44,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials);
-        if (!parsed.success) throw new InvalidCredentialsError();
+        if (!parsed.success) throw new InvalidEmailError();
 
         await connectDB();
 
@@ -58,7 +62,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           await new Promise((r) =>
             setTimeout(r, 300 + Math.random() * 200)
           );
-          throw new InvalidCredentialsError();
+          throw new InvalidEmailError();
         }
 
         if (!user.isActive) throw new AccountInactiveError();
@@ -87,7 +91,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 : null,
             }
           );
-          throw new InvalidCredentialsError();
+          throw new InvalidPasswordError();
         }
 
         // ── Success — reset lockout state ────────────────────────────────────
