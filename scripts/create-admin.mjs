@@ -18,7 +18,7 @@
  *   node scripts/create-admin.mjs --email ... --password ...
  */
 
-import { MongoClient } from "mongodb";
+import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 // ── Parse CLI arguments ──────────────────────────────────────────────────────
@@ -52,10 +52,9 @@ if (!MONGODB_URI) {
 // ── Create user ──────────────────────────────────────────────────────────────
 async function createAdmin() {
   console.log("🔌 Connecting to MongoDB...");
-  const client = new MongoClient(MONGODB_URI);
-  await client.connect();
+  await mongoose.connect(MONGODB_URI);
 
-  const db    = client.db();
+  const db    = mongoose.connection.db;
   const users = db.collection("users");
 
   // Ensure email unique index exists
@@ -64,7 +63,7 @@ async function createAdmin() {
   const existing = await users.findOne({ email: email.toLowerCase() });
   if (existing) {
     console.log(`✅ User already exists (${email}) — skipping.`);
-    await client.close();
+    await mongoose.disconnect();
     return;
   }
 
@@ -88,7 +87,7 @@ async function createAdmin() {
   console.log("   Role    :", role);
   console.log("   ⚠️  Change the password after first login.");
 
-  await client.close();
+  await mongoose.disconnect();
   console.log("Done.");
 }
 
