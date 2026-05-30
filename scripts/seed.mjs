@@ -11,13 +11,18 @@
 import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 
-const MONGODB_URI = "mongodb://127.0.0.1:27017/dhagaji-creation";
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error("❌ MONGODB_URI is missing. Set it in your environment.");
+  process.exit(1);
+}
 
 // ── Owner credentials (change password after first login) ────────────────────
 const OWNER = {
-  name: "Dhagaji Owner",
-  email: "owner@dhagaji.local",
-  password: "Dhagaji@123",   // ← Change this after first login
+  name: process.env.OWNER_NAME || "Dhagaji Owner",
+  email: process.env.OWNER_EMAIL || "owner@dhagaji.local",
+  password: process.env.OWNER_PASSWORD || "Dhagaji@123", // change immediately
   role: "owner",
   isActive: true,
   loginAttempts: 0,
