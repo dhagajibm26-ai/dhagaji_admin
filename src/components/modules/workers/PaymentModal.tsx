@@ -18,7 +18,9 @@ export function PaymentModal({ isOpen, onClose, workOrder }: PaymentModalProps) 
   const [paymentMethod, setPaymentMethod] = useState<"Cash" | "UPI" | "Card">("Cash");
   const payMutation = useRecordPayment();
 
-  const balance = workOrder ? (workOrder.balance ?? workOrder.amountDue - workOrder.amountPaid) : 0;
+  const balance = workOrder
+    ? (workOrder.balance ?? (workOrder.netAmountDue ?? workOrder.amountDue) - workOrder.amountPaid)
+    : 0;
 
   if (!workOrder) return null;
 

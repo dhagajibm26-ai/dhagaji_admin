@@ -261,7 +261,9 @@ export interface IWorkOrder {
   netThreads: number;
   netGlue: number;
   rejected: number;
-  amountDue: number;
+  amountDue: number;          // gross OK earnings
+  rejectionDeduction: number; // 50% penalty on rejected pieces
+  netAmountDue: number;       // amountDue - rejectionDeduction
   balance: number;
   paymentStatus: "Paid" | "Partial" | "Unpaid";
   createdAt: Date;

@@ -76,10 +76,13 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     await order.save();
 
-    // Update Worker.totalEarned with the amountDue (qualityOK * perPieceRate)
-    const amountDue = order.qualityOK * order.perPieceRate;
-    if (amountDue > 0) {
-      await Worker.findByIdAndUpdate(order.workerId, { $inc: { totalEarned: amountDue } });
+    // Update Worker.totalEarned with net amount (OK earnings - 50% rejection deduction)
+    const okEarnings = order.qualityOK * order.perPieceRate;
+    const rejected = Math.max(0, order.finishedPieces - order.qualityOK);
+    const rejectionDeduction = rejected * order.perPieceRate * 0.5;
+    const netAmountDue = Math.max(0, okEarnings - rejectionDeduction);
+    if (netAmountDue > 0) {
+      await Worker.findByIdAndUpdate(order.workerId, { $inc: { totalEarned: netAmountDue } });
     }
 
     return NextResponse.json<ApiResponse>({ success: true, data: order.toJSON() });

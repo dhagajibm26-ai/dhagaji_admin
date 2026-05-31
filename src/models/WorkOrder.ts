@@ -66,7 +66,9 @@ export interface IWorkOrderDocument extends Document {
   // virtuals — OUTPUT
   rejected: number;
   // virtuals — PAYMENT
-  amountDue: number;
+  amountDue: number;          // gross OK earnings
+  rejectionDeduction: number; // 50% penalty on rejected pieces
+  netAmountDue: number;       // amountDue - rejectionDeduction
   balance: number;
   paymentStatus: PaymentStatus;
 
@@ -179,23 +181,42 @@ WorkOrderSchema.virtual("netGlue").get(function (this: IWorkOrderDocument) {
 // ─── Virtuals — OUTPUT ────────────────────────────────────────────────────────
 
 WorkOrderSchema.virtual("rejected").get(function (this: IWorkOrderDocument) {
-  return this.finishedPieces - this.qualityOK;
+  return Math.max(0, this.finishedPieces - this.qualityOK);
 });
 
 // ─── Virtuals — PAYMENT ───────────────────────────────────────────────────────
 
+/** Gross earnings for OK pieces */
 WorkOrderSchema.virtual("amountDue").get(function (this: IWorkOrderDocument) {
   return this.qualityOK * this.perPieceRate;
 });
 
+/** 50% deduction on rejected pieces */
+WorkOrderSchema.virtual("rejectionDeduction").get(function (this: IWorkOrderDocument) {
+  const rejected = Math.max(0, this.finishedPieces - this.qualityOK);
+  return rejected * this.perPieceRate * 0.5;
+});
+
+/** Net payable = OK earnings − rejection deduction */
+WorkOrderSchema.virtual("netAmountDue").get(function (this: IWorkOrderDocument) {
+  const gross = this.qualityOK * this.perPieceRate;
+  const deduction = Math.max(0, this.finishedPieces - this.qualityOK) * this.perPieceRate * 0.5;
+  return Math.max(0, gross - deduction);
+});
+
 WorkOrderSchema.virtual("balance").get(function (this: IWorkOrderDocument) {
-  return this.qualityOK * this.perPieceRate - this.amountPaid;
+  const gross = this.qualityOK * this.perPieceRate;
+  const deduction = Math.max(0, this.finishedPieces - this.qualityOK) * this.perPieceRate * 0.5;
+  const net = Math.max(0, gross - deduction);
+  return net - this.amountPaid;
 });
 
 WorkOrderSchema.virtual("paymentStatus").get(function (
   this: IWorkOrderDocument
 ): PaymentStatus {
-  const due = this.qualityOK * this.perPieceRate;
+  const gross = this.qualityOK * this.perPieceRate;
+  const deduction = Math.max(0, this.finishedPieces - this.qualityOK) * this.perPieceRate * 0.5;
+  const due = Math.max(0, gross - deduction);
   if (this.amountPaid <= 0) return "Unpaid";
   if (this.amountPaid >= due) return "Paid";
   return "Partial";

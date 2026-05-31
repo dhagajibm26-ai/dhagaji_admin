@@ -6,3 +6,4 @@ export { ReturnMaterialForm } from "./ReturnMaterialForm";
 export { WorkerLedger } from "./WorkerLedger";
 export { PaymentModal } from "./PaymentModal";
 export { WorkersPageClient } from "./WorkersPageClient";
+export { SalarySummary } from "./SalarySummary";
