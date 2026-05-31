@@ -48,7 +48,8 @@ ThreadsStockSchema.virtual("totalValue").get(function (
   return (this.openingStock + this.stockAdd - this.netUsed) * this.costPerUnit;
 });
 
-ThreadsStockSchema.index({ threadCode: 1 }, { unique: true });
+// Non-unique index for fast lookups by code and colour
+ThreadsStockSchema.index({ threadCode: 1 });
 ThreadsStockSchema.index({ threadColour: 1 });
 
 export const ThreadsStock: Model<IThreadsStockDocument> =

@@ -14,7 +14,8 @@ export async function GET() {
     await connectDB();
     const docs = await ThreadsStock.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 });
     return NextResponse.json<ApiResponse>({ success: true, data: docs.map((d) => d.toJSON()) });
-  } catch {
+  } catch (err) {
+    console.error("[GET /api/threads]", err);
     return NextResponse.json<ApiResponse>({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
@@ -34,9 +35,24 @@ export async function POST(request: Request) {
       );
     }
     await connectDB();
+    // Drop old unique index if it exists (one-time migration safe to call repeatedly)
+    try {
+      await ThreadsStock.collection.dropIndex("threadCode_1");
+    } catch {
+      // Index doesn't exist or already dropped — ignore
+    }
     const item = await ThreadsStock.create(parsed.data);
     return NextResponse.json<ApiResponse>({ success: true, data: item.toJSON() }, { status: 201 });
-  } catch {
-    return NextResponse.json<ApiResponse>({ success: false, error: "Internal server error" }, { status: 500 });
+  } catch (err: unknown) {
+    console.error("[POST /api/threads]", err);
+    // MongoDB duplicate key
+    if (typeof err === "object" && err !== null && "code" in err && (err as { code: number }).code === 11000) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: "Yeh Thread Code pehle se exist karta hai. Alag code use karo." },
+        { status: 409 }
+      );
+    }
+    const message = err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json<ApiResponse>({ success: false, error: message }, { status: 500 });
   }
 }
