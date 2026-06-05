@@ -10,6 +10,21 @@ interface IBanglesGiven {
   pieces: number;
 }
 
+interface IThreadGiven {
+  threadStockId: Types.ObjectId;
+  threadCode: string;
+  threadColour: string;
+  grams: number;
+}
+
+interface IRawMaterialGiven {
+  rawMaterialId: Types.ObjectId;
+  itemName: string;
+  qty: number;
+  kind: "glue" | "cutter";
+  unit?: string;
+}
+
 interface IOtherMaterialGiven {
   name: string;
   qty: number;
@@ -39,14 +54,18 @@ export interface IWorkOrderDocument extends Document {
 
   // DENA (out to worker)
   banglesGiven: IBanglesGiven[];
+  threadItemsGiven: IThreadGiven[];
   threadsGiven: number;              // grams
   glueGiven: number;                 // units
+  cutterGiven: number;               // units
+  rawMaterialsGiven: IRawMaterialGiven[];
   otherMaterialGiven: IOtherMaterialGiven[];
 
   // LENA (returned by worker)
   banglesReturned: IBanglesReturned[];
   threadsReturned: number;
   glueReturned: number;
+  cutterReturned: number;
   otherReturned: IOtherReturned[];
 
   // OUTPUT
@@ -100,6 +119,35 @@ const OtherMaterialGivenSchema = new Schema<IOtherMaterialGiven>(
   { _id: false }
 );
 
+const ThreadGivenSchema = new Schema<IThreadGiven>(
+  {
+    threadStockId: {
+      type: Schema.Types.ObjectId,
+      ref: "ThreadsStock",
+      required: true,
+    },
+    threadCode: { type: String, required: true, trim: true },
+    threadColour: { type: String, required: true, trim: true },
+    grams: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
+
+const RawMaterialGivenSchema = new Schema<IRawMaterialGiven>(
+  {
+    rawMaterialId: {
+      type: Schema.Types.ObjectId,
+      ref: "RawMaterial",
+      required: true,
+    },
+    itemName: { type: String, required: true, trim: true },
+    qty: { type: Number, required: true, min: 0 },
+    kind: { type: String, enum: ["glue", "cutter"], required: true },
+    unit: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const BanglesReturnedSchema = new Schema<IBanglesReturned>(
   {
     cutType: { type: String, enum: ["C1", "C2", "C4", "C6"], required: true },
@@ -131,14 +179,18 @@ const WorkOrderSchema = new Schema<IWorkOrderDocument>(
 
     // DENA
     banglesGiven: { type: [BanglesGivenSchema], default: [] },
+    threadItemsGiven: { type: [ThreadGivenSchema], default: [] },
     threadsGiven: { type: Number, default: 0, min: 0 },
     glueGiven: { type: Number, default: 0, min: 0 },
+    cutterGiven: { type: Number, default: 0, min: 0 },
+    rawMaterialsGiven: { type: [RawMaterialGivenSchema], default: [] },
     otherMaterialGiven: { type: [OtherMaterialGivenSchema], default: [] },
 
     // LENA
     banglesReturned: { type: [BanglesReturnedSchema], default: [] },
     threadsReturned: { type: Number, default: 0, min: 0 },
     glueReturned: { type: Number, default: 0, min: 0 },
+    cutterReturned: { type: Number, default: 0, min: 0 },
     otherReturned: { type: [OtherReturnedSchema], default: [] },
 
     // OUTPUT
@@ -171,7 +223,10 @@ WorkOrderSchema.virtual("netBangles").get(function (this: IWorkOrderDocument) {
 });
 
 WorkOrderSchema.virtual("netThreads").get(function (this: IWorkOrderDocument) {
-  return this.threadsGiven - this.threadsReturned;
+  const given = this.threadItemsGiven?.length
+    ? this.threadItemsGiven.reduce((s, t) => s + t.grams, 0)
+    : this.threadsGiven;
+  return given - this.threadsReturned;
 });
 
 WorkOrderSchema.virtual("netGlue").get(function (this: IWorkOrderDocument) {

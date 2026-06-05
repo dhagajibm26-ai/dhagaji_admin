@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,23 +8,36 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { useAddRawMaterial } from "@/hooks/useRawMaterial";
-import { rawMaterialSchema, type RawMaterialInput } from "@/types";
+import { useAddRawMaterial, usePatchRawMaterial } from "@/hooks/useRawMaterial";
+import { useRawMaterials } from "@/hooks/useRawMaterial";
+import { rawMaterialSchema, type RawMaterialInput, type IRawMaterial } from "@/types";
 
 /** Input shape — fields with .default() are optional on entry */
-type RawMaterialFormInput = z.input<typeof rawMaterialSchema>;
+type RawMaterialFormInput = z.input<typeof rawMaterialSchema> & {
+  categoryCustom?: string;
+};
+type RawMaterialFormOutput = RawMaterialInput & {
+  categoryCustom?: string;
+};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  "Beads & Stones",
-  "Wire & Hook",
-  "Glue & Cutter",
-  "Tool",
+  "Glass Cuts",
+  "Plastic Purls",
+  "Kody",
+  "Glue",
+  "Cutter",
+  "Beads",
+  "Stone",
+  "Wire",
+  "Hook",
+  "Earing Materials",
   "Work Box",
-  "Packaging",
-  "Thread",
-  "Bangle",
+  "Paking Box",
+  "Paking Materials",
+  "Threads",
+  "Bangles",
 ] as const;
 
 const UNITS = ["gram", "pcs", "tube", "box", "meter"] as const;
@@ -34,17 +47,22 @@ const UNITS = ["gram", "pcs", "tube", "box", "meter"] as const;
 interface AddRawMaterialModalProps {
   isOpen: boolean;
   onClose: () => void;
+  item?: IRawMaterial | null;
 }
 
-export function AddRawMaterialModal({ isOpen, onClose }: AddRawMaterialModalProps) {
+export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialModalProps) {
   const addMutation = useAddRawMaterial();
+  const patchMutation = usePatchRawMaterial();
+  const { data: materials = [] } = useRawMaterials();
+  const isEdit = !!item;
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
-  } = useForm<RawMaterialFormInput, unknown, RawMaterialInput>({
+  } = useForm<RawMaterialFormInput, unknown, RawMaterialFormOutput>({
     resolver: zodResolver(rawMaterialSchema),
     defaultValues: {
       openingStock: 0,
@@ -54,34 +72,129 @@ export function AddRawMaterialModal({ isOpen, onClose }: AddRawMaterialModalProp
     },
   });
 
+  const selectedCategory = watch("category");
+  const customCategory = watch("categoryCustom");
+
+  const categoryOptions = useMemo(() => {
+    const fromData = materials
+      .map((m) => m.category?.trim())
+      .filter((c): c is string => !!c);
+
+    const unique = new Set<string>([...CATEGORIES, ...fromData]);
+    if (item?.category?.trim()) unique.add(item.category.trim());
+
+    return [...unique].sort((a, b) => a.localeCompare(b));
+  }, [materials, item]);
+
   // Reset form when modal closes
   useEffect(() => {
-    if (!isOpen) reset();
-  }, [isOpen, reset]);
+    if (!isOpen) {
+      reset();
+      return;
+    }
 
-  const onSubmit = (data: RawMaterialInput) => {
-    addMutation.mutate(data, {
+    if (item) {
+      reset({
+        itemName: item.itemName,
+        colorType: item.colorType ?? "",
+        category: categoryOptions.includes(item.category) ? item.category : "__custom__",
+        categoryCustom: categoryOptions.includes(item.category) ? "" : item.category,
+        unit: item.unit,
+        openingStock: item.openingStock,
+        purchasedQty: item.purchasedQty,
+        usedQty: item.usedQty,
+        ratePerUnit: item.ratePerUnit,
+        lowStockThreshold: item.lowStockThreshold,
+        supplier: item.supplier ?? "",
+        lastPurchaseDate: item.lastPurchaseDate
+          ? new Date(item.lastPurchaseDate).toISOString().slice(0, 10)
+          : undefined,
+      });
+      return;
+    }
+
+    reset({
+      itemName: "",
+      colorType: "",
+      category: undefined,
+      categoryCustom: "",
+      unit: undefined,
+      openingStock: 0,
+      purchasedQty: 0,
+      usedQty: 0,
+      ratePerUnit: 0,
+      lowStockThreshold: 10,
+      supplier: "",
+      lastPurchaseDate: undefined,
+    });
+  }, [isOpen, item, reset, categoryOptions]);
+
+  const onSubmit = (data: RawMaterialFormOutput) => {
+    const finalCategory =
+      data.category === "__custom__" ? data.categoryCustom?.trim() : data.category?.trim();
+
+    if (!finalCategory) {
+      return;
+    }
+
+    const payload: RawMaterialInput = {
+      ...data,
+      category: finalCategory,
+      colorType: data.colorType?.trim() || undefined,
+      supplier: data.supplier?.trim() || undefined,
+    };
+
+    if (item) {
+      patchMutation.mutate(
+        {
+          id: item._id,
+          itemName: payload.itemName,
+          colorType: payload.colorType,
+          category: payload.category,
+          unit: payload.unit,
+          openingStock: payload.openingStock,
+          purchasedQty: payload.purchasedQty,
+          usedQty: payload.usedQty,
+          ratePerUnit: payload.ratePerUnit,
+          lowStockThreshold: payload.lowStockThreshold,
+          supplier: payload.supplier,
+          lastPurchaseDate: payload.lastPurchaseDate,
+        },
+        { onSuccess: () => onClose() }
+      );
+      return;
+    }
+
+    addMutation.mutate(payload, {
       onSuccess: () => onClose(),
     });
   };
 
+  const isMutating = isSubmitting || addMutation.isPending || patchMutation.isPending;
+
   const footer = (
     <>
-      <Button variant="ghost" onClick={onClose} disabled={isSubmitting || addMutation.isPending}>
+      <Button variant="ghost" onClick={onClose} disabled={isMutating}>
         Cancel
       </Button>
       <Button
         type="submit"
         form="add-raw-material-form"
-        isLoading={isSubmitting || addMutation.isPending}
+        isLoading={isMutating}
       >
-        Add Material
+        {isEdit ? "Update Material" : "Add Material"}
       </Button>
     </>
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Raw Material" size="lg" footer={footer}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEdit ? "Edit Raw Material" : "Add Raw Material"}
+      size="lg"
+      footer={footer}
+    >
       <form
         id="add-raw-material-form"
         onSubmit={handleSubmit(onSubmit)}
@@ -98,8 +211,9 @@ export function AddRawMaterialModal({ isOpen, onClose }: AddRawMaterialModalProp
             {...register("itemName")}
           />
           <Input
-            label="Color / Type"
-            placeholder="e.g. Dark Red (optional)"
+            label="Sub Category / Details"
+            placeholder="e.g. Dark Red, 4mm, No.12"
+            hint="Aa box ma tame manually kai pan lakhine sub-category set kari shako"
             error={errors.colorType?.message}
             {...register("colorType")}
           />
@@ -115,12 +229,28 @@ export function AddRawMaterialModal({ isOpen, onClose }: AddRawMaterialModalProp
             {...register("category")}
           >
             <option value="">Select category…</option>
-            {CATEGORIES.map((c) => (
+            {categoryOptions.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
             ))}
+            <option value="__custom__">+ Add New Category</option>
           </Select>
+
+          {selectedCategory === "__custom__" && (
+            <Input
+              label="New Category Name"
+              required
+              placeholder="Type new category"
+              error={errors.categoryCustom?.message}
+              {...register("categoryCustom", {
+                validate: (v) => {
+                  if (selectedCategory !== "__custom__") return true;
+                  return !!v?.trim() || "New category name required";
+                },
+              })}
+            />
+          )}
 
           {/* Unit dropdown */}
           <Select
@@ -136,6 +266,12 @@ export function AddRawMaterialModal({ isOpen, onClose }: AddRawMaterialModalProp
               </option>
             ))}
           </Select>
+
+          {selectedCategory !== "__custom__" && !!customCategory && (
+            <p className="text-xs text-slate-400">
+              Tip: custom category fill thayeli chhe, pan tame dropdown mathi select category use kari rahya cho.
+            </p>
+          )}
         </div>
 
         {/* Row 3: Opening stock + Rate per unit */}
@@ -182,12 +318,12 @@ export function AddRawMaterialModal({ isOpen, onClose }: AddRawMaterialModalProp
         </div>
 
         {/* Mutation error */}
-        {addMutation.isError && (
+        {(addMutation.isError || patchMutation.isError) && (
           <p
             role="alert"
             className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700"
           >
-            {(addMutation.error as Error).message}
+            {((addMutation.error ?? patchMutation.error) as Error).message}
           </p>
         )}
       </form>

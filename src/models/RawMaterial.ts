@@ -1,14 +1,6 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
-export type RawMaterialCategory =
-  | "Beads & Stones"
-  | "Wire & Hook"
-  | "Glue & Cutter"
-  | "Tool"
-  | "Work Box"
-  | "Packaging"
-  | "Thread"
-  | "Bangle";
+export type RawMaterialCategory = string;
 
 export type RawMaterialUnit = "gram" | "pcs" | "tube" | "box" | "meter";
 
@@ -38,17 +30,8 @@ const RawMaterialSchema = new Schema<IRawMaterialDocument>(
     itemName: { type: String, required: true, trim: true },
     category: {
       type: String,
-      enum: [
-        "Beads & Stones",
-        "Wire & Hook",
-        "Glue & Cutter",
-        "Tool",
-        "Work Box",
-        "Packaging",
-        "Thread",
-        "Bangle",
-      ],
       required: true,
+      trim: true,
     },
     colorType: { type: String, trim: true },
     unit: {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { useBanglesStock, usePatchBangles, useDeleteBangles } from "@/hooks/useBangles";
+import { usePatchBangles, useDeleteBangles } from "@/hooks/useBangles";
 import { useIsOwner } from "@/stores/useAuthStore";
 import type { IBanglesStock } from "@/types";
 
@@ -68,9 +68,10 @@ interface BanglesTableProps {
   isError: boolean;
   error: Error | null;
   onAddNew: () => void;
+  onEdit: (item: IBanglesStock) => void;
 }
 
-export function BanglesTable({ items, isLoading, isError, error, onAddNew }: BanglesTableProps) {
+export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdit }: BanglesTableProps) {
   const deleteMutation = useDeleteBangles();
   const isOwner = useIsOwner();
 
@@ -204,20 +205,31 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew }: Ban
                 {/* Owner: delete */}
                 {isOwner && (
                   <td className="whitespace-nowrap px-4 py-3 text-center">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      isLoading={deleteMutation.isPending}
-                      onClick={() => {
-                        if (confirm(`Delete size "${item.size}" (${item.cutType})? This cannot be undone.`)) {
-                          deleteMutation.mutate(item._id);
-                        }
-                      }}
-                      className="text-red-600 hover:text-red-800"
-                      aria-label={`Delete ${item.size} ${item.cutType}`}
-                    >
-                      Delete
-                    </Button>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onEdit(item)}
+                        className="text-slate-700 hover:text-slate-900"
+                        aria-label={`Edit ${item.size} ${item.cutType}`}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        isLoading={deleteMutation.isPending}
+                        onClick={() => {
+                          if (confirm(`Delete size "${item.size}" (${item.cutType})? This cannot be undone.`)) {
+                            deleteMutation.mutate(item._id);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800"
+                        aria-label={`Delete ${item.size} ${item.cutType}`}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </td>
                 )}
               </tr>

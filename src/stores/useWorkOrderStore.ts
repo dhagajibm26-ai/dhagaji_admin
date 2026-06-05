@@ -23,12 +23,25 @@ export interface ThreadDenaItem {
 
 export interface GlueDenaItem {
   type: "glue";
-  glueStockId: string;
+  rawMaterialId: string;
   itemName: string;
   units: number;
+  unit?: string;
 }
 
-export type DenaItem = BangleDenaItem | ThreadDenaItem | GlueDenaItem;
+export interface CutterDenaItem {
+  type: "cutter";
+  rawMaterialId: string;
+  itemName: string;
+  units: number;
+  unit?: string;
+}
+
+export type DenaItem =
+  | BangleDenaItem
+  | ThreadDenaItem
+  | GlueDenaItem
+  | CutterDenaItem;
 
 // ─── Store state ──────────────────────────────────────────────────────────────
 

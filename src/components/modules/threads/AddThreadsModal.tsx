@@ -7,18 +7,21 @@ import { z } from "zod";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { useAddThread } from "@/hooks/useThreads";
-import { threadsStockSchema, type ThreadsStockInput } from "@/types";
+import { useAddThread, usePatchThread } from "@/hooks/useThreads";
+import { threadsStockSchema, type ThreadsStockInput, type IThreadsStock } from "@/types";
 
 type ThreadsFormInput = z.input<typeof threadsStockSchema>;
 
 interface AddThreadsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  item?: IThreadsStock | null;
 }
 
-export function AddThreadsModal({ isOpen, onClose }: AddThreadsModalProps) {
+export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps) {
   const addMutation = useAddThread();
+  const patchMutation = usePatchThread();
+  const isEdit = !!item;
 
   const {
     register,
@@ -35,28 +38,76 @@ export function AddThreadsModal({ isOpen, onClose }: AddThreadsModalProps) {
   });
 
   useEffect(() => {
-    if (!isOpen) reset();
-  }, [isOpen, reset]);
+    if (!isOpen) {
+      reset();
+      return;
+    }
+
+    if (item) {
+      reset({
+        threadCode: item.threadCode,
+        threadColour: item.threadColour,
+        threadCompanyName: item.threadCompanyName,
+        weightPerUnit: item.weightPerUnit,
+        openingStock: item.openingStock,
+        stockAdd: item.stockAdd,
+        netUsed: item.netUsed,
+        costPerUnit: item.costPerUnit,
+      });
+      return;
+    }
+
+    reset({
+      threadCode: "",
+      threadColour: "",
+      threadCompanyName: "",
+      weightPerUnit: 0,
+      openingStock: 0,
+      stockAdd: 0,
+      netUsed: 0,
+      costPerUnit: 0,
+    });
+  }, [isOpen, item, reset]);
 
   const onSubmit = (data: ThreadsStockInput) => {
+    if (item) {
+      patchMutation.mutate(
+        {
+          id: item._id,
+          threadCode: data.threadCode,
+          threadColour: data.threadColour,
+          threadCompanyName: data.threadCompanyName,
+          weightPerUnit: data.weightPerUnit,
+          openingStock: data.openingStock,
+          stockAdd: data.stockAdd,
+          netUsed: data.netUsed,
+          costPerUnit: data.costPerUnit,
+        },
+        { onSuccess: () => onClose() }
+      );
+      return;
+    }
+
     addMutation.mutate(data, { onSuccess: () => onClose() });
   };
+
+  const isMutating = isSubmitting || addMutation.isPending || patchMutation.isPending;
 
   const footer = (
     <>
       <Button
         variant="ghost"
         onClick={onClose}
-        disabled={isSubmitting || addMutation.isPending}
+        disabled={isMutating}
       >
         Cancel
       </Button>
       <Button
         type="submit"
         form="add-threads-form"
-        isLoading={isSubmitting || addMutation.isPending}
+        isLoading={isMutating}
       >
-        Add Thread
+        {isEdit ? "Update Thread" : "Add Thread"}
       </Button>
     </>
   );
@@ -65,7 +116,7 @@ export function AddThreadsModal({ isOpen, onClose }: AddThreadsModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Add Thread Stock"
+      title={isEdit ? "Edit Thread Stock" : "Add Thread Stock"}
       size="lg"
       footer={footer}
     >

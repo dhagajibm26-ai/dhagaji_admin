@@ -9,6 +9,13 @@ import type { ApiResponse } from "@/types";
 
 const patchSchema = z
   .object({
+    itemName: z.string().min(1).optional(),
+    category: z.string().min(1).optional(),
+    colorType: z.string().optional(),
+    unit: z.enum(["gram", "pcs", "tube", "box", "meter"]).optional(),
+    openingStock: z.number().min(0).optional(),
+    purchasedQty: z.number().min(0).optional(),
+    usedQty: z.number().min(0).optional(),
     /** Add stock to purchasedQty (e.g. received new delivery) */
     addPurchasedQty: z.number().min(0).optional(),
     /** Override rate per unit */
@@ -22,6 +29,13 @@ const patchSchema = z
   })
   .refine(
     (d) =>
+      d.itemName !== undefined ||
+      d.category !== undefined ||
+      d.colorType !== undefined ||
+      d.unit !== undefined ||
+      d.openingStock !== undefined ||
+      d.purchasedQty !== undefined ||
+      d.usedQty !== undefined ||
       d.addPurchasedQty !== undefined ||
       d.ratePerUnit !== undefined ||
       d.lowStockThreshold !== undefined ||
@@ -72,6 +86,20 @@ export async function PATCH(
       update.$set.lowStockThreshold = directFields.lowStockThreshold;
     if (directFields.supplier !== undefined)
       update.$set.supplier = directFields.supplier;
+    if (directFields.itemName !== undefined)
+      update.$set.itemName = directFields.itemName;
+    if (directFields.category !== undefined)
+      update.$set.category = directFields.category;
+    if (directFields.colorType !== undefined)
+      update.$set.colorType = directFields.colorType;
+    if (directFields.unit !== undefined)
+      update.$set.unit = directFields.unit;
+    if (directFields.openingStock !== undefined)
+      update.$set.openingStock = directFields.openingStock;
+    if (directFields.purchasedQty !== undefined)
+      update.$set.purchasedQty = directFields.purchasedQty;
+    if (directFields.usedQty !== undefined)
+      update.$set.usedQty = directFields.usedQty;
     if (directFields.lastPurchaseDate !== undefined)
       update.$set.lastPurchaseDate = new Date(directFields.lastPurchaseDate);
 

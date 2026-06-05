@@ -9,6 +9,13 @@ import type { ApiResponse } from "@/types";
 
 const patchSchema = z
   .object({
+    threadCode: z.string().min(1).optional(),
+    threadColour: z.string().min(1).optional(),
+    threadCompanyName: z.string().min(1).optional(),
+    weightPerUnit: z.number().min(0).optional(),
+    openingStock: z.number().min(0).optional(),
+    stockAdd: z.number().min(0).optional(),
+    netUsed: z.number().min(0).optional(),
     /** Deduct from stock (given to worker) */
     addNetUsed: z.number().min(0).optional(),
     /** Add new stock (grams) */
@@ -18,6 +25,13 @@ const patchSchema = z
   })
   .refine(
     (d) =>
+      d.threadCode !== undefined ||
+      d.threadColour !== undefined ||
+      d.threadCompanyName !== undefined ||
+      d.weightPerUnit !== undefined ||
+      d.openingStock !== undefined ||
+      d.stockAdd !== undefined ||
+      d.netUsed !== undefined ||
       d.addNetUsed !== undefined ||
       d.addStockQty !== undefined ||
       d.costPerUnit !== undefined,
@@ -52,7 +66,18 @@ export async function PATCH(
 
     await connectDB();
 
-    const { addNetUsed, addStockQty, costPerUnit } = parsed.data;
+    const {
+      threadCode,
+      threadColour,
+      threadCompanyName,
+      weightPerUnit,
+      openingStock,
+      stockAdd,
+      netUsed,
+      addNetUsed,
+      addStockQty,
+      costPerUnit,
+    } = parsed.data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const update: Record<string, any> = {};
@@ -62,6 +87,28 @@ export async function PATCH(
     }
     if (addStockQty !== undefined && addStockQty > 0) {
       update.$inc = { ...(update.$inc ?? {}), stockAdd: addStockQty };
+    }
+
+    if (threadCode !== undefined) {
+      update.$set = { ...(update.$set ?? {}), threadCode };
+    }
+    if (threadColour !== undefined) {
+      update.$set = { ...(update.$set ?? {}), threadColour };
+    }
+    if (threadCompanyName !== undefined) {
+      update.$set = { ...(update.$set ?? {}), threadCompanyName };
+    }
+    if (weightPerUnit !== undefined) {
+      update.$set = { ...(update.$set ?? {}), weightPerUnit };
+    }
+    if (openingStock !== undefined) {
+      update.$set = { ...(update.$set ?? {}), openingStock };
+    }
+    if (stockAdd !== undefined) {
+      update.$set = { ...(update.$set ?? {}), stockAdd };
+    }
+    if (netUsed !== undefined) {
+      update.$set = { ...(update.$set ?? {}), netUsed };
     }
     if (costPerUnit !== undefined) {
       update.$set = { ...(update.$set ?? {}), costPerUnit };

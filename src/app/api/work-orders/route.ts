@@ -55,9 +55,12 @@ export async function POST(request: Request) {
       workType,
       perPieceRate,
       banglesGiven,
+      threadItemsGiven,
       threadsGiven,
       threadStockId,
+      rawMaterialsGiven,
       glueGiven,
+      cutterGiven,
       glueStockId,
       otherMaterialGiven,
     } = parsed.data;
@@ -82,14 +85,54 @@ export async function POST(request: Request) {
     }
 
     // Deduct threads stock (netUsed)
-    if (threadsGiven > 0 && threadStockId) {
+    if (threadItemsGiven.length > 0) {
+      const threadOps = threadItemsGiven
+        .filter((t) => t.grams > 0)
+        .map((t) => ({
+          updateOne: {
+            filter: { _id: t.threadStockId },
+            update: { $inc: { netUsed: t.grams } },
+          },
+        }));
+      if (threadOps.length > 0) {
+        await ThreadsStock.bulkWrite(threadOps);
+      }
+    } else if (threadsGiven > 0 && threadStockId) {
       await ThreadsStock.findByIdAndUpdate(threadStockId, { $inc: { netUsed: threadsGiven } });
     }
 
-    // Deduct glue raw material (usedQty)
-    if (glueGiven > 0 && glueStockId) {
+    // Deduct glue/cutter raw material (usedQty)
+    if (rawMaterialsGiven.length > 0) {
+      const rawOps = rawMaterialsGiven
+        .filter((r) => r.qty > 0)
+        .map((r) => ({
+          updateOne: {
+            filter: { _id: r.rawMaterialId },
+            update: { $inc: { usedQty: r.qty } },
+          },
+        }));
+      if (rawOps.length > 0) {
+        await RawMaterial.bulkWrite(rawOps);
+      }
+    } else if (glueGiven > 0 && glueStockId) {
       await RawMaterial.findByIdAndUpdate(glueStockId, { $inc: { usedQty: glueGiven } });
     }
+
+    const totalThreads = threadItemsGiven.length > 0
+      ? threadItemsGiven.reduce((s, t) => s + t.grams, 0)
+      : threadsGiven;
+
+    const totalGlue = rawMaterialsGiven.length > 0
+      ? rawMaterialsGiven
+          .filter((r) => r.kind === "glue")
+          .reduce((s, r) => s + r.qty, 0)
+      : glueGiven;
+
+    const totalCutter = rawMaterialsGiven.length > 0
+      ? rawMaterialsGiven
+          .filter((r) => r.kind === "cutter")
+          .reduce((s, r) => s + r.qty, 0)
+      : cutterGiven;
 
     // Create work order
     const order = await WorkOrder.create({
@@ -98,8 +141,11 @@ export async function POST(request: Request) {
       workType,
       perPieceRate,
       banglesGiven,
-      threadsGiven,
-      glueGiven,
+      threadItemsGiven,
+      threadsGiven: totalThreads,
+      rawMaterialsGiven,
+      glueGiven: totalGlue,
+      cutterGiven: totalCutter,
       otherMaterialGiven,
     });
 

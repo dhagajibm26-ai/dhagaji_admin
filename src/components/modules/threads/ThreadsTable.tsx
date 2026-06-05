@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { useThreadsStock, usePatchThread, useDeleteThread } from "@/hooks/useThreads";
+import { usePatchThread, useDeleteThread } from "@/hooks/useThreads";
 import { useIsOwner } from "@/stores/useAuthStore";
 import type { IThreadsStock } from "@/types";
 
@@ -95,9 +94,10 @@ interface ThreadsTableProps {
   isError: boolean;
   error: Error | null;
   onAddNew: () => void;
+  onEdit: (item: IThreadsStock) => void;
 }
 
-export function ThreadsTable({ items, isLoading, isError, error, onAddNew }: ThreadsTableProps) {
+export function ThreadsTable({ items, isLoading, isError, error, onAddNew, onEdit }: ThreadsTableProps) {
   const deleteMutation = useDeleteThread();
   const isOwner = useIsOwner();
 
@@ -172,7 +172,7 @@ export function ThreadsTable({ items, isLoading, isError, error, onAddNew }: Thr
                 <td className="whitespace-nowrap px-4 py-3">
                   <div className="flex items-center gap-2">
                     <div
-                      className="h-3 w-3 rounded-full border border-gray-300 flex-shrink-0"
+                      className="h-3 w-3 rounded-full border border-gray-300 shrink-0"
                       style={{ backgroundColor: item.threadColour.toLowerCase() }}
                       aria-hidden
                     />
@@ -241,20 +241,31 @@ export function ThreadsTable({ items, isLoading, isError, error, onAddNew }: Thr
                 {/* Owner: delete */}
                 {isOwner && (
                   <td className="whitespace-nowrap px-4 py-3 text-center">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      isLoading={deleteMutation.isPending}
-                      onClick={() => {
-                        if (confirm(`Delete thread "${item.threadCode}"? This cannot be undone.`)) {
-                          deleteMutation.mutate(item._id);
-                        }
-                      }}
-                      className="text-red-600 hover:text-red-800"
-                      aria-label={`Delete ${item.threadCode}`}
-                    >
-                      Delete
-                    </Button>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onEdit(item)}
+                        className="text-slate-700 hover:text-slate-900"
+                        aria-label={`Edit ${item.threadCode}`}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        isLoading={deleteMutation.isPending}
+                        onClick={() => {
+                          if (confirm(`Delete thread "${item.threadCode}"? This cannot be undone.`)) {
+                            deleteMutation.mutate(item._id);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800"
+                        aria-label={`Delete ${item.threadCode}`}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </td>
                 )}
               </tr>

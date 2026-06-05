@@ -9,6 +9,7 @@ import {
   Circle,
   Layers,
   HardHat,
+  Clock3,
   Gem,
   Receipt,
   BarChart3,
@@ -36,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/threads", label: "Threads", Icon: Layers, section: "Inventory" },
   { href: "/finished-stock", label: "Finished Stock", Icon: Gem, section: "Inventory" },
   { href: "/workers", label: "Workers", Icon: HardHat, section: "Operations" },
+  { href: "/work-orders", label: "Work Flow", Icon: Clock3, section: "Operations" },
   { href: "/billing", label: "Billing", Icon: Receipt, highlight: true, section: "Operations" },
   { href: "/reports", label: "Reports", Icon: BarChart3, ownerOnly: true, section: "Analytics" },
 ];
@@ -130,7 +132,7 @@ export function Sidebar() {
                           href={item.href}
                           onClick={() => setSidebarOpen(false)}
                           className={cn(
-                            "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium min-h-[44px]",
+                            "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium min-h-11",
                             "transition-all duration-150",
                             isActive
                               ? "bg-[#D32F2F] text-white shadow-lg shadow-red-900/30"
@@ -188,7 +190,7 @@ export function Sidebar() {
           </div>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-white/30 hover:bg-white/8 hover:text-white/70 min-h-[44px] transition-all"
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-white/30 hover:bg-white/8 hover:text-white/70 min-h-11 transition-all"
           >
             <LogOut size={15} className="shrink-0" />
             Sign Out

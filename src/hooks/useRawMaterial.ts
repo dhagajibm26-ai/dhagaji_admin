@@ -32,6 +32,13 @@ async function createRawMaterial(data: RawMaterialInput): Promise<IRawMaterial> 
 
 export interface PatchRawMaterialPayload {
   id: string;
+  itemName?: string;
+  category?: string;
+  colorType?: string;
+  unit?: "gram" | "pcs" | "tube" | "box" | "meter";
+  openingStock?: number;
+  purchasedQty?: number;
+  usedQty?: number;
   addPurchasedQty?: number;
   ratePerUnit?: number;
   lowStockThreshold?: number;

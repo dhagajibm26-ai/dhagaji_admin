@@ -40,9 +40,25 @@ function StatsBar({ items, isOwner }: { items: IThreadsStock[]; isOwner: boolean
 
 export function ThreadsPageClient() {
   const [modalOpen, setModalOpen] = useState(false);
+  const [editItem, setEditItem] = useState<IThreadsStock | null>(null);
   const [search, setSearch] = useState("");
   const { data: items = [], isLoading, isError, error } = useThreadsStock();
   const isOwner = useIsOwner();
+
+  const openCreateModal = () => {
+    setEditItem(null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (item: IThreadsStock) => {
+    setEditItem(item);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditItem(null);
+  };
 
   const outOfStockItems = items.filter((i) => i.closingStock <= 0);
 
@@ -65,7 +81,7 @@ export function ThreadsPageClient() {
             Manage thread inventory by code, colour, and company.
           </p>
         </div>
-        <Button onClick={() => setModalOpen(true)} size="sm" className="hidden sm:inline-flex">
+        <Button onClick={openCreateModal} size="sm" className="hidden sm:inline-flex">
           <Plus size={14} className="mr-1" />
           Add Thread
         </Button>
@@ -118,14 +134,15 @@ export function ThreadsPageClient() {
         isLoading={isLoading}
         isError={isError}
         error={error as Error | null}
-        onAddNew={() => setModalOpen(true)}
+        onAddNew={openCreateModal}
+        onEdit={openEditModal}
       />
 
-      <AddThreadsModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+      <AddThreadsModal isOpen={modalOpen} onClose={closeModal} item={editItem} />
 
       {/* FAB (mobile) */}
       <button
-        onClick={() => setModalOpen(true)}
+        onClick={openCreateModal}
         className="fixed bottom-20 right-4 flex items-center justify-center rounded-2xl bg-[#D32F2F] text-white shadow-xl shadow-red-700/30 transition-all hover:bg-[#B71C1C] active:scale-95 sm:hidden"
         aria-label="Add thread stock"
         style={{ width: 52, height: 52 }}

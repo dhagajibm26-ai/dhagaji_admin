@@ -32,6 +32,13 @@ async function createThread(data: ThreadsStockInput): Promise<IThreadsStock> {
 
 export interface PatchThreadsPayload {
   id: string;
+  threadCode?: string;
+  threadColour?: string;
+  threadCompanyName?: string;
+  weightPerUnit?: number;
+  openingStock?: number;
+  stockAdd?: number;
+  netUsed?: number;
   addNetUsed?: number;
   addStockQty?: number;
   costPerUnit?: number;

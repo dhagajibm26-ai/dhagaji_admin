@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useWorkOrders, useReturnWorkOrder } from "@/hooks/useWorkOrders";
+import { useFinishedStock } from "@/hooks/useFinishedStock";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import type { IWorkOrder, CutType } from "@/types";
+import type { CutType } from "@/types";
 
 interface ReturnMaterialFormProps {
   isOpen: boolean;
@@ -18,10 +19,11 @@ interface ReturnMaterialFormProps {
 
 interface ReturnState {
   workOrderId: string;
+  finishedProductId: string;
   banglesReturned: Array<{ cutType: CutType; cuts: number; pieces: number }>;
   threadsReturned: number;
   glueReturned: number;
-  scissorsReturned: number;
+  cutterReturned: number;
   finishedPieces: number;
   qualityOK: number;
   damageNotes: string;
@@ -29,10 +31,11 @@ interface ReturnState {
 
 const empty: ReturnState = {
   workOrderId: "",
+  finishedProductId: "",
   banglesReturned: [],
   threadsReturned: 0,
   glueReturned: 0,
-  scissorsReturned: 0,
+  cutterReturned: 0,
   finishedPieces: 0,
   qualityOK: 0,
   damageNotes: "",
@@ -47,20 +50,15 @@ export function ReturnMaterialForm({ isOpen, onClose, workerId, preSelectedOrder
   });
 
   const returnMutation = useReturnWorkOrder();
+  const { data: finishedProducts = [] } = useFinishedStock();
 
   const { data: allOrders = [] } = useWorkOrders(
     workerId ? { workerId, status: "Open" } : { status: "Open" }
   );
   const openOrders = allOrders.filter((o) => o.status === "Open");
 
-  // Auto-select pre-selected order when modal opens
-  useEffect(() => {
-    if (isOpen && preSelectedOrderId) {
-      setState((s) => ({ ...empty, workOrderId: preSelectedOrderId }));
-    }
-  }, [isOpen, preSelectedOrderId]);
-
-  const selectedOrder = openOrders.find((o) => o._id === state.workOrderId);
+  const selectedOrderId = state.workOrderId || preSelectedOrderId || "";
+  const selectedOrder = openOrders.find((o) => o._id === selectedOrderId);
 
   // ── Calculations ──────────────────────────────────────────────────────────
   const rejected = Math.max(0, state.finishedPieces - state.qualityOK);
@@ -95,24 +93,26 @@ export function ReturnMaterialForm({ isOpen, onClose, workerId, preSelectedOrder
   }
 
   function handleSubmit() {
-    if (!state.workOrderId) return;
+    if (!selectedOrderId) return;
 
-    // Build otherReturned list (scissors if any)
+    // Build otherReturned list
     const otherReturned: Array<{ name: string; qty: number }> = [];
-    if (state.scissorsReturned > 0) {
-      otherReturned.push({ name: "Scissors", qty: state.scissorsReturned });
+    if (state.cutterReturned > 0) {
+      otherReturned.push({ name: "Cutter", qty: state.cutterReturned });
     }
 
     returnMutation.mutate(
       {
-        id: state.workOrderId,
+        id: selectedOrderId,
         data: {
           banglesReturned: state.banglesReturned,
           threadsReturned: state.threadsReturned,
           glueReturned: state.glueReturned,
+          cutterReturned: state.cutterReturned,
           otherReturned,
           finishedPieces: state.finishedPieces,
           qualityOK: state.qualityOK,
+          finishedProductId: state.finishedProductId || undefined,
         },
       },
       { onSuccess: handleClose }
@@ -148,7 +148,7 @@ export function ReturnMaterialForm({ isOpen, onClose, workerId, preSelectedOrder
           <Select
             label="Open Work Order (Pending Issue)"
             required
-            value={state.workOrderId}
+            value={selectedOrderId}
             onChange={(e) => setState({ ...empty, workOrderId: e.target.value })}
           >
             <option value="">Select work order...</option>
@@ -231,6 +231,22 @@ export function ReturnMaterialForm({ isOpen, onClose, workerId, preSelectedOrder
                   }
                 />
               </div>
+            </div>
+
+            <div>
+              <Select
+                label="Finished Product (optional)"
+                hint="Quality OK pieces aa product ni ready stock ma add thase"
+                value={state.finishedProductId}
+                onChange={(e) => setState((s) => ({ ...s, finishedProductId: e.target.value }))}
+              >
+                <option value="">Select finished product...</option>
+                {finishedProducts.map((p) => (
+                  <option key={p._id} value={p._id}>
+                    {p.designCode} - {p.designName} ({p.size})
+                  </option>
+                ))}
+              </Select>
             </div>
 
             {/* Earnings Breakdown */}
@@ -346,9 +362,9 @@ export function ReturnMaterialForm({ isOpen, onClose, workerId, preSelectedOrder
                   type="number"
                   min={0}
                   placeholder="0"
-                  value={state.scissorsReturned || ""}
+                  value={state.cutterReturned || ""}
                   onChange={(e) =>
-                    setState((s) => ({ ...s, scissorsReturned: parseFloat(e.target.value) || 0 }))
+                    setState((s) => ({ ...s, cutterReturned: parseFloat(e.target.value) || 0 }))
                   }
                 />
               </div>

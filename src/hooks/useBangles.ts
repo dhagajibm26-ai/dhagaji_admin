@@ -32,6 +32,10 @@ async function createBangles(data: BanglesStockInput): Promise<IBanglesStock> {
 
 export interface PatchBanglesPayload {
   id: string;
+  size?: string;
+  cutType?: "C1" | "C2" | "C4" | "C6";
+  quantityAdd?: number;
+  netUsed?: number;
   addNetUsed?: number;
   addQuantity?: number;
   pricePerPiece?: number;

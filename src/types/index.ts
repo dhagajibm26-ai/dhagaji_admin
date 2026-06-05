@@ -22,15 +22,7 @@ export interface IUser {
 }
 
 // ─── Raw Material ─────────────────────────────────────────────────────────────
-export type RawMaterialCategory =
-  | "Beads & Stones"
-  | "Wire & Hook"
-  | "Glue & Cutter"
-  | "Tool"
-  | "Work Box"
-  | "Packaging"
-  | "Thread"
-  | "Bangle";
+export type RawMaterialCategory = string;
 
 export type RawMaterialUnit = "gram" | "pcs" | "tube" | "box" | "meter";
 
@@ -56,16 +48,7 @@ export interface IRawMaterial {
 
 export const rawMaterialSchema = z.object({
   itemName: z.string().min(1, "Item name required"),
-  category: z.enum([
-    "Beads & Stones",
-    "Wire & Hook",
-    "Glue & Cutter",
-    "Tool",
-    "Work Box",
-    "Packaging",
-    "Thread",
-    "Bangle",
-  ]),
+  category: z.string().min(1, "Category required"),
   colorType: z.string().optional(),
   unit: z.enum(["gram", "pcs", "tube", "box", "meter"]),
   openingStock: z.number().min(0).default(0),
@@ -182,6 +165,21 @@ export const banglesGivenItemSchema = z.object({
   pieces: z.number().min(0),
 });
 
+export const threadGivenItemSchema = z.object({
+  threadStockId: z.string().min(1, "Thread stock ID required"),
+  threadCode: z.string().min(1),
+  threadColour: z.string().min(1),
+  grams: z.number().min(0),
+});
+
+export const rawMaterialGivenItemSchema = z.object({
+  rawMaterialId: z.string().min(1, "Raw material ID required"),
+  itemName: z.string().min(1),
+  qty: z.number().min(0),
+  kind: z.enum(["glue", "cutter"]),
+  unit: z.string().optional(),
+});
+
 export const workOrderCreateSchema = z.object({
   workerId: z.string().min(1, "Worker required"),
   date: z.string().optional(),
@@ -189,10 +187,13 @@ export const workOrderCreateSchema = z.object({
   perPieceRate: z.number().min(0, "Rate required"),
   // DENA
   banglesGiven: z.array(banglesGivenItemSchema).default([]),
+  threadItemsGiven: z.array(threadGivenItemSchema).default([]),
   threadsGiven: z.number().min(0).default(0),
   /** Optional — ID of the ThreadsStock to deduct from */
   threadStockId: z.string().optional(),
+  rawMaterialsGiven: z.array(rawMaterialGivenItemSchema).default([]),
   glueGiven: z.number().min(0).default(0),
+  cutterGiven: z.number().min(0).default(0),
   /** Optional — ID of the RawMaterial (glue) to deduct from */
   glueStockId: z.string().optional(),
   otherMaterialGiven: z
@@ -213,11 +214,13 @@ export const workOrderReturnSchema = z.object({
     .default([]),
   threadsReturned: z.number().min(0).default(0),
   glueReturned: z.number().min(0).default(0),
+  cutterReturned: z.number().min(0).default(0),
   otherReturned: z
     .array(z.object({ name: z.string().min(1), qty: z.number().min(0) }))
     .default([]),
   finishedPieces: z.number().min(0),
   qualityOK: z.number().min(0),
+  finishedProductId: z.string().optional(),
   perPieceRate: z.number().min(0).optional(),
 });
 export type WorkOrderReturnInput = z.infer<typeof workOrderReturnSchema>;
@@ -241,13 +244,28 @@ export interface IWorkOrder {
     cuts: number;
     pieces: number;
   }>;
+  threadItemsGiven?: Array<{
+    threadStockId: string;
+    threadCode: string;
+    threadColour: string;
+    grams: number;
+  }>;
   threadsGiven: number;
+  rawMaterialsGiven?: Array<{
+    rawMaterialId: string;
+    itemName: string;
+    qty: number;
+    kind: "glue" | "cutter";
+    unit?: string;
+  }>;
   glueGiven: number;
+  cutterGiven?: number;
   otherMaterialGiven: Array<{ name: string; qty: number }>;
   // LENA
   banglesReturned: Array<{ cutType: CutType; cuts: number; pieces: number }>;
   threadsReturned: number;
   glueReturned: number;
+  cutterReturned?: number;
   otherReturned: Array<{ name: string; qty: number }>;
   // OUTPUT
   finishedPieces: number;

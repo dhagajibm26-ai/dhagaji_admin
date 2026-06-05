@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { WorkOrder } from "@/models/WorkOrder";
 import { Worker } from "@/models/Worker";
+import { FinishedProduct } from "@/models/FinishedProduct";
 import { workOrderReturnSchema } from "@/types";
 import type { ApiResponse } from "@/types";
 
@@ -59,15 +60,18 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       banglesReturned,
       threadsReturned,
       glueReturned,
+      cutterReturned,
       otherReturned,
       finishedPieces,
       qualityOK,
+      finishedProductId,
       perPieceRate,
     } = parsed.data;
 
     order.banglesReturned = banglesReturned as typeof order.banglesReturned;
     order.threadsReturned = threadsReturned;
     order.glueReturned = glueReturned;
+    order.cutterReturned = cutterReturned;
     order.otherReturned = otherReturned as typeof order.otherReturned;
     order.finishedPieces = finishedPieces;
     order.qualityOK = qualityOK;
@@ -83,6 +87,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const netAmountDue = Math.max(0, okEarnings - rejectionDeduction);
     if (netAmountDue > 0) {
       await Worker.findByIdAndUpdate(order.workerId, { $inc: { totalEarned: netAmountDue } });
+    }
+
+    if (finishedProductId && qualityOK > 0) {
+      await FinishedProduct.findByIdAndUpdate(finishedProductId, {
+        $inc: { readyStock: qualityOK },
+      });
     }
 
     return NextResponse.json<ApiResponse>({ success: true, data: order.toJSON() });

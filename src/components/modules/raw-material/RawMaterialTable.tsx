@@ -121,6 +121,7 @@ function RateCell({ item, isOwner }: { item: IRawMaterial; isOwner: boolean }) {
 
 interface RawMaterialTableProps {
   onAddNew: () => void;
+  onEdit: (item: IRawMaterial) => void;
 }
 
 const STATUS_BADGE: Record<"ok" | "low" | "out", { variant: "success" | "warning" | "danger"; label: string }> = {
@@ -129,7 +130,7 @@ const STATUS_BADGE: Record<"ok" | "low" | "out", { variant: "success" | "warning
   out: { variant: "danger", label: "Out of Stock" },
 };
 
-export function RawMaterialTable({ onAddNew }: RawMaterialTableProps) {
+export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
   const { data: items = [], isLoading, isError, error } = useRawMaterials();
   const deleteMutation = useDeleteRawMaterial();
   const isOwner = useIsOwner();
@@ -265,20 +266,31 @@ export function RawMaterialTable({ onAddNew }: RawMaterialTableProps) {
                 {/* Owner: delete */}
                 {isOwner && (
                   <td className="whitespace-nowrap px-4 py-3 text-center">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      isLoading={deleteMutation.isPending}
-                      onClick={() => {
-                        if (confirm(`Delete "${item.itemName}"? This cannot be undone.`)) {
-                          deleteMutation.mutate(item._id);
-                        }
-                      }}
-                      className="text-red-600 hover:text-red-800"
-                      aria-label={`Delete ${item.itemName}`}
-                    >
-                      Delete
-                    </Button>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onEdit(item)}
+                        className="text-slate-700 hover:text-slate-900"
+                        aria-label={`Edit ${item.itemName}`}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        isLoading={deleteMutation.isPending}
+                        onClick={() => {
+                          if (confirm(`Delete "${item.itemName}"? This cannot be undone.`)) {
+                            deleteMutation.mutate(item._id);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-800"
+                        aria-label={`Delete ${item.itemName}`}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </td>
                 )}
               </tr>

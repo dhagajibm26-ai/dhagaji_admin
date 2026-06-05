@@ -40,9 +40,25 @@ function StatsBar({ items, isOwner }: { items: IBanglesStock[]; isOwner: boolean
 
 export function BanglesPageClient() {
   const [modalOpen, setModalOpen] = useState(false);
+  const [editItem, setEditItem] = useState<IBanglesStock | null>(null);
   const [search, setSearch] = useState("");
   const { data: items = [], isLoading, isError, error } = useBanglesStock();
   const isOwner = useIsOwner();
+
+  const openCreateModal = () => {
+    setEditItem(null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (item: IBanglesStock) => {
+    setEditItem(item);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditItem(null);
+  };
 
   const lowStockItems = items.filter((i) => i.status !== "OK");
 
@@ -64,7 +80,7 @@ export function BanglesPageClient() {
             Track bangle sizes, cut types, and closing stock by pieces.
           </p>
         </div>
-        <Button onClick={() => setModalOpen(true)} size="sm" className="hidden sm:inline-flex">
+        <Button onClick={openCreateModal} size="sm" className="hidden sm:inline-flex">
           <Plus size={14} className="mr-1" />
           Add Bangles
         </Button>
@@ -117,14 +133,15 @@ export function BanglesPageClient() {
         isLoading={isLoading}
         isError={isError}
         error={error as Error | null}
-        onAddNew={() => setModalOpen(true)}
+        onAddNew={openCreateModal}
+        onEdit={openEditModal}
       />
 
-      <AddBanglesModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+      <AddBanglesModal isOpen={modalOpen} onClose={closeModal} item={editItem} />
 
       {/* FAB (mobile) */}
       <button
-        onClick={() => setModalOpen(true)}
+        onClick={openCreateModal}
         className="fixed bottom-20 right-4 flex h-13 w-13 items-center justify-center rounded-2xl bg-[#D32F2F] text-white shadow-xl shadow-red-700/30 transition-all hover:bg-[#B71C1C] active:scale-95 sm:hidden"
         aria-label="Add bangles stock"
         style={{ width: 52, height: 52 }}

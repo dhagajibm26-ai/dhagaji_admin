@@ -8,8 +8,8 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
-import { useAddBangles } from "@/hooks/useBangles";
-import { banglesStockSchema, type BanglesStockInput } from "@/types";
+import { useAddBangles, usePatchBangles } from "@/hooks/useBangles";
+import { banglesStockSchema, type BanglesStockInput, type IBanglesStock } from "@/types";
 
 type BanglesFormInput = z.input<typeof banglesStockSchema>;
 
@@ -18,10 +18,13 @@ const PETA_MAP = { C1: 12, C2: 24, C4: 48, C6: 72 } as const;
 interface AddBanglesModalProps {
   isOpen: boolean;
   onClose: () => void;
+  item?: IBanglesStock | null;
 }
 
-export function AddBanglesModal({ isOpen, onClose }: AddBanglesModalProps) {
+export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps) {
   const addMutation = useAddBangles();
+  const patchMutation = usePatchBangles();
+  const isEdit = !!item;
 
   const {
     register,
@@ -42,28 +45,66 @@ export function AddBanglesModal({ isOpen, onClose }: AddBanglesModalProps) {
   const peta = cutType && cutType in PETA_MAP ? PETA_MAP[cutType as keyof typeof PETA_MAP] : null;
 
   useEffect(() => {
-    if (!isOpen) reset();
-  }, [isOpen, reset]);
+    if (!isOpen) {
+      reset();
+      return;
+    }
+
+    if (item) {
+      reset({
+        size: item.size,
+        cutType: item.cutType,
+        quantityAdd: item.quantityAdd,
+        pricePerPiece: item.pricePerPiece,
+        netUsed: item.netUsed,
+      });
+      return;
+    }
+
+    reset({
+      netUsed: 0,
+      cutType: "C1",
+      quantityAdd: 0,
+      pricePerPiece: 0,
+      size: "",
+    });
+  }, [isOpen, item, reset]);
 
   const onSubmit = (data: BanglesStockInput) => {
+    if (item) {
+      patchMutation.mutate(
+        {
+          id: item._id,
+          size: data.size,
+          cutType: data.cutType,
+          quantityAdd: data.quantityAdd,
+          pricePerPiece: data.pricePerPiece,
+        },
+        { onSuccess: () => onClose() }
+      );
+      return;
+    }
+
     addMutation.mutate(data, { onSuccess: () => onClose() });
   };
+
+  const isMutating = isSubmitting || addMutation.isPending || patchMutation.isPending;
 
   const footer = (
     <>
       <Button
         variant="ghost"
         onClick={onClose}
-        disabled={isSubmitting || addMutation.isPending}
+        disabled={isMutating}
       >
         Cancel
       </Button>
       <Button
         type="submit"
         form="add-bangles-form"
-        isLoading={isSubmitting || addMutation.isPending}
+        isLoading={isMutating}
       >
-        Add Bangles
+        {isEdit ? "Update Bangles" : "Add Bangles"}
       </Button>
     </>
   );
@@ -72,7 +113,7 @@ export function AddBanglesModal({ isOpen, onClose }: AddBanglesModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Add Bangles Stock"
+      title={isEdit ? "Edit Bangles Stock" : "Add Bangles Stock"}
       size="md"
       footer={footer}
     >

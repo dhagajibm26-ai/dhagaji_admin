@@ -14,7 +14,23 @@ function getLowStockItems(items: IRawMaterial[]) {
 
 export function RawMaterialPageClient() {
   const [modalOpen, setModalOpen] = useState(false);
+  const [editItem, setEditItem] = useState<IRawMaterial | null>(null);
   const { data: items = [] } = useRawMaterials();
+
+  const openCreateModal = () => {
+    setEditItem(null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (item: IRawMaterial) => {
+    setEditItem(item);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditItem(null);
+  };
 
   const lowItems = getLowStockItems(items);
 
@@ -28,7 +44,7 @@ export function RawMaterialPageClient() {
             Beads, wire, glue, packaging, and other production inputs.
           </p>
         </div>
-        <Button onClick={() => setModalOpen(true)} size="sm">
+        <Button onClick={openCreateModal} size="sm">
           <Plus size={14} className="mr-1" />
           Add Material
         </Button>
@@ -54,9 +70,9 @@ export function RawMaterialPageClient() {
         </div>
       )}
 
-      <RawMaterialTable onAddNew={() => setModalOpen(true)} />
+      <RawMaterialTable onAddNew={openCreateModal} onEdit={openEditModal} />
 
-      <AddRawMaterialModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+      <AddRawMaterialModal isOpen={modalOpen} onClose={closeModal} item={editItem} />
     </div>
   );
 }

@@ -9,6 +9,10 @@ import type { ApiResponse } from "@/types";
 
 const patchSchema = z
   .object({
+    size: z.string().min(1).optional(),
+    cutType: z.enum(["C1", "C2", "C4", "C6"]).optional(),
+    quantityAdd: z.number().min(0).optional(),
+    netUsed: z.number().min(0).optional(),
     /** Add to netUsed (pieces given to worker) */
     addNetUsed: z.number().min(0).optional(),
     /** Add more stock (increment quantityAdd) */
@@ -18,6 +22,10 @@ const patchSchema = z
   })
   .refine(
     (d) =>
+      d.size !== undefined ||
+      d.cutType !== undefined ||
+      d.quantityAdd !== undefined ||
+      d.netUsed !== undefined ||
       d.addNetUsed !== undefined ||
       d.addQuantity !== undefined ||
       d.pricePerPiece !== undefined,
@@ -52,7 +60,15 @@ export async function PATCH(
 
     await connectDB();
 
-    const { addNetUsed, addQuantity, pricePerPiece } = parsed.data;
+    const {
+      size,
+      cutType,
+      quantityAdd,
+      netUsed,
+      addNetUsed,
+      addQuantity,
+      pricePerPiece,
+    } = parsed.data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const update: Record<string, any> = {};
@@ -62,6 +78,19 @@ export async function PATCH(
     }
     if (addQuantity !== undefined && addQuantity > 0) {
       update.$inc = { ...(update.$inc ?? {}), quantityAdd: addQuantity };
+    }
+
+    if (size !== undefined) {
+      update.$set = { ...(update.$set ?? {}), size };
+    }
+    if (cutType !== undefined) {
+      update.$set = { ...(update.$set ?? {}), cutType };
+    }
+    if (quantityAdd !== undefined) {
+      update.$set = { ...(update.$set ?? {}), quantityAdd };
+    }
+    if (netUsed !== undefined) {
+      update.$set = { ...(update.$set ?? {}), netUsed };
     }
     if (pricePerPiece !== undefined) {
       update.$set = { ...(update.$set ?? {}), pricePerPiece };
