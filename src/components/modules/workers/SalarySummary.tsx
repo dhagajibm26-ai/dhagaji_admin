@@ -106,13 +106,13 @@ function WorkerSalaryRow({ worker }: { worker: IWorker }) {
         </td>
         <td className="px-4 py-3 text-center">
           <Badge variant={balance > 0 ? "danger" : "success"}>
-            {balance > 0 ? "Baaki" : "Clear"}
+          {balance > 0 ? "Pending" : "Clear"}
           </Badge>
         </td>
         <td className="px-4 py-3 text-center">
           {unpaidOrder ? (
             <Button size="sm" variant="primary" onClick={() => setPayOrder(unpaidOrder)}>
-              Pay Karo
+              Pay Now
             </Button>
           ) : balance > 0 ? (
             <span className="text-xs text-slate-400">No returned order</span>
@@ -132,7 +132,7 @@ export function SalarySummary({ workers }: SalarySummaryProps) {
   if (activeWorkers.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-sm font-semibold text-slate-500">Koi active worker nahi hai.</p>
+        <p className="text-sm font-semibold text-slate-500">No active workers found.</p>
       </div>
     );
   }
@@ -140,9 +140,9 @@ export function SalarySummary({ workers }: SalarySummaryProps) {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-sm font-bold text-slate-800">Salary Summary / Tanjka</h2>
+        <h2 className="text-sm font-bold text-slate-800">Salary Summary</h2>
         <p className="text-xs text-slate-500 mt-0.5">
-          Har worker ki kamai, rejection, aur baaki payment ka hisaab
+          Earnings, rejections and outstanding balance per worker
         </p>
       </div>
 
@@ -150,15 +150,15 @@ export function SalarySummary({ workers }: SalarySummaryProps) {
       <div className="flex flex-wrap gap-3 text-xs text-slate-500">
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-          OK Pieces = sahi bane
+          OK Pieces = good quality
         </span>
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
-          Rejected = kharab nikle (50% katega)
+          Rejected = failed quality (50% deduction)
         </span>
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-          Pending = abhi kaam chal raha hai
+          Pending = work in progress
         </span>
       </div>
 
@@ -170,7 +170,7 @@ export function SalarySummary({ workers }: SalarySummaryProps) {
               <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">OK Pieces</th>
               <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Rejected</th>
               <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Pending</th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Gross Kamai</th>
+              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Gross Earnings</th>
               <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Rejection Cut</th>
               <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400 bg-green-50">Net Payable</th>
               <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Paid</th>
@@ -210,10 +210,10 @@ export function SalarySummary({ workers }: SalarySummaryProps) {
 
       {/* Explanation card */}
       <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4 text-xs text-blue-700 space-y-1.5">
-        <p className="font-bold text-blue-800 mb-1">📌 Hisaab kaise hota hai?</p>
-        <p>✅ <strong>OK Pieces × Rate</strong> = Gross Kamai</p>
-        <p>❌ <strong>Rejected Pieces × Rate × 50%</strong> = Rejection Kat (penalty)</p>
-        <p>💰 <strong>Gross Kamai − Rejection Kat</strong> = Net Payable (actual payment)</p>
+        <p className="font-bold text-blue-800 mb-1">📌 How wages are calculated:</p>
+        <p>✅ <strong>OK Pieces × Rate</strong> = Gross Earnings</p>
+        <p>❌ <strong>Rejected Pieces × Rate × 50%</strong> = Rejection Deduction</p>
+        <p>💰 <strong>Gross Earnings − Rejection Deduction</strong> = Net Payable</p>
         <p>🔄 <strong>Net Payable − Already Paid</strong> = Outstanding Balance</p>
       </div>
     </div>

@@ -36,7 +36,7 @@ export function WorkerLedger({ workerId, workerName }: WorkerLedgerProps) {
   if (orders.length === 0) {
     return (
       <p className="text-sm text-slate-500 text-center py-8">
-        {workerName} ke liye koi work order nahi mila.
+        No work orders found for {workerName}.
       </p>
     );
   }
@@ -74,7 +74,7 @@ export function WorkerLedger({ workerId, workerName }: WorkerLedgerProps) {
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
               <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Date</th>
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Kaam Type</th>
+              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Work Type</th>
               <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">OK Pcs</th>
               <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Rejected</th>
               <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Gross</th>
@@ -136,7 +136,7 @@ export function WorkerLedger({ workerId, workerName }: WorkerLedgerProps) {
                   <td className="px-4 py-3 text-center">
                     {o.status !== "Open" && o.paymentStatus !== "Paid" && (
                       <Button size="sm" variant="outline" onClick={() => setPayOrder(o)}>
-                        Pay Karo
+                        Pay Now
                       </Button>
                     )}
                     {o.status === "Open" && (
@@ -175,7 +175,7 @@ export function WorkerLedger({ workerId, workerName }: WorkerLedgerProps) {
               </td>
               <td className="px-4 py-3 text-center" colSpan={2}>
                 <span className={`font-black text-sm ${totalBalance > 0 ? "text-rose-600" : "text-green-700"}`}>
-                  Baaki: ₹{Math.abs(totalBalance).toLocaleString("en-IN")}
+                  Outstanding: ₹{Math.abs(totalBalance).toLocaleString("en-IN")}
                 </span>
               </td>
             </tr>

@@ -3,6 +3,7 @@ import { useUIStore } from "@/stores/useUIStore";
 import { BANGLES_KEYS } from "@/hooks/useBangles";
 import { THREADS_KEYS } from "@/hooks/useThreads";
 import { RAW_MATERIAL_KEYS } from "@/hooks/useRawMaterial";
+import { FINISHED_STOCK_KEYS } from "@/hooks/useFinishedStock";
 import { WORKERS_KEYS } from "@/hooks/useWorkers";
 import type { IWorkOrder, WorkOrderCreateInput, WorkOrderReturnInput, PaymentInput, ApiResponse } from "@/types";
 
@@ -93,6 +94,11 @@ export function useReturnWorkOrder() {
       qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.lists() });
       qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.detail(id) });
       qc.invalidateQueries({ queryKey: WORKERS_KEYS.lists() });
+      // Returned bangles/threads/raw-materials go back to stock; finished product readyStock incremented
+      qc.invalidateQueries({ queryKey: BANGLES_KEYS.lists() });
+      qc.invalidateQueries({ queryKey: THREADS_KEYS.lists() });
+      qc.invalidateQueries({ queryKey: RAW_MATERIAL_KEYS.lists() });
+      qc.invalidateQueries({ queryKey: FINISHED_STOCK_KEYS.lists() });
       addToast({ type: "success", message: "Return recorded. Wages updated." });
     },
     onError: (err: Error) => addToast({ type: "error", message: err.message }),

@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     // MongoDB duplicate key
     if (typeof err === "object" && err !== null && "code" in err && (err as { code: number }).code === 11000) {
       return NextResponse.json<ApiResponse>(
-        { success: false, error: "Yeh Thread Code pehle se exist karta hai. Alag code use karo." },
+        { success: false, error: "This Thread Code already exists. Please use a different code." },
         { status: 409 }
       );
     }

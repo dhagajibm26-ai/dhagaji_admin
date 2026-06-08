@@ -77,7 +77,7 @@ export function WorkOrderFlowPageClient() {
         <div>
           <h1 className="text-xl font-black text-slate-900">Work Order Flow</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Subah ka kaam dena, maal return lena, pending aur complete listing ek jagah
+            Issue morning work, record returns, view pending and complete orders
           </p>
         </div>
 
@@ -99,7 +99,7 @@ export function WorkOrderFlowPageClient() {
           <p className="text-2xl font-black text-slate-900 mt-0.5">{activeWorkers.length}</p>
         </div>
         <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-4">
-          <p className="text-xs text-slate-500 font-medium">Return Baki</p>
+          <p className="text-xs text-slate-500 font-medium">Return Pending</p>
           <p className="text-2xl font-black text-amber-600 mt-0.5">{pendingOrders.length}</p>
         </div>
         <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-4">
@@ -115,8 +115,8 @@ export function WorkOrderFlowPageClient() {
       <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
-            <p className="text-sm font-bold text-slate-800">Worker Ne Kaam Dena (Subah)</p>
-            <p className="text-xs text-slate-500">Kisi worker pe tap karo aur turant work order create karo</p>
+            <p className="text-sm font-bold text-slate-800">Assign Morning Work</p>
+            <p className="text-xs text-slate-500">Tap a worker to instantly create a work order</p>
           </div>
           <HardHat size={16} className="text-slate-400" />
         </div>
@@ -128,7 +128,7 @@ export function WorkOrderFlowPageClient() {
             ))}
           </div>
         ) : activeWorkers.length === 0 ? (
-          <p className="text-sm text-slate-500">Active worker nahi mile.</p>
+          <p className="text-sm text-slate-500">No active workers found.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {activeWorkers.map((worker) => (
@@ -149,7 +149,7 @@ export function WorkOrderFlowPageClient() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Worker ya work type search karo..."
+            placeholder="Search by worker or work type..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]"
@@ -159,7 +159,7 @@ export function WorkOrderFlowPageClient() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="rounded-2xl border border-amber-100 bg-white shadow-sm overflow-hidden">
             <div className="flex items-center justify-between bg-amber-50 px-4 py-3 border-b border-amber-100">
-              <p className="text-sm font-bold text-amber-800">Maal Return Baki</p>
+              <p className="text-sm font-bold text-amber-800">Material Return Pending</p>
               <Badge variant="warning">{filteredPending.length}</Badge>
             </div>
 
@@ -171,7 +171,7 @@ export function WorkOrderFlowPageClient() {
               </div>
             ) : filteredPending.length === 0 ? (
               <div className="p-6 text-center text-sm text-slate-500">
-                Return pending order nahi hai.
+                No pending returns.
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
@@ -183,7 +183,7 @@ export function WorkOrderFlowPageClient() {
                         {new Date(order.date).toLocaleDateString("en-IN")} • {order.workType}
                       </p>
                       <p className="text-xs text-amber-700 mt-0.5">
-                        Diya hua maal: {getTotalGivenPieces(order)} pcs • Thread {order.threadsGiven}g
+                        Issued: {getTotalGivenPieces(order)} pcs bangles • Thread {order.threadsGiven}g
                       </p>
                     </div>
                     <Button size="sm" onClick={() => openReturn(order._id)}>
@@ -209,7 +209,7 @@ export function WorkOrderFlowPageClient() {
                 ))}
               </div>
             ) : filteredComplete.length === 0 ? (
-              <div className="p-6 text-center text-sm text-slate-500">Abhi complete orders nahi hai.</div>
+              <div className="p-6 text-center text-sm text-slate-500">No completed orders yet.</div>
             ) : (
               <div className="divide-y divide-slate-100">
                 {filteredComplete.slice(0, 20).map((order) => (
@@ -220,7 +220,7 @@ export function WorkOrderFlowPageClient() {
                         {new Date(order.date).toLocaleDateString("en-IN")} • {order.workType}
                       </p>
                       <p className="text-xs text-emerald-700 mt-0.5">
-                        Quality OK: {order.qualityOK} • Returned: {order.finishedPieces}
+                        Quality OK: {order.qualityOK} • Total made: {order.finishedPieces}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 text-emerald-700">

@@ -247,7 +247,7 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
 
   return (
     <div className="space-y-5">
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">DENA - Materials Given to Worker</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Step 2: Materials to Issue to Worker</p>
 
       <div className="rounded-xl border border-slate-200 p-3 space-y-2">
         <p className="text-sm font-semibold text-slate-800">Bangles (one size, all cuts together)</p>
@@ -355,7 +355,7 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
             <Input
               type="number"
               min={0}
-              placeholder="Units"
+              placeholder={glueItems.find((g) => g._id === glueForm.rawMaterialId)?.unit ?? "units"}
               value={glueForm.units}
               onChange={(e) => setGlueForm((f) => ({ ...f, units: e.target.value }))}
             />
@@ -384,7 +384,7 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
             <Input
               type="number"
               min={0}
-              placeholder="Units"
+              placeholder={cutterItems.find((c) => c._id === cutterForm.rawMaterialId)?.unit ?? "units"}
               value={cutterForm.units}
               onChange={(e) => setCutterForm((f) => ({ ...f, units: e.target.value }))}
             />
@@ -397,14 +397,14 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
 
       {denaItems.length > 0 && (
         <div className="rounded-xl bg-slate-50 p-3 space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Items to give:</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Items queued to issue:</p>
           {denaItems.map((item, i) => (
             <div key={i} className="flex items-center justify-between text-sm">
               <span>
-                {item.type === "bangle" && `Bangles: ${item.size} ${item.cutType} - ${item.pieces} pcs`}
-                {item.type === "thread" && `Thread: ${item.threadCode} (${item.threadColour}) - ${item.grams}g`}
-                {item.type === "glue" && `Glue: ${item.itemName} - ${item.units} units`}
-                {item.type === "cutter" && `Cutter: ${item.itemName} - ${item.units} units`}
+                {item.type === "bangle" && `Bangles: ${item.size} ${item.cutType} — ${item.pieces} pcs`}
+                {item.type === "thread" && `Thread: ${item.threadCode} (${item.threadColour}) — ${item.grams} g`}
+                {item.type === "glue" && `Glue: ${item.itemName} — ${item.units} ${item.unit ?? "units"}`}
+                {item.type === "cutter" && `Cutter: ${item.itemName} — ${item.units} ${item.unit ?? "pcs"}`}
               </span>
               <button
                 onClick={() => removeDenaItem(i)}
@@ -500,7 +500,7 @@ function Step3({
 
   return (
     <div className="space-y-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Preview and Confirm</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Step 3: Preview and Confirm</p>
 
       <div className="rounded-xl bg-slate-50 p-4 space-y-2 text-sm">
         <div className="flex justify-between">
@@ -522,14 +522,14 @@ function Step3({
       </div>
 
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Materials Being Given:</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Materials Being Issued:</p>
         <div className="space-y-1">
           {denaItems.map((item, i) => (
             <div key={i} className="text-sm rounded-md bg-amber-50 border border-amber-200 px-3 py-2">
-              {item.type === "bangle" && `Bangles: ${item.size} ${item.cutType} - ${item.pieces} pieces`}
-              {item.type === "thread" && `Thread: ${item.threadCode} (${item.threadColour}) - ${item.grams}g`}
-              {item.type === "glue" && `Glue: ${item.itemName} - ${item.units} units`}
-              {item.type === "cutter" && `Cutter: ${item.itemName} - ${item.units} units`}
+              {item.type === "bangle" && `Bangles: ${item.size} ${item.cutType} — ${item.pieces} pcs`}
+              {item.type === "thread" && `Thread: ${item.threadCode} (${item.threadColour}) — ${item.grams} g`}
+              {item.type === "glue" && `Glue: ${item.itemName} — ${item.units} ${item.unit ?? "units"}`}
+              {item.type === "cutter" && `Cutter: ${item.itemName} — ${item.units} ${item.unit ?? "pcs"}`}
             </div>
           ))}
         </div>

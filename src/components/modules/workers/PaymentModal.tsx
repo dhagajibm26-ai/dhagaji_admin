@@ -89,6 +89,7 @@ export function PaymentModal({ isOpen, onClose, workOrder }: PaymentModalProps) 
           type="number"
           required
           min={0.01}
+          max={balance}
           step={1}
           placeholder={`Max ₹${balance}`}
           value={amount}

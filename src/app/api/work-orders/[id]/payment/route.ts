@@ -31,17 +31,25 @@ export async function POST(request: Request, { params }: RouteContext) {
     }
 
     const { amount } = parsed.data;
-    const amountDue = order.qualityOK * order.perPieceRate;
-    const newAmountPaid = order.amountPaid + amount;
+    const okEarnings = order.qualityOK * order.perPieceRate;
+    const rejected = Math.max(0, order.finishedPieces - order.qualityOK);
+    const rejectionDeduction = rejected * order.perPieceRate * 0.5;
+    const netAmountDue = Math.max(0, okEarnings - rejectionDeduction);
+
+    const oldAmountPaid = order.amountPaid;
+    const newAmountPaid = netAmountDue > 0
+      ? Math.min(oldAmountPaid + amount, netAmountDue)
+      : oldAmountPaid + amount;
+    const actualPaid = newAmountPaid - oldAmountPaid;
 
     order.amountPaid = newAmountPaid;
-    if (order.status === "Returned" && newAmountPaid >= amountDue) {
+    if (order.status === "Returned" && netAmountDue > 0 && newAmountPaid >= netAmountDue) {
       order.status = "Completed";
     }
     await order.save();
 
-    // Update Worker.totalPaid
-    await Worker.findByIdAndUpdate(order.workerId, { $inc: { totalPaid: amount } });
+    // Increment Worker.totalPaid by what was actually applied
+    await Worker.findByIdAndUpdate(order.workerId, { $inc: { totalPaid: actualPaid } });
 
     return NextResponse.json<ApiResponse>({ success: true, data: order.toJSON() });
   } catch {

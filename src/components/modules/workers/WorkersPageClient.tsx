@@ -67,15 +67,15 @@ export function WorkersPageClient() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-black text-slate-900">Workers / Kaarigaar</h1>
+          <h1 className="text-xl font-black text-slate-900">Workers</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Maal dena, kaam lena, tanjka karo — sab yahan
+            Issue material, record work orders, pay wages — all in one place
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => openReturnFor()}>
             <Undo2 size={13} className="mr-1.5" />
-            Maal Wapas Lena
+            Record Return
           </Button>
           {isOwner && (
             <Button size="sm" onClick={() => setAddWorkerOpen(true)}>
@@ -91,26 +91,26 @@ export function WorkersPageClient() {
         <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-4">
           <p className="text-xs text-slate-500 font-medium">Total Workers</p>
           <p className="text-2xl font-black text-slate-900 mt-0.5">{workers.filter(w => w.isActive).length}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Active kaarigaar</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Active workers</p>
         </div>
         <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-4">
           <p className="text-xs text-slate-500 font-medium">Open Orders</p>
           <p className="text-2xl font-black text-amber-600 mt-0.5">{activeOrders.length}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Kaam chal raha hai</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">In progress</p>
         </div>
         <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-4">
           <p className="text-xs text-slate-500 font-medium">Total Earned</p>
           <p className="text-2xl font-black text-green-700 mt-0.5">
             ₹{workers.reduce((s, w) => s + w.totalEarned, 0).toLocaleString("en-IN")}
           </p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Sab ki kamai</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Total wages earned</p>
         </div>
         <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-4">
           <p className="text-xs text-slate-500 font-medium">Pending Payment</p>
           <p className={cn("text-2xl font-black mt-0.5", totalBalance > 0 ? "text-rose-600" : "text-green-700")}>
             ₹{totalBalance.toLocaleString("en-IN")}
           </p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Baaki dena hai</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Outstanding balance</p>
         </div>
       </div>
 
@@ -121,7 +121,7 @@ export function WorkersPageClient() {
             <AlertTriangle size={14} className="text-[#D32F2F]" />
           </div>
           <p className="text-sm font-bold text-[#D32F2F]">
-            ⚠️ Kul pending payment: ₹{totalBalance.toLocaleString("en-IN")} — Workers ko dena baaki hai
+            ⚠️ Total pending payment: ₹{totalBalance.toLocaleString("en-IN")} — Workers have outstanding wages
           </p>
         </div>
       )}
@@ -152,7 +152,7 @@ export function WorkersPageClient() {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Worker dhundo…"
+              placeholder="Search worker..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full max-w-sm rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F] placeholder:text-slate-400"
@@ -169,7 +169,7 @@ export function WorkersPageClient() {
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <HardHat size={40} className="text-slate-300 mb-3" />
               <p className="text-sm font-semibold text-slate-500">
-                {search ? "Koi worker nahi mila." : "Koi worker nahi — pehla worker add karo."}
+                {search ? "No worker found." : "No workers yet — add your first worker."}
               </p>
             </div>
           ) : (
@@ -197,15 +197,15 @@ export function WorkersPageClient() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-bold text-slate-700">
-                Chal rahe kaam ({activeOrders.length} open orders)
+                Active work orders ({activeOrders.length} open)
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Yeh woh orders hain jinka maal diya gaya hai, wapas nahi aaya
+                Material issued, return pending
               </p>
             </div>
             <Button size="sm" variant="outline" onClick={() => openReturnFor()}>
               <Undo2 size={12} className="mr-1.5" />
-              Return Record Karo
+              Record Return
             </Button>
           </div>
 
@@ -219,7 +219,7 @@ export function WorkersPageClient() {
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <CheckCircle2 size={40} className="text-emerald-300 mb-3" />
               <p className="text-sm font-semibold text-slate-500">
-                Sab kaam complete! Koi pending order nahi.
+                All work orders complete! No pending returns.
               </p>
             </div>
           ) : (
@@ -229,8 +229,8 @@ export function WorkersPageClient() {
                   <tr className="bg-slate-50 border-b border-slate-100">
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Worker</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Kaam Type</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Bangles Diye</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Work Type</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Bangles Issued</th>
                     <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Rate/Piece</th>
                     <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Status</th>
                     <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Action</th>
@@ -271,7 +271,7 @@ export function WorkersPageClient() {
                             variant="primary"
                             onClick={() => openReturnFor(o._id)}
                           >
-                            Wapas Lo
+                            Record Return
                           </Button>
                         </td>
                       </tr>
@@ -293,7 +293,7 @@ export function WorkersPageClient() {
           {!ledgerWorker ? (
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Worker chunno ledger dekhne ke liye:
+                Select a worker to view their ledger:
               </p>
               <div className="flex flex-wrap gap-2">
                 {workers.map((w) => (
@@ -315,7 +315,7 @@ export function WorkersPageClient() {
                   className="flex items-center gap-1 text-sm font-semibold text-[#D32F2F] hover:underline transition-colors"
                 >
                   <ChevronLeft size={14} />
-                  Sab Workers
+                  All Workers
                 </button>
                 <span className="text-slate-200">|</span>
                 <h2 className="text-sm font-bold text-slate-900">
@@ -332,7 +332,7 @@ export function WorkersPageClient() {
       <button
         onClick={() => setOrderWorker(workers[0] ?? null)}
         className="fixed bottom-20 right-4 lg:hidden flex items-center justify-center rounded-2xl bg-[#D32F2F] text-white shadow-xl shadow-red-700/30 transition-all hover:bg-[#B71C1C] active:scale-95"
-        aria-label="Naya work order banao"
+        aria-label="New work order"
         style={{ width: 52, height: 52 }}
       >
         <Plus size={22} />

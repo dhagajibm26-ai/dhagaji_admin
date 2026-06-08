@@ -222,6 +222,10 @@ export const workOrderReturnSchema = z.object({
   qualityOK: z.number().min(0),
   finishedProductId: z.string().optional(),
   perPieceRate: z.number().min(0).optional(),
+  damageNotes: z.string().optional(),
+}).refine((d) => d.qualityOK <= d.finishedPieces, {
+  message: "qualityOK cannot exceed finishedPieces",
+  path: ["qualityOK"],
 });
 export type WorkOrderReturnInput = z.infer<typeof workOrderReturnSchema>;
 
@@ -270,6 +274,8 @@ export interface IWorkOrder {
   // OUTPUT
   finishedPieces: number;
   qualityOK: number;
+  // NOTES
+  damageNotes?: string;
   // PAYMENT
   perPieceRate: number;
   amountPaid: number;

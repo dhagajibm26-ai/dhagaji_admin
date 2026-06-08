@@ -72,6 +72,9 @@ export interface IWorkOrderDocument extends Document {
   finishedPieces: number;
   qualityOK: number;
 
+  // NOTES
+  damageNotes?: string;
+
   // PAYMENT
   perPieceRate: number;
   amountPaid: number;
@@ -196,6 +199,9 @@ const WorkOrderSchema = new Schema<IWorkOrderDocument>(
     // OUTPUT
     finishedPieces: { type: Number, default: 0, min: 0 },
     qualityOK: { type: Number, default: 0, min: 0 },
+
+    // NOTES
+    damageNotes: { type: String, trim: true },
 
     // PAYMENT
     perPieceRate: { type: Number, required: true, min: 0 },

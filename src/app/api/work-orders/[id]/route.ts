@@ -3,6 +3,9 @@ import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { WorkOrder } from "@/models/WorkOrder";
 import { Worker } from "@/models/Worker";
+import { BanglesStock } from "@/models/BanglesStock";
+import { ThreadsStock } from "@/models/ThreadsStock";
+import { RawMaterial } from "@/models/RawMaterial";
 import { FinishedProduct } from "@/models/FinishedProduct";
 import { workOrderReturnSchema } from "@/types";
 import type { ApiResponse } from "@/types";
@@ -66,6 +69,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       qualityOK,
       finishedProductId,
       perPieceRate,
+      damageNotes,
     } = parsed.data;
 
     order.banglesReturned = banglesReturned as typeof order.banglesReturned;
@@ -76,11 +80,95 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     order.finishedPieces = finishedPieces;
     order.qualityOK = qualityOK;
     if (perPieceRate !== undefined) order.perPieceRate = perPieceRate;
+    if (damageNotes !== undefined) order.damageNotes = damageNotes;
     order.status = "Returned";
 
     await order.save();
 
-    // Update Worker.totalEarned with net amount (OK earnings - 50% rejection deduction)
+    // ── Restore returned stock back to inventory ──────────────────────────────
+
+    // Bangles returned → reduce netUsed per cutType
+    if (banglesReturned.length > 0) {
+      const banglesOps = banglesReturned
+        .map((ret) => {
+          const original = order.banglesGiven.find(
+            (g) => g.cutType === ret.cutType
+          );
+          if (!original) return null;
+          return {
+            updateOne: {
+              filter: { _id: original.banglesStockId },
+              update: { $inc: { netUsed: -ret.pieces } },
+            },
+          };
+        })
+        .filter((op): op is NonNullable<typeof op> => op !== null);
+      if (banglesOps.length > 0) await BanglesStock.bulkWrite(banglesOps);
+    }
+
+    // Threads returned → reduce netUsed proportionally across threadItemsGiven
+    if (threadsReturned > 0 && order.threadItemsGiven?.length > 0) {
+      const totalGiven = order.threadItemsGiven.reduce((s, t) => s + t.grams, 0);
+      const threadOps = order.threadItemsGiven
+        .filter((t) => t.grams > 0 && totalGiven > 0)
+        .map((t) => {
+          const share = Math.min(
+            t.grams,
+            Math.round((t.grams / totalGiven) * threadsReturned * 100) / 100
+          );
+          return {
+            updateOne: {
+              filter: { _id: t.threadStockId },
+              update: { $inc: { netUsed: -share } },
+            },
+          };
+        });
+      if (threadOps.length > 0) await ThreadsStock.bulkWrite(threadOps);
+    }
+
+    // Glue returned → reduce usedQty for glue raw materials
+    if (glueReturned > 0 && order.rawMaterialsGiven?.length > 0) {
+      const glueItems = order.rawMaterialsGiven.filter((r) => r.kind === "glue");
+      const totalGlueGiven = glueItems.reduce((s, r) => s + r.qty, 0);
+      if (glueItems.length > 0 && totalGlueGiven > 0) {
+        const glueOps = glueItems.map((r) => {
+          const share = Math.min(
+            r.qty,
+            Math.round((r.qty / totalGlueGiven) * glueReturned * 100) / 100
+          );
+          return {
+            updateOne: {
+              filter: { _id: r.rawMaterialId },
+              update: { $inc: { usedQty: -share } },
+            },
+          };
+        });
+        await RawMaterial.bulkWrite(glueOps);
+      }
+    }
+
+    // Cutter returned → reduce usedQty for cutter raw materials
+    if (cutterReturned > 0 && order.rawMaterialsGiven?.length > 0) {
+      const cutterItems = order.rawMaterialsGiven.filter((r) => r.kind === "cutter");
+      const totalCutterGiven = cutterItems.reduce((s, r) => s + r.qty, 0);
+      if (cutterItems.length > 0 && totalCutterGiven > 0) {
+        const cutterOps = cutterItems.map((r) => {
+          const share = Math.min(
+            r.qty,
+            Math.round((r.qty / totalCutterGiven) * cutterReturned * 100) / 100
+          );
+          return {
+            updateOne: {
+              filter: { _id: r.rawMaterialId },
+              update: { $inc: { usedQty: -share } },
+            },
+          };
+        });
+        await RawMaterial.bulkWrite(cutterOps);
+      }
+    }
+
+    // ── Update Worker.totalEarned ─────────────────────────────────────────────
     const okEarnings = order.qualityOK * order.perPieceRate;
     const rejected = Math.max(0, order.finishedPieces - order.qualityOK);
     const rejectionDeduction = rejected * order.perPieceRate * 0.5;
