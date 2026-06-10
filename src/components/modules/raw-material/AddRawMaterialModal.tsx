@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -10,6 +11,8 @@ import { Button } from "@/components/ui/Button";
 import { useAddRawMaterial, usePatchRawMaterial } from "@/hooks/useRawMaterial";
 import { useMaterialCategories } from "@/hooks/useMaterialCategories";
 import { rawMaterialSchema, type RawMaterialInput, type IRawMaterial } from "@/types";
+
+type RawMaterialFormInput = z.input<typeof rawMaterialSchema>;
 
 const UNITS = ["gram", "pcs", "tube", "box", "meter"] as const;
 
@@ -35,7 +38,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     reset,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<RawMaterialInput>({
+  } = useForm<RawMaterialFormInput, unknown, RawMaterialInput>({
     resolver: zodResolver(rawMaterialSchema),
     defaultValues: {
       openingStock: 0,
