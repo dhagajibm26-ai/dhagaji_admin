@@ -37,11 +37,21 @@ export interface CutterDenaItem {
   unit?: string;
 }
 
+export interface RawMatDenaItem {
+  type: "rawmat";
+  rawMaterialId: string;
+  itemName: string;
+  units: number;
+  unit?: string;
+  kind: string;
+}
+
 export type DenaItem =
   | BangleDenaItem
   | ThreadDenaItem
   | GlueDenaItem
-  | CutterDenaItem;
+  | CutterDenaItem
+  | RawMatDenaItem;
 
 // ─── Store state ──────────────────────────────────────────────────────────────
 

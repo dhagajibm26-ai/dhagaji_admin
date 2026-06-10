@@ -30,6 +30,8 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
     formState: { errors, isSubmitting },
   } = useForm<ThreadsFormInput, unknown, ThreadsStockInput>({
     resolver: zodResolver(threadsStockSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       stockAdd: 0,
       openingStock: 0,
@@ -123,6 +125,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
       <form
         id="add-threads-form"
         onSubmit={handleSubmit(onSubmit)}
+        autoComplete="off"
         noValidate
         className="space-y-4"
       >
@@ -132,6 +135,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
             label="Thread Code"
             placeholder="e.g. T001, RED-01"
             required
+            autoComplete="off"
             error={errors.threadCode?.message}
             {...register("threadCode")}
           />
@@ -139,6 +143,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
             label="Thread Colour"
             placeholder="e.g. Red, Navy Blue"
             required
+            autoComplete="off"
             error={errors.threadColour?.message}
             {...register("threadColour")}
           />
@@ -150,6 +155,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
             label="Company Name"
             placeholder="e.g. Krishna Threads Co."
             required
+            autoComplete="off"
             error={errors.threadCompanyName?.message}
             {...register("threadCompanyName")}
           />

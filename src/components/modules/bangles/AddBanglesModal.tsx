@@ -34,6 +34,8 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
     formState: { errors, isSubmitting },
   } = useForm<BanglesFormInput, unknown, BanglesStockInput>({
     resolver: zodResolver(banglesStockSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       netUsed: 0,
       cutType: "C1",
@@ -120,6 +122,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
       <form
         id="add-bangles-form"
         onSubmit={handleSubmit(onSubmit)}
+        autoComplete="off"
         noValidate
         className="space-y-4"
       >
@@ -129,6 +132,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
             label="Size (diameter)"
             placeholder='e.g. 2.4, 2.6, 2.8'
             required
+            autoComplete="off"
             error={errors.size?.message}
             {...register("size")}
           />

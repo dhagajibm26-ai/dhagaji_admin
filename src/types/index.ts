@@ -220,7 +220,7 @@ export const rawMaterialGivenItemSchema = z.object({
   rawMaterialId: z.string().min(1, "Raw material ID required"),
   itemName: z.string().min(1),
   qty: z.number().min(0),
-  kind: z.enum(["glue", "cutter"]),
+  kind: z.string().min(1),
   unit: z.string().optional(),
 });
 
@@ -303,7 +303,7 @@ export interface IWorkOrder {
     rawMaterialId: string;
     itemName: string;
     qty: number;
-    kind: "glue" | "cutter";
+    kind: string;
     unit?: string;
   }>;
   glueGiven: number;

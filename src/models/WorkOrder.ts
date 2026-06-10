@@ -18,10 +18,10 @@ interface IThreadGiven {
 }
 
 interface IRawMaterialGiven {
-  rawMaterialId: Types.ObjectId;
+  rawMaterialId: Types.ObjectId | string;
   itemName: string;
   qty: number;
-  kind: "glue" | "cutter";
+  kind: string;
   unit?: string;
 }
 
@@ -145,7 +145,7 @@ const RawMaterialGivenSchema = new Schema<IRawMaterialGiven>(
     },
     itemName: { type: String, required: true, trim: true },
     qty: { type: Number, required: true, min: 0 },
-    kind: { type: String, enum: ["glue", "cutter"], required: true },
+    kind: { type: String, required: true },
     unit: { type: String, trim: true },
   },
   { _id: false }

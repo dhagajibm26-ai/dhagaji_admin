@@ -194,30 +194,57 @@ export function ReturnMaterialForm({
             {/* Issued materials summary */}
             <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs space-y-1">
               <p className="font-bold text-amber-800 mb-1.5">Materials Issued to Worker:</p>
+
+              {/* Bangles per cut type */}
               {selectedOrder.banglesGiven.map((b, i) => (
                 <div key={i} className="flex justify-between text-amber-700">
                   <span>Bangles {b.cutType}:</span>
-                  <span className="font-semibold">{b.pieces} pcs</span>
+                  <span className="font-semibold">{b.pieces.toLocaleString("en-IN")} pcs</span>
                 </div>
               ))}
-              {selectedOrder.threadsGiven > 0 && (
-                <div className="flex justify-between text-amber-700">
-                  <span>Thread:</span>
-                  <span className="font-semibold">{selectedOrder.threadsGiven} g</span>
-                </div>
-              )}
-              {selectedOrder.glueGiven > 0 && (
-                <div className="flex justify-between text-amber-700">
-                  <span>Glue:</span>
-                  <span className="font-semibold">{selectedOrder.glueGiven} {glueUnit}</span>
-                </div>
-              )}
-              {(selectedOrder.cutterGiven ?? 0) > 0 && (
-                <div className="flex justify-between text-amber-700">
-                  <span>Cutter:</span>
-                  <span className="font-semibold">{selectedOrder.cutterGiven} {cutterUnit}</span>
-                </div>
-              )}
+
+              {/* Threads per item (detail view) */}
+              {(selectedOrder.threadItemsGiven ?? []).length > 0
+                ? (selectedOrder.threadItemsGiven ?? []).map((t, i) => (
+                    <div key={i} className="flex justify-between text-amber-700">
+                      <span>Thread: {t.threadCode} ({t.threadColour})</span>
+                      <span className="font-semibold">{t.grams} g</span>
+                    </div>
+                  ))
+                : selectedOrder.threadsGiven > 0 && (
+                    <div className="flex justify-between text-amber-700">
+                      <span>Thread:</span>
+                      <span className="font-semibold">{selectedOrder.threadsGiven} g</span>
+                    </div>
+                  )}
+
+              {/* Raw materials per item (detail view) */}
+              {(selectedOrder.rawMaterialsGiven ?? []).length > 0
+                ? (selectedOrder.rawMaterialsGiven ?? []).map((r, i) => (
+                    <div key={i} className="flex justify-between text-amber-700">
+                      <span>{r.itemName}:</span>
+                      <span className="font-semibold">
+                        {r.qty} {r.unit ?? "units"}
+                      </span>
+                    </div>
+                  ))
+                : (
+                    <>
+                      {selectedOrder.glueGiven > 0 && (
+                        <div className="flex justify-between text-amber-700">
+                          <span>Glue:</span>
+                          <span className="font-semibold">{selectedOrder.glueGiven} {glueUnit}</span>
+                        </div>
+                      )}
+                      {(selectedOrder.cutterGiven ?? 0) > 0 && (
+                        <div className="flex justify-between text-amber-700">
+                          <span>Cutter:</span>
+                          <span className="font-semibold">{selectedOrder.cutterGiven} {cutterUnit}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
               {selectedOrder.otherMaterialGiven.map((m, i) => (
                 <div key={i} className="flex justify-between text-amber-700">
                   <span>{m.name}:</span>

@@ -15,10 +15,12 @@ import {
   useWorkOrderPerPieceRate,
   useWorkOrderDenaItems,
   useWorkOrderActions,
+  type DenaItem,
   type BangleDenaItem,
   type ThreadDenaItem,
   type GlueDenaItem,
   type CutterDenaItem,
+  type RawMatDenaItem,
 } from "@/stores/useWorkOrderStore";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -124,17 +126,6 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const { data: threads = [] } = useThreadsStock();
   const { data: rawMaterials = [] } = useRawMaterials();
 
-  const glueItems = rawMaterials.filter((r) => {
-    const category = r.category.toLowerCase();
-    const name = r.itemName.toLowerCase();
-    return category.includes("glue") || name.includes("glue");
-  });
-  const cutterItems = rawMaterials.filter((r) => {
-    const category = r.category.toLowerCase();
-    const name = r.itemName.toLowerCase();
-    return category.includes("cutter") || name.includes("cutter");
-  });
-
   const [selectedSize, setSelectedSize] = useState("");
   const [banglePiecesByCut, setBanglePiecesByCut] = useState<Record<CutType, string>>({
     C1: "",
@@ -145,8 +136,9 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const [threadRows, setThreadRows] = useState<Array<{ threadStockId: string; grams: string }>>([
     { threadStockId: "", grams: "" },
   ]);
-  const [glueForm, setGlueForm] = useState({ rawMaterialId: "", units: "" });
-  const [cutterForm, setCutterForm] = useState({ rawMaterialId: "", units: "" });
+  const [rawMatRows, setRawMatRows] = useState<Array<{ rawMaterialId: string; units: string }>>([
+    { rawMaterialId: "", units: "" },
+  ]);
 
   const banglesBySize = useMemo(() => {
     const grouped = new Map<string, Record<CutType, (typeof bangles)[number] | undefined>>();
@@ -213,46 +205,171 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
     }
   }
 
-  function addGlue() {
-    const stock = glueItems.find((g) => g._id === glueForm.rawMaterialId);
-    const units = parseFloat(glueForm.units || "0");
-    if (!stock || !units || units <= 0) return;
-
-    const item: GlueDenaItem = {
-      type: "glue",
-      rawMaterialId: stock._id,
-      itemName: stock.itemName,
-      units,
-      unit: stock.unit,
-    };
-    addDenaItem(item);
-    setGlueForm({ rawMaterialId: "", units: "" });
+  function determineRawKind(catStr: string, nameStr: string): string {
+    const cat = catStr.toLowerCase();
+    const name = nameStr.toLowerCase();
+    if (cat.includes("glue") || name.includes("glue")) return "glue";
+    if (cat.includes("cutter") || name.includes("cutter")) return "cutter";
+    return cat.trim() || "other";
   }
 
-  function addCutter() {
-    const stock = cutterItems.find((c) => c._id === cutterForm.rawMaterialId);
-    const units = parseFloat(cutterForm.units || "0");
-    if (!stock || !units || units <= 0) return;
+  function addAllRawMatRows() {
+    let added = 0;
+    for (const row of rawMatRows) {
+      const material = rawMaterials.find((m) => m._id === row.rawMaterialId);
+      const units = parseFloat(row.units || "0");
+      if (!material || !units || units <= 0) continue;
+      addDenaItem({
+        type: "rawmat",
+        rawMaterialId: material._id,
+        itemName: material.itemName,
+        units,
+        unit: material.unit,
+        kind: determineRawKind(material.category ?? "", material.itemName ?? ""),
+      } as RawMatDenaItem);
+      added++;
+    }
+    if (added > 0) setRawMatRows([{ rawMaterialId: "", units: "" }]);
+  }
 
-    const item: CutterDenaItem = {
-      type: "cutter",
-      rawMaterialId: stock._id,
-      itemName: stock.itemName,
-      units,
-      unit: stock.unit,
+  const sortedRawMaterials = useMemo(() => {
+    return [...rawMaterials].sort((a, b) => {
+      const catCmp = (a.category ?? "").localeCompare(b.category ?? "");
+      if (catCmp !== 0) return catCmp;
+      if (a.closingStock > 0 && b.closingStock <= 0) return -1;
+      if (a.closingStock <= 0 && b.closingStock > 0) return 1;
+      return a.itemName.localeCompare(b.itemName);
+    });
+  }, [rawMaterials]);
+
+  // Group raw materials by category for <optgroup>
+  const rawMatByCategory = useMemo(() => {
+    const map = new Map<string, typeof rawMaterials>();
+    for (const m of sortedRawMaterials) {
+      const cat = m.category ?? "Other";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(m);
+    }
+    return map;
+  }, [sortedRawMaterials]);
+
+  function unitLabel(unit: string): string {
+    const map: Record<string, string> = {
+      gram: "Gram (g)",
+      pcs: "Pieces (pcs)",
+      tube: "Tube",
+      box: "Box",
+      meter: "Meter (m)",
     };
-    addDenaItem(item);
-    setCutterForm({ rawMaterialId: "", units: "" });
+    return map[unit] ?? unit;
+  }
+
+  const bangleQueued = denaItems.filter((d) => d.type === "bangle");
+  const threadQueued = denaItems.filter((d) => d.type === "thread");
+  const toolQueued = denaItems.filter(
+    (d) => d.type === "rawmat" || d.type === "glue" || d.type === "cutter"
+  );
+
+  const [previewError, setPreviewError] = useState("");
+
+  /** Flush all locally-filled rows into denaItems, then proceed to preview */
+  function flushAndNext() {
+    setPreviewError("");
+    const toAdd: DenaItem[] = [];
+
+    // ── Bangles ───────────────────────────────────────────────
+    if (selectedSize) {
+      const sizeMap = banglesBySize.get(selectedSize);
+      if (sizeMap) {
+        for (const cutType of ["C1", "C2", "C4", "C6"] as CutType[]) {
+          const pieces = parseFloat(banglePiecesByCut[cutType] || "0");
+          if (!pieces || pieces <= 0) continue;
+          const stock = sizeMap[cutType];
+          if (!stock || stock.closingStock <= 0) continue;
+          toAdd.push({
+            type: "bangle",
+            banglesStockId: stock._id,
+            size: stock.size,
+            cutType,
+            cuts: Number((pieces / (stock.peta || 1)).toFixed(2)),
+            pieces,
+          } as BangleDenaItem);
+        }
+      }
+    }
+
+    // ── Threads ───────────────────────────────────────────────
+    for (const row of threadRows) {
+      const stock = threads.find((t) => t._id === row.threadStockId);
+      const grams = parseFloat(row.grams || "0");
+      if (!stock || !grams || grams <= 0) continue;
+      toAdd.push({
+        type: "thread",
+        threadStockId: stock._id,
+        threadCode: stock.threadCode,
+        threadColour: stock.threadColour,
+        grams,
+      } as ThreadDenaItem);
+    }
+
+    // ── Raw Materials ─────────────────────────────────────────
+    for (const row of rawMatRows) {
+      const material = rawMaterials.find((m) => m._id === row.rawMaterialId);
+      const units = parseFloat(row.units || "0");
+      if (!material || !units || units <= 0) continue;
+      toAdd.push({
+        type: "rawmat",
+        rawMaterialId: material._id,
+        itemName: material.itemName,
+        units,
+        unit: material.unit,
+        kind: determineRawKind(material.category ?? "", material.itemName ?? ""),
+      } as RawMatDenaItem);
+    }
+
+    // Push pending items into the store
+    for (const item of toAdd) addDenaItem(item);
+
+    // Clear local rows that were flushed
+    if (toAdd.some((i) => i.type === "bangle")) {
+      setBanglePiecesByCut({ C1: "", C2: "", C4: "", C6: "" });
+      setSelectedSize("");
+    }
+    if (toAdd.some((i) => i.type === "thread")) setThreadRows([{ threadStockId: "", grams: "" }]);
+    if (toAdd.some((i) => i.type === "rawmat")) setRawMatRows([{ rawMaterialId: "", units: "" }]);
+
+    const total = denaItems.length + toAdd.length;
+    if (total === 0) {
+      setPreviewError("Kam se kam ek material zaroor add karo (Bangles, Thread, ya Tools)");
+      return;
+    }
+    onNext();
   }
 
   return (
     <div className="space-y-5">
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Step 2: Materials to Issue to Worker</p>
 
-      <div className="rounded-xl border border-slate-200 p-3 space-y-2">
-        <p className="text-sm font-semibold text-slate-800">Bangles (one size, all cuts together)</p>
-        <Select value={selectedSize} onChange={(e) => setSelectedSize(e.target.value)}>
-          <option value="">Select Size...</option>
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50/30 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-indigo-500 shrink-0" />
+          <p className="text-sm font-bold text-slate-800">Bangles</p>
+          {bangleQueued.length > 0 && (
+            <span className="ml-auto rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+              {bangleQueued.length} size{bangleQueued.length > 1 ? "s" : ""} added
+            </span>
+          )}
+        </div>
+
+        <Select
+          label="Select Size"
+          value={selectedSize}
+          onChange={(e) => {
+            setSelectedSize(e.target.value);
+            setBanglePiecesByCut({ C1: "", C2: "", C4: "", C6: "" });
+          }}
+        >
+          <option value="">— Select bangle size —</option>
           {[...banglesBySize.keys()]
             .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
             .map((size) => (
@@ -263,176 +380,326 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
         </Select>
 
         {selectedSize && (
-          <div className="space-y-2 rounded-lg border border-slate-100 p-2">
+          <div className="rounded-lg border border-indigo-100 bg-white divide-y divide-slate-100">
             {(["C1", "C2", "C4", "C6"] as CutType[]).map((cutType) => {
               const stock = banglesBySize.get(selectedSize)?.[cutType];
+              const available = stock?.closingStock ?? 0;
               return (
-                <div key={cutType} className="grid grid-cols-3 gap-2 items-center">
-                  <p className="text-sm font-semibold text-slate-700">{cutType}</p>
+                <div key={cutType} className="grid grid-cols-[60px_1fr_100px] gap-2 items-center px-3 py-2.5">
+                  <span className="text-sm font-bold text-slate-700">{cutType}</span>
                   <Input
                     type="number"
                     min={0}
-                    placeholder="Pieces"
+                    max={available || undefined}
+                    placeholder={available > 0 ? `0–${available} pcs` : "No stock"}
                     value={banglePiecesByCut[cutType]}
+                    disabled={available <= 0}
                     onChange={(e) =>
                       setBanglePiecesByCut((prev) => ({ ...prev, [cutType]: e.target.value }))
                     }
                   />
-                  <p className="text-xs text-slate-500">
-                    Stock: {stock ? stock.closingStock.toLocaleString("en-IN") : 0} pcs
+                  <p className={`text-xs text-right font-semibold ${available <= 0 ? "text-rose-400" : "text-emerald-600"}`}>
+                    {available > 0 ? `${available.toLocaleString("en-IN")} pcs` : "Out of stock"}
                   </p>
                 </div>
               );
             })}
-            <Button size="sm" variant="outline" onClick={addBanglesForSelectedSize} className="w-full">
-              + Add Selected Size Entries
-            </Button>
+          </div>
+        )}
+
+        {/* Add another size to queue */}
+        {selectedSize && denaItems.some((d) => d.type === "bangle") && (
+          <Button size="sm" variant="ghost" onClick={addBanglesForSelectedSize} className="w-full text-indigo-600">
+            + Also add another size
+          </Button>
+        )}
+
+        {bangleQueued.length > 0 && (
+          <div className="space-y-1">
+            {denaItems.map((item, i) =>
+              item.type !== "bangle" ? null : (
+                <div key={i} className="flex items-center justify-between rounded-lg bg-indigo-50 border border-indigo-100 px-3 py-2 text-sm">
+                  <span className="font-medium text-indigo-800">
+                    {item.size} · {item.cutType} — {item.pieces} pcs
+                  </span>
+                  <button type="button" onClick={() => removeDenaItem(i)} className="text-rose-400 hover:text-rose-600 font-bold text-xs ml-2">✕</button>
+                </div>
+              )
+            )}
           </div>
         )}
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-3 space-y-2">
-        <p className="text-sm font-semibold text-slate-800">Threads (multiple at once)</p>
-        {threadRows.map((row, idx) => (
-          <div key={idx} className="grid grid-cols-2 gap-2">
-            <Select
-              value={row.threadStockId}
-              onChange={(e) => {
-                const next = [...threadRows];
-                next[idx] = { ...next[idx], threadStockId: e.target.value };
-                setThreadRows(next);
-              }}
-            >
-              <option value="">Select Thread...</option>
-              {threads.map((t) => (
-                <option key={t._id} value={t._id}>
-                  {t.threadCode} - {t.threadColour} ({t.closingStock}g)
-                </option>
-              ))}
-            </Select>
-            <Input
-              type="number"
-              min={0}
-              placeholder="Grams"
-              value={row.grams}
-              onChange={(e) => {
-                const next = [...threadRows];
-                next[idx] = { ...next[idx], grams: e.target.value };
-                setThreadRows(next);
-              }}
-            />
+      <div className="rounded-xl border border-teal-100 bg-teal-50/30 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-teal-500 shrink-0" />
+          <p className="text-sm font-bold text-slate-800">Threads</p>
+          <span className="text-xs text-slate-400">(optional)</span>
+          {threadQueued.length > 0 && (
+            <span className="ml-auto rounded-full bg-teal-100 px-2 py-0.5 text-xs font-semibold text-teal-700">
+              {threadQueued.length} added
+            </span>
+          )}
+        </div>
+
+        {threadRows.map((row, idx) => {
+          const selThread = threads.find((t) => t._id === row.threadStockId);
+          return (
+            <div key={idx} className="space-y-2">
+              <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                <Select
+                  label={idx === 0 ? "Thread (Code · Colour)" : undefined}
+                  value={row.threadStockId}
+                  onChange={(e) => {
+                    const next = [...threadRows];
+                    next[idx] = { ...next[idx], threadStockId: e.target.value, grams: "" };
+                    setThreadRows(next);
+                  }}
+                >
+                  <option value="">— Select thread —</option>
+                  {threads.map((t) => (
+                    <option key={t._id} value={t._id} disabled={t.closingStock <= 0}>
+                      {t.threadCode} · {t.threadColour}
+                      {t.closingStock <= 0 ? " (Out of stock)" : ` — Stock: ${t.closingStock}g`}
+                    </option>
+                  ))}
+                </Select>
+                <button
+                  type="button"
+                  onClick={() => setThreadRows((r) => r.length > 1 ? r.filter((_, i) => i !== idx) : [{ threadStockId: "", grams: "" }])}
+                  className="h-11 w-9 flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {selThread && (
+                <div className="flex items-end gap-3 pl-1">
+                  <div className="flex-1">
+                    <Input
+                      label="Quantity in Gram (g)"
+                      type="number"
+                      min={0}
+                      max={selThread.closingStock}
+                      step={0.5}
+                      placeholder={`0 – max ${selThread.closingStock}g`}
+                      value={row.grams}
+                      onChange={(e) => {
+                        const next = [...threadRows];
+                        next[idx] = { ...next[idx], grams: e.target.value };
+                        setThreadRows(next);
+                      }}
+                    />
+                  </div>
+                  <div className="mb-0.5 shrink-0 rounded-lg bg-white border border-teal-200 px-3 py-2 text-center min-w-[80px]">
+                    <p className="text-[10px] text-slate-400 leading-none mb-0.5">Available</p>
+                    <p className={`text-sm font-bold ${selThread.closingStock <= 50 ? "text-rose-600" : "text-emerald-600"}`}>
+                      {selThread.closingStock}
+                    </p>
+                    <p className="text-[10px] text-slate-400 leading-none">gram</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setThreadRows((r) => [...r, { threadStockId: "", grams: "" }])}
+          className="text-teal-600"
+        >
+          + Add Another Thread
+        </Button>
+
+        {threadQueued.length > 0 && (
+          <div className="space-y-1">
+            {denaItems.map((item, i) =>
+              item.type !== "thread" ? null : (
+                <div key={i} className="flex items-center justify-between rounded-lg bg-teal-50 border border-teal-100 px-3 py-2 text-sm">
+                  <span className="font-medium text-teal-800">
+                    {item.threadCode} · {item.threadColour} — {item.grams}g
+                  </span>
+                  <button type="button" onClick={() => removeDenaItem(i)} className="text-rose-400 hover:text-rose-600 font-bold text-xs ml-2">✕</button>
+                </div>
+              )
+            )}
           </div>
-        ))}
+        )}
+      </div>
+
+      {/* ── TOOLS & CONSUMABLES ─────────────────────────────── */}
+      <div className="rounded-xl border border-orange-100 bg-orange-50/30 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-orange-500 shrink-0" />
+          <p className="text-sm font-bold text-slate-800">Tools & Consumables</p>
+          <span className="text-xs text-slate-400">(Glue, Cutter, any raw material)</span>
+          {toolQueued.length > 0 && (
+            <span className="ml-auto rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
+              {toolQueued.length} added
+            </span>
+          )}
+        </div>
+
+        {rawMatRows.map((row, idx) => {
+          const sel = rawMaterials.find((m) => m._id === row.rawMaterialId);
+          const qtyLabel = sel ? `Qty in ${unitLabel(sel.unit)}` : "Quantity";
+          return (
+            <div key={idx} className="space-y-2">
+              {/* Material dropdown + remove button */}
+              <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                <Select
+                  label={idx === 0 ? "Material Name & Category" : undefined}
+                  value={row.rawMaterialId}
+                  onChange={(e) => {
+                    const next = [...rawMatRows];
+                    next[idx] = { ...next[idx], rawMaterialId: e.target.value, units: "" };
+                    setRawMatRows(next);
+                  }}
+                >
+                  <option value="">— Select from stock —</option>
+                  {[...rawMatByCategory.entries()].map(([cat, items]) => (
+                    <optgroup key={cat} label={`── ${cat} ──`}>
+                      {items.map((m) => (
+                        <option
+                          key={m._id}
+                          value={m._id}
+                          disabled={m.closingStock <= 0}
+                        >
+                          {m.itemName}
+                          {m.closingStock <= 0
+                            ? " (Out of stock)"
+                            : ` · Stock: ${m.closingStock} ${m.unit}`}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </Select>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRawMatRows((r) =>
+                      r.length > 1 ? r.filter((_, i) => i !== idx) : [{ rawMaterialId: "", units: "" }]
+                    )
+                  }
+                  className="h-11 w-9 flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Quantity input — shown only after selecting a material */}
+              {sel && (
+                <div className="flex items-end gap-3 pl-1">
+                  <div className="flex-1">
+                    <Input
+                      label={qtyLabel}
+                      type="number"
+                      min={0}
+                      max={sel.closingStock}
+                      step={sel.unit === "gram" ? 0.5 : 1}
+                      placeholder={`0 – max ${sel.closingStock} ${sel.unit}`}
+                      value={row.units}
+                      onChange={(e) => {
+                        const next = [...rawMatRows];
+                        next[idx] = { ...next[idx], units: e.target.value };
+                        setRawMatRows(next);
+                      }}
+                    />
+                  </div>
+                  {/* Live stock badge */}
+                  <div className="mb-0.5 shrink-0 rounded-lg bg-white border border-orange-200 px-3 py-2 text-center min-w-[80px]">
+                    <p className="text-[10px] text-slate-400 leading-none mb-0.5">Available</p>
+                    <p className={`text-sm font-bold ${sel.closingStock <= sel.lowStockThreshold ? "text-rose-600" : "text-emerald-600"}`}>
+                      {sel.closingStock}
+                    </p>
+                    <p className="text-[10px] text-slate-400 leading-none">{sel.unit}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
         <div className="flex gap-2">
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => setThreadRows((rows) => [...rows, { threadStockId: "", grams: "" }])}
+            onClick={() => setRawMatRows((r) => [...r, { rawMaterialId: "", units: "" }])}
           >
             + Add Row
           </Button>
-          <Button size="sm" variant="outline" onClick={addAllThreadRows}>
-            Add All Threads
+          <Button size="sm" variant="outline" onClick={addAllRawMatRows}>
+            ✓ Confirm Materials
           </Button>
         </div>
+
+        {toolQueued.length > 0 && (
+          <div className="space-y-1.5 pt-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-orange-400">Confirmed:</p>
+            {denaItems.map((item, i) =>
+              item.type !== "rawmat" && item.type !== "glue" && item.type !== "cutter" ? null : (
+                <div key={i} className="flex items-center justify-between rounded-lg bg-white border border-orange-100 px-3 py-2 text-sm">
+                  <span className="font-medium text-slate-700">
+                    {item.type === "rawmat"
+                      ? `${(item as RawMatDenaItem).itemName} — ${(item as RawMatDenaItem).units} ${(item as RawMatDenaItem).unit ?? "units"}`
+                      : `${item.itemName} — ${item.units} ${item.unit ?? "units"}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeDenaItem(i)}
+                    className="text-rose-400 hover:text-rose-600 font-bold text-xs ml-3"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )
+            )}
+          </div>
+        )}
       </div>
 
-      {glueItems.length > 0 && (
-        <div className="rounded-xl border border-slate-200 p-3 space-y-2">
-          <p className="text-sm font-semibold text-slate-800">Glue</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Select
-              value={glueForm.rawMaterialId}
-              onChange={(e) => setGlueForm((f) => ({ ...f, rawMaterialId: e.target.value }))}
-            >
-              <option value="">Select Glue...</option>
-              {glueItems.map((g) => (
-                <option key={g._id} value={g._id}>
-                  {g.itemName} (Stock: {g.closingStock} {g.unit})
-                </option>
-              ))}
-            </Select>
-            <Input
-              type="number"
-              min={0}
-              placeholder={glueItems.find((g) => g._id === glueForm.rawMaterialId)?.unit ?? "units"}
-              value={glueForm.units}
-              onChange={(e) => setGlueForm((f) => ({ ...f, units: e.target.value }))}
-            />
-            <Button size="sm" variant="outline" className="col-span-2" onClick={addGlue}>
-              + Add Glue
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {cutterItems.length > 0 && (
-        <div className="rounded-xl border border-slate-200 p-3 space-y-2">
-          <p className="text-sm font-semibold text-slate-800">Cutter</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Select
-              value={cutterForm.rawMaterialId}
-              onChange={(e) => setCutterForm((f) => ({ ...f, rawMaterialId: e.target.value }))}
-            >
-              <option value="">Select Cutter...</option>
-              {cutterItems.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.itemName} (Stock: {c.closingStock} {c.unit})
-                </option>
-              ))}
-            </Select>
-            <Input
-              type="number"
-              min={0}
-              placeholder={cutterItems.find((c) => c._id === cutterForm.rawMaterialId)?.unit ?? "units"}
-              value={cutterForm.units}
-              onChange={(e) => setCutterForm((f) => ({ ...f, units: e.target.value }))}
-            />
-            <Button size="sm" variant="outline" className="col-span-2" onClick={addCutter}>
-              + Add Cutter
-            </Button>
-          </div>
-        </div>
-      )}
-
       {denaItems.length > 0 && (
-        <div className="rounded-xl bg-slate-50 p-3 space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Items queued to issue:</p>
+        <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-1.5">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+            Issue Summary ({denaItems.length} item{denaItems.length > 1 ? "s" : ""}):
+          </p>
           {denaItems.map((item, i) => (
-            <div key={i} className="flex items-center justify-between text-sm">
-              <span>
-                {item.type === "bangle" && `Bangles: ${item.size} ${item.cutType} — ${item.pieces} pcs`}
-                {item.type === "thread" && `Thread: ${item.threadCode} (${item.threadColour}) — ${item.grams} g`}
-                {item.type === "glue" && `Glue: ${item.itemName} — ${item.units} ${item.unit ?? "units"}`}
-                {item.type === "cutter" && `Cutter: ${item.itemName} — ${item.units} ${item.unit ?? "pcs"}`}
+            <div key={i} className="flex items-center justify-between rounded-md bg-white border border-slate-100 px-3 py-2 text-sm">
+              <span className="text-slate-700">
+                {item.type === "bangle" && `Bangles ${item.size} ${item.cutType} \u2014 ${item.pieces} pcs`}
+                {item.type === "thread" && `Thread: ${item.threadCode} (${item.threadColour}) \u2014 ${item.grams} g`}
+                {item.type === "glue" && `Glue: ${item.itemName} \u2014 ${item.units} ${item.unit ?? "units"}`}
+                {item.type === "cutter" && `Cutter: ${item.itemName} \u2014 ${item.units} ${item.unit ?? "pcs"}`}
+                {item.type === "rawmat" && `${(item as RawMatDenaItem).itemName} \u2014 ${(item as RawMatDenaItem).units} ${(item as RawMatDenaItem).unit ?? "units"}`}
               </span>
               <button
+                type="button"
                 onClick={() => removeDenaItem(i)}
-                className="text-red-500 hover:text-red-700 text-xs ml-2"
+                className="text-rose-400 hover:text-rose-600 text-xs font-bold ml-2"
               >
-                X
+                ✕
               </button>
             </div>
           ))}
         </div>
       )}
 
-      <div className="flex justify-between pt-2">
-        <Button variant="ghost" onClick={onBack}>
-          Back
-        </Button>
-        <Button
-          variant="primary"
-          onClick={() => {
-            if (denaItems.length === 0) {
-              alert("Add at least one material to give");
-              return;
-            }
-            onNext();
-          }}
-        >
-          Preview
-        </Button>
+      <div className="flex flex-col gap-2 pt-2">
+        {previewError && (
+          <p className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 text-center">
+            ⚠ {previewError}
+          </p>
+        )}
+        <div className="flex justify-between">
+          <Button variant="ghost" onClick={onBack}>
+            Back
+          </Button>
+          <Button variant="primary" onClick={flushAndNext}>
+            Preview & Confirm →
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -458,7 +725,8 @@ function Step3({
       if (item.type === "bangle") return `- Bangles ${item.size} ${item.cutType}: ${item.pieces} pcs`;
       if (item.type === "thread") return `- Thread ${item.threadCode} (${item.threadColour}): ${item.grams} g`;
       if (item.type === "glue") return `- Glue ${item.itemName}: ${item.units} ${item.unit ?? "units"}`;
-      return `- Cutter ${item.itemName}: ${item.units} ${item.unit ?? "units"}`;
+      if (item.type === "cutter") return `- Cutter ${item.itemName}: ${item.units} ${item.unit ?? "units"}`;
+      return `- ${(item as RawMatDenaItem).itemName}: ${(item as RawMatDenaItem).units} ${(item as RawMatDenaItem).unit ?? "units"}`;
     });
 
     return [
@@ -530,6 +798,7 @@ function Step3({
               {item.type === "thread" && `Thread: ${item.threadCode} (${item.threadColour}) — ${item.grams} g`}
               {item.type === "glue" && `Glue: ${item.itemName} — ${item.units} ${item.unit ?? "units"}`}
               {item.type === "cutter" && `Cutter: ${item.itemName} — ${item.units} ${item.unit ?? "pcs"}`}
+              {item.type === "rawmat" && `${(item as RawMatDenaItem).itemName} — ${(item as RawMatDenaItem).units} ${(item as RawMatDenaItem).unit ?? "units"}`}
             </div>
           ))}
         </div>
@@ -599,12 +868,17 @@ export function CreateWorkOrderForm({
       }));
 
     const threadItems = denaItems.filter((d): d is ThreadDenaItem => d.type === "thread");
-    const glueItems = denaItems.filter((d): d is GlueDenaItem => d.type === "glue");
-    const cutterItems = denaItems.filter((d): d is CutterDenaItem => d.type === "cutter");
+    const rawMatItems = denaItems.filter((d): d is RawMatDenaItem => d.type === "rawmat");
+    const legacyGlueItems = denaItems.filter((d): d is GlueDenaItem => d.type === "glue");
+    const legacyCutterItems = denaItems.filter((d): d is CutterDenaItem => d.type === "cutter");
 
     const totalThreads = threadItems.reduce((s, d) => s + d.grams, 0);
-    const totalGlue = glueItems.reduce((s, d) => s + d.units, 0);
-    const totalCutter = cutterItems.reduce((s, d) => s + d.units, 0);
+    const totalGlue =
+      rawMatItems.filter((d) => d.kind === "glue").reduce((s, d) => s + d.units, 0) +
+      legacyGlueItems.reduce((s, d) => s + d.units, 0);
+    const totalCutter =
+      rawMatItems.filter((d) => d.kind === "cutter").reduce((s, d) => s + d.units, 0) +
+      legacyCutterItems.reduce((s, d) => s + d.units, 0);
 
     const payload: WorkOrderCreateInput = {
       workerId,
@@ -621,24 +895,33 @@ export function CreateWorkOrderForm({
       threadsGiven: totalThreads,
       threadStockId: threadItems[0]?.threadStockId,
       rawMaterialsGiven: [
-        ...glueItems.map((g) => ({
+        ...legacyGlueItems.map((g) => ({
           rawMaterialId: g.rawMaterialId,
           itemName: g.itemName,
           qty: g.units,
-          kind: "glue" as const,
+          kind: "glue",
           unit: g.unit,
         })),
-        ...cutterItems.map((c) => ({
+        ...legacyCutterItems.map((c) => ({
           rawMaterialId: c.rawMaterialId,
           itemName: c.itemName,
           qty: c.units,
-          kind: "cutter" as const,
+          kind: "cutter",
           unit: c.unit,
+        })),
+        ...rawMatItems.map((r) => ({
+          rawMaterialId: r.rawMaterialId,
+          itemName: r.itemName,
+          qty: r.units,
+          kind: r.kind,
+          unit: r.unit,
         })),
       ],
       glueGiven: totalGlue,
       cutterGiven: totalCutter,
-      glueStockId: glueItems[0]?.rawMaterialId,
+      glueStockId:
+        rawMatItems.find((d) => d.kind === "glue")?.rawMaterialId ??
+        legacyGlueItems[0]?.rawMaterialId,
       otherMaterialGiven: [],
     };
 
