@@ -1,44 +1,15 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { useAddRawMaterial, usePatchRawMaterial } from "@/hooks/useRawMaterial";
-import { useRawMaterials } from "@/hooks/useRawMaterial";
+import { useMaterialCategories } from "@/hooks/useMaterialCategories";
 import { rawMaterialSchema, type RawMaterialInput, type IRawMaterial } from "@/types";
-
-/** Input shape — fields with .default() are optional on entry */
-type RawMaterialFormInput = z.input<typeof rawMaterialSchema> & {
-  categoryCustom?: string;
-};
-type RawMaterialFormOutput = RawMaterialInput & {
-  categoryCustom?: string;
-};
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const CATEGORIES = [
-  "Glass Cuts",
-  "Plastic Purls",
-  "Kody",
-  "Glue",
-  "Cutter",
-  "Beads",
-  "Stone",
-  "Wire",
-  "Hook",
-  "Earing Materials",
-  "Work Box",
-  "Paking Box",
-  "Paking Materials",
-  "Threads",
-  "Bangles",
-] as const;
 
 const UNITS = ["gram", "pcs", "tube", "box", "meter"] as const;
 
@@ -53,8 +24,10 @@ interface AddRawMaterialModalProps {
 export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialModalProps) {
   const addMutation = useAddRawMaterial();
   const patchMutation = usePatchRawMaterial();
-  const { data: materials = [] } = useRawMaterials();
+  const { data: categories = [] } = useMaterialCategories();
   const isEdit = !!item;
+  const [qtyForPrice, setQtyForPrice] = useState("0");
+  const [totalPriceForQty, setTotalPriceForQty] = useState("0");
 
   const {
     register,
@@ -62,7 +35,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     reset,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<RawMaterialFormInput, unknown, RawMaterialFormOutput>({
+  } = useForm<RawMaterialInput>({
     resolver: zodResolver(rawMaterialSchema),
     defaultValues: {
       openingStock: 0,
@@ -72,19 +45,19 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     },
   });
 
-  const selectedCategory = watch("category");
-  const customCategory = watch("categoryCustom");
+  const unit = watch("unit");
 
   const categoryOptions = useMemo(() => {
-    const fromData = materials
-      .map((m) => m.category?.trim())
+    const fromCategoryMaster = categories
+      .filter((c) => c.isActive)
+      .map((c) => c.name?.trim())
       .filter((c): c is string => !!c);
 
-    const unique = new Set<string>([...CATEGORIES, ...fromData]);
+    const unique = new Set<string>([...fromCategoryMaster]);
     if (item?.category?.trim()) unique.add(item.category.trim());
 
     return [...unique].sort((a, b) => a.localeCompare(b));
-  }, [materials, item]);
+  }, [categories, item]);
 
   // Reset form when modal closes
   useEffect(() => {
@@ -94,11 +67,12 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     }
 
     if (item) {
+      const currentRate = Number(item.ratePerUnit || 0);
+      const currentQty = Number(item.openingStock || 0);
       reset({
         itemName: item.itemName,
         colorType: item.colorType ?? "",
-        category: categoryOptions.includes(item.category) ? item.category : "__custom__",
-        categoryCustom: categoryOptions.includes(item.category) ? "" : item.category,
+        category: item.category,
         unit: item.unit,
         openingStock: item.openingStock,
         purchasedQty: item.purchasedQty,
@@ -110,6 +84,8 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
           ? new Date(item.lastPurchaseDate).toISOString().slice(0, 10)
           : undefined,
       });
+      setQtyForPrice(currentQty > 0 ? String(currentQty) : "1");
+      setTotalPriceForQty(String(Number((currentRate * (currentQty || 1)).toFixed(2))));
       return;
     }
 
@@ -117,7 +93,6 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       itemName: "",
       colorType: "",
       category: undefined,
-      categoryCustom: "",
       unit: undefined,
       openingStock: 0,
       purchasedQty: 0,
@@ -127,19 +102,26 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       supplier: "",
       lastPurchaseDate: undefined,
     });
+    setQtyForPrice("0");
+    setTotalPriceForQty("0");
   }, [isOpen, item, reset, categoryOptions]);
 
-  const onSubmit = (data: RawMaterialFormOutput) => {
-    const finalCategory =
-      data.category === "__custom__" ? data.categoryCustom?.trim() : data.category?.trim();
+  const onSubmit = (data: RawMaterialInput) => {
+    const finalCategory = data.category?.trim();
 
     if (!finalCategory) {
       return;
     }
 
+    const qtyNumber = Number.parseFloat(qtyForPrice || "0");
+    const totalPriceNumber = Number.parseFloat(totalPriceForQty || "0");
+    const computedRate =
+      qtyNumber > 0 && totalPriceNumber >= 0 ? Number((totalPriceNumber / qtyNumber).toFixed(4)) : null;
+
     const payload: RawMaterialInput = {
       ...data,
       category: finalCategory,
+      ratePerUnit: computedRate ?? data.ratePerUnit,
       colorType: data.colorType?.trim() || undefined,
       supplier: data.supplier?.trim() || undefined,
     };
@@ -234,23 +216,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
                 {c}
               </option>
             ))}
-            <option value="__custom__">+ Add New Category</option>
           </Select>
-
-          {selectedCategory === "__custom__" && (
-            <Input
-              label="New Category Name"
-              required
-              placeholder="Type new category"
-              error={errors.categoryCustom?.message}
-              {...register("categoryCustom", {
-                validate: (v) => {
-                  if (selectedCategory !== "__custom__") return true;
-                  return !!v?.trim() || "New category name required";
-                },
-              })}
-            />
-          )}
 
           {/* Unit dropdown */}
           <Select
@@ -266,18 +232,18 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
               </option>
             ))}
           </Select>
-
-          {selectedCategory !== "__custom__" && !!customCategory && (
-            <p className="text-xs text-slate-400">
-              Tip: custom category fill thayeli chhe, pan tame dropdown mathi select category use kari rahya cho.
-            </p>
-          )}
         </div>
+
+        {categoryOptions.length === 0 && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            No categories found. Please add categories from the Material Categories page first.
+          </p>
+        )}
 
         {/* Row 3: Opening stock + Rate per unit */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label="Opening Stock"
+            label={`Opening Stock (${unit || "unit"})`}
             type="number"
             min="0"
             step="any"
@@ -297,10 +263,41 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
           />
         </div>
 
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
+            label={`Qty for Total Price (${unit || "unit"})`}
+            type="number"
+            min="0"
+            step="any"
+            value={qtyForPrice}
+            onChange={(e) => setQtyForPrice(e.target.value)}
+            hint="Example: 1000 gram"
+          />
+          <Input
+            label="Total Price for Above Qty (₹)"
+            type="number"
+            min="0"
+            step="0.01"
+            value={totalPriceForQty}
+            onChange={(e) => setTotalPriceForQty(e.target.value)}
+            hint="Example: 1000"
+          />
+          <p className="text-xs text-slate-500 sm:col-span-2">
+            Auto unit rate: ₹
+            {(() => {
+              const q = Number.parseFloat(qtyForPrice || "0");
+              const t = Number.parseFloat(totalPriceForQty || "0");
+              if (q <= 0 || t < 0) return "0.0000";
+              return (t / q).toFixed(4);
+            })()}
+            {unit ? ` per ${unit}` : " per unit"}
+          </p>
+        </div>
+
         {/* Row 4: Low stock threshold + Supplier */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label="Low Stock Alert Threshold"
+            label={`Low Stock Alert Threshold (${unit || "unit"})`}
             type="number"
             min="0"
             step="any"

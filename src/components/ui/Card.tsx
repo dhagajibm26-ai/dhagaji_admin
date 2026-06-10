@@ -14,24 +14,24 @@ export function Card({ children, className, title, subtitle, action, noPadding }
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow hover:shadow-md",
+        "rounded-2xl border border-slate-100 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
         className
       )}
     >
       {(title || action) && (
-        <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
+        <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
           <div>
             {title && (
-              <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+              <h3 className="text-base font-semibold text-slate-900">{title}</h3>
             )}
             {subtitle && (
-              <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+              <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
             )}
           </div>
           {action && <div className="ml-4 shrink-0">{action}</div>}
         </div>
       )}
-      <div className={noPadding ? "" : "p-6"}>{children}</div>
+      <div className={noPadding ? "" : "p-5 sm:p-6"}>{children}</div>
     </div>
   );
 }
@@ -50,7 +50,7 @@ export function StatCard({ label, value, icon, trend, className, accent = "bg-[#
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:shadow-md",
+        "rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
         className
       )}
     >

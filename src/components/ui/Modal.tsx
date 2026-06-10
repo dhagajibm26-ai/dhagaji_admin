@@ -16,10 +16,10 @@ interface ModalProps {
 }
 
 const sizeClasses = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-lg",
-  xl: "max-w-2xl",
+  sm: "max-w-lg",
+  md: "max-w-2xl",
+  lg: "max-w-4xl",
+  xl: "max-w-6xl",
 };
 
 export function Modal({
@@ -56,7 +56,7 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
-      className="fixed inset-0 z-9999 flex items-center justify-center p-4"
+      className="fixed inset-0 z-9999 flex items-center justify-center p-3 sm:p-5"
     >
       {/* Backdrop */}
       <div
@@ -68,12 +68,12 @@ export function Modal({
       {/* Panel */}
       <div
         className={cn(
-          "animate-slide-up relative w-full rounded-2xl bg-white shadow-2xl",
+          "animate-slide-up relative w-full overflow-hidden rounded-2xl bg-white shadow-2xl",
           sizeClasses[size]
         )}
       >
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+        <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4 sm:px-7 sm:py-5">
           <div>
             <h2
               id="modal-title"
@@ -95,11 +95,11 @@ export function Modal({
         </div>
 
         {/* Body */}
-        <div className="max-h-[70vh] overflow-y-auto px-6 py-5">{children}</div>
+        <div className="max-h-[78vh] overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50/60 px-6 py-4 rounded-b-2xl">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-4 sm:px-7 rounded-b-2xl">
             {footer}
           </div>
         )}

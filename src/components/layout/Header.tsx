@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell, Menu, Home,
-  LayoutDashboard, Package, Circle, Layers, HardHat, Gem, Receipt, BarChart3,
+  LayoutDashboard, Package, Shapes, Circle, Layers, HardHat, Gem, Receipt, BarChart3,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useUIStore } from "@/stores/useUIStore";
@@ -14,9 +14,11 @@ import type { IRawMaterial, ApiResponse } from "@/types";
 const BREADCRUMBS: Record<string, { label: string; Icon: React.ElementType }> = {
   "/":              { label: "Dashboard",     Icon: LayoutDashboard },
   "/raw-material":  { label: "Raw Material",  Icon: Package },
+  "/material-categories": { label: "Material Categories", Icon: Shapes },
   "/bangles":       { label: "Bangles",       Icon: Circle },
   "/threads":       { label: "Threads",       Icon: Layers },
   "/workers":       { label: "Workers",       Icon: HardHat },
+  "/work-orders":   { label: "Work Flow",     Icon: HardHat },
   "/finished-stock":{ label: "Finished Stock", Icon: Gem },
   "/billing":       { label: "Billing",       Icon: Receipt },
   "/reports":       { label: "Reports",       Icon: BarChart3 },
@@ -107,7 +109,7 @@ export function Header() {
         >
           <Bell size={17} className={lowCount > 0 ? "text-[#D32F2F]" : ""} />
           {lowCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#D32F2F] px-1 text-[9px] font-black text-white leading-none">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D32F2F] px-1 text-[9px] font-black text-white leading-none">
               {lowCount > 9 ? "9+" : lowCount}
             </span>
           )}

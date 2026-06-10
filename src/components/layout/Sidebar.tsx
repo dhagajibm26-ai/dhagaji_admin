@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   Package,
+  Shapes,
   Circle,
   Layers,
   HardHat,
@@ -16,10 +17,12 @@ import {
   LogOut,
   X,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useUIStore } from "@/stores/useUIStore";
+import { useState } from "react";
 
 interface NavItem {
   href: string;
@@ -40,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/work-orders", label: "Work Flow", Icon: Clock3, section: "Operations" },
   { href: "/billing", label: "Billing", Icon: Receipt, highlight: true, section: "Operations" },
   { href: "/reports", label: "Reports", Icon: BarChart3, ownerOnly: true, section: "Analytics" },
+  { href: "/material-categories", label: "Material Categories", Icon: Shapes, ownerOnly: true, section: "Setup" },
 ];
 
 export function Sidebar() {
@@ -48,6 +52,7 @@ export function Sidebar() {
   const userName = useAuthStore((s) => s.userName);
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const [workMenuOpen, setWorkMenuOpen] = useState(true);
 
   const isOwner = role === "owner";
   const visibleItems = NAV_ITEMS.filter((item) => !item.ownerOnly || isOwner);
@@ -123,7 +128,55 @@ export function Sidebar() {
                   {section}
                 </p>
                 <ul className="space-y-0.5">
+                  {section === "Operations" && (
+                    <li className="mb-1">
+                      <button
+                        type="button"
+                        onClick={() => setWorkMenuOpen((v) => !v)}
+                        className={cn(
+                          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium min-h-11",
+                          pathname.startsWith("/workers") || pathname.startsWith("/work-orders")
+                            ? "bg-white/10 text-white"
+                            : "text-white/60 hover:bg-white/8 hover:text-white"
+                        )}
+                      >
+                        <HardHat size={16} className="shrink-0" />
+                        <span className="flex-1 text-left">Work Center</span>
+                        {workMenuOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
+
+                      {workMenuOpen && (
+                        <div className="mt-1 ml-4 space-y-0.5 border-l border-white/10 pl-2">
+                          {["/workers", "/work-orders"].map((href) => {
+                            const item = sectionItems.find((i) => i.href === href);
+                            if (!item) return null;
+                            const isActive = pathname.startsWith(item.href);
+                            return (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => setSidebarOpen(false)}
+                                className={cn(
+                                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium min-h-11 transition-all duration-150",
+                                  isActive
+                                    ? "bg-[#D32F2F] text-white shadow-lg shadow-red-900/30"
+                                    : "text-white/50 hover:bg-white/8 hover:text-white/90"
+                                )}
+                              >
+                                <item.Icon size={15} className="shrink-0" />
+                                <span className="leading-none">{item.label}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </li>
+                  )}
+
                   {sectionItems.map((item) => {
+                    if (section === "Operations" && (item.href === "/workers" || item.href === "/work-orders")) {
+                      return null;
+                    }
                     const isActive =
                       item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
                     return (

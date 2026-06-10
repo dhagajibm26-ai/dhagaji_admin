@@ -9,6 +9,15 @@ import { RawMaterial } from "@/models/RawMaterial";
 import { workOrderCreateSchema } from "@/types";
 import type { ApiResponse } from "@/types";
 
+type StockMap = Record<string, number>;
+
+function aggregateRequestedQty<T extends { id: string; qty: number }>(items: T[]): StockMap {
+  return items.reduce<StockMap>((acc, item) => {
+    acc[item.id] = (acc[item.id] ?? 0) + item.qty;
+    return acc;
+  }, {});
+}
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
@@ -75,6 +84,32 @@ export async function POST(request: Request) {
 
     // Deduct bangles stock (netUsed)
     if (banglesGiven.length > 0) {
+      const requested = aggregateRequestedQty(
+        banglesGiven.map((b) => ({ id: String(b.banglesStockId), qty: b.pieces }))
+      );
+
+      const banglesDocs = await BanglesStock.find({ _id: { $in: Object.keys(requested) } });
+      if (banglesDocs.length !== Object.keys(requested).length) {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: "Some bangle stock entries were not found" },
+          { status: 400 }
+        );
+      }
+
+      for (const doc of banglesDocs) {
+        const id = String(doc._id);
+        const available = doc.closingStock;
+        if ((requested[id] ?? 0) > available) {
+          return NextResponse.json<ApiResponse>(
+            {
+              success: false,
+              error: `Insufficient bangle stock for size ${doc.size} ${doc.cutType}. Available: ${available}`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
       const banglesOps = banglesGiven.map((b) => ({
         updateOne: {
           filter: { _id: b.banglesStockId },
@@ -86,6 +121,32 @@ export async function POST(request: Request) {
 
     // Deduct threads stock (netUsed)
     if (threadItemsGiven.length > 0) {
+      const requested = aggregateRequestedQty(
+        threadItemsGiven.map((t) => ({ id: String(t.threadStockId), qty: t.grams }))
+      );
+
+      const threadDocs = await ThreadsStock.find({ _id: { $in: Object.keys(requested) } });
+      if (threadDocs.length !== Object.keys(requested).length) {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: "Some thread stock entries were not found" },
+          { status: 400 }
+        );
+      }
+
+      for (const doc of threadDocs) {
+        const id = String(doc._id);
+        const available = doc.closingStock;
+        if ((requested[id] ?? 0) > available) {
+          return NextResponse.json<ApiResponse>(
+            {
+              success: false,
+              error: `Insufficient thread stock for ${doc.threadCode} (${doc.threadColour}). Available: ${available}g`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
       const threadOps = threadItemsGiven
         .filter((t) => t.grams > 0)
         .map((t) => ({
@@ -98,11 +159,53 @@ export async function POST(request: Request) {
         await ThreadsStock.bulkWrite(threadOps);
       }
     } else if (threadsGiven > 0 && threadStockId) {
+      const threadDoc = await ThreadsStock.findById(threadStockId);
+      if (!threadDoc) {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: "Thread stock not found" },
+          { status: 400 }
+        );
+      }
+      if (threadsGiven > threadDoc.closingStock) {
+        return NextResponse.json<ApiResponse>(
+          {
+            success: false,
+            error: `Insufficient thread stock for ${threadDoc.threadCode}. Available: ${threadDoc.closingStock}g`,
+          },
+          { status: 400 }
+        );
+      }
       await ThreadsStock.findByIdAndUpdate(threadStockId, { $inc: { netUsed: threadsGiven } });
     }
 
     // Deduct glue/cutter raw material (usedQty)
     if (rawMaterialsGiven.length > 0) {
+      const requested = aggregateRequestedQty(
+        rawMaterialsGiven.map((r) => ({ id: String(r.rawMaterialId), qty: r.qty }))
+      );
+
+      const rawDocs = await RawMaterial.find({ _id: { $in: Object.keys(requested) } });
+      if (rawDocs.length !== Object.keys(requested).length) {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: "Some raw material entries were not found" },
+          { status: 400 }
+        );
+      }
+
+      for (const doc of rawDocs) {
+        const id = String(doc._id);
+        const available = doc.closingStock;
+        if ((requested[id] ?? 0) > available) {
+          return NextResponse.json<ApiResponse>(
+            {
+              success: false,
+              error: `Insufficient stock for ${doc.itemName}. Available: ${available} ${doc.unit}`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
       const rawOps = rawMaterialsGiven
         .filter((r) => r.qty > 0)
         .map((r) => ({
@@ -115,6 +218,22 @@ export async function POST(request: Request) {
         await RawMaterial.bulkWrite(rawOps);
       }
     } else if (glueGiven > 0 && glueStockId) {
+      const glueDoc = await RawMaterial.findById(glueStockId);
+      if (!glueDoc) {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: "Raw material stock not found" },
+          { status: 400 }
+        );
+      }
+      if (glueGiven > glueDoc.closingStock) {
+        return NextResponse.json<ApiResponse>(
+          {
+            success: false,
+            error: `Insufficient stock for ${glueDoc.itemName}. Available: ${glueDoc.closingStock} ${glueDoc.unit}`,
+          },
+          { status: 400 }
+        );
+      }
       await RawMaterial.findByIdAndUpdate(glueStockId, { $inc: { usedQty: glueGiven } });
     }
 

@@ -36,7 +36,7 @@ export function Table<T>({
   className,
 }: TableProps<T>) {
   return (
-    <div className={cn("w-full overflow-auto rounded-2xl border border-slate-100 shadow-sm", className)}>
+    <div className={cn("w-full overflow-auto rounded-2xl border border-slate-100 bg-white shadow-sm", className)}>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-100 bg-slate-50">
@@ -44,7 +44,7 @@ export function Table<T>({
               <th
                 key={String(col.key)}
                 className={cn(
-                  "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500",
+                  "px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-slate-500",
                   col.className
                 )}
               >
@@ -58,7 +58,7 @@ export function Table<T>({
             Array.from({ length: 5 }).map((_, i) => (
               <tr key={i}>
                 {columns.map((col) => (
-                  <td key={String(col.key)} className="px-4 py-3">
+                  <td key={String(col.key)} className="px-4 py-3.5">
                     <div className="skeleton h-4 rounded-lg" />
                   </td>
                 ))}
@@ -85,7 +85,7 @@ export function Table<T>({
                 {columns.map((col) => (
                   <td
                     key={String(col.key)}
-                    className={cn("px-4 py-3 text-slate-700", col.className)}
+                    className={cn("px-4 py-3.5 text-slate-700", col.className)}
                   >
                     {col.render
                       ? col.render(getValue(row, String(col.key)), row)

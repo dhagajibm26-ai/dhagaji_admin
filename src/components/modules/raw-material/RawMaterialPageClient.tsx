@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { RawMaterialTable } from "./RawMaterialTable";
@@ -44,10 +45,15 @@ export function RawMaterialPageClient() {
             Beads, wire, glue, packaging, and other production inputs.
           </p>
         </div>
-        <Button onClick={openCreateModal} size="sm">
-          <Plus size={14} className="mr-1" />
-          Add Material
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/material-categories" className="inline-flex">
+            <Button variant="outline" size="sm">Manage Categories</Button>
+          </Link>
+          <Button onClick={openCreateModal} size="sm">
+            <Plus size={14} className="mr-1" />
+            Add Material
+          </Button>
+        </div>
       </div>
 
       {/* Low-stock alert banner */}

@@ -125,8 +125,21 @@ export type ThreadsStockInput = z.infer<typeof threadsStockSchema>;
 export interface IWorker {
   _id: string;
   name: string;
+  nameGu?: string;
+  fatherOrHusbandName?: string;
+  fatherOrHusbandNameGu?: string;
+  dateOfBirth?: string;
+  gender?: "male" | "female" | "other";
+  bloodGroup?: string;
+  mobile?: string;
+  emergencyContact?: string;
   phone?: string;
   address?: string;
+  addressGu?: string;
+  aadhaarNumber?: string;
+  designation?: string;
+  joiningDate?: string;
+  photoDataUrl?: string;
   isActive: boolean;
   bankDetails?: {
     accountNo?: string;
@@ -143,8 +156,25 @@ export interface IWorker {
 
 export const workerSchema = z.object({
   name: z.string().min(1, "Name required"),
+  nameGu: z.string().optional(),
+  fatherOrHusbandName: z.string().optional(),
+  fatherOrHusbandNameGu: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  gender: z.enum(["male", "female", "other"]).optional(),
+  bloodGroup: z.string().optional(),
+  mobile: z.string().optional(),
+  emergencyContact: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
+  addressGu: z.string().optional(),
+  aadhaarNumber: z
+    .string()
+    .regex(/^\d{4}\s\d{4}\s\d{4}$/, "Aadhaar must be in XXXX XXXX XXXX format")
+    .optional()
+    .or(z.literal("")),
+  designation: z.string().optional(),
+  joiningDate: z.string().optional(),
+  photoDataUrl: z.string().optional(),
   isActive: z.boolean().default(true),
   bankDetails: z
     .object({
@@ -155,6 +185,20 @@ export const workerSchema = z.object({
     .optional(),
 });
 export type WorkerInput = z.infer<typeof workerSchema>;
+
+export interface IRawMaterialCategory {
+  _id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const rawMaterialCategorySchema = z.object({
+  name: z.string().min(1, "Category name required"),
+  isActive: z.boolean().default(true),
+});
+export type RawMaterialCategoryInput = z.infer<typeof rawMaterialCategorySchema>;
 
 // ─── Work Order schemas ───────────────────────────────────────────────────────
 

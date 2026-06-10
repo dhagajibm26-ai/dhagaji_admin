@@ -13,7 +13,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
 
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         {label && (
           <label
             htmlFor={inputId}
@@ -28,7 +28,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              "w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-10 text-sm text-slate-900",
+              "h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 pr-11 text-sm text-slate-900",
               "shadow-sm transition-all duration-150",
               "focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]",
               "disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60",

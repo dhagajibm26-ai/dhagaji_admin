@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Package,
+  Shapes,
   HardHat,
+  Clock3,
   Receipt,
   BarChart3,
   MoreHorizontal,
@@ -27,8 +29,10 @@ const PRIMARY_TABS = [
 const MORE_ITEMS = [
   { href: "/", label: "Dashboard", Icon: LayoutDashboard, ownerOnly: true },
   { href: "/raw-material", label: "Raw Material", Icon: Package },
+  { href: "/work-orders", label: "Work Flow", Icon: Clock3 },
   { href: "/bangles", label: "Bangles", Icon: Circle },
   { href: "/threads", label: "Threads", Icon: Layers },
+  { href: "/material-categories", label: "Material Categories", Icon: Shapes, ownerOnly: true },
 ];
 
 export function MobileNav() {
