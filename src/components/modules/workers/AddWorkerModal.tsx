@@ -54,6 +54,8 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
     watch,
     formState: { errors },
   } = useForm<z.input<typeof workerSchema>, unknown, WorkerInput>({
+    mode: "onChange",
+    reValidateMode: "onChange",
     resolver: zodResolver(workerSchema),
     defaultValues: worker
       ? {
@@ -343,18 +345,18 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
           </label>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Name (English)" required {...register("name")} error={errors.name?.message} />
-            <Input label="નામ (Gujarati)" readOnly={!allowGujaratiEdit} {...register("nameGu")} />
+            <Input label="Name (English)" required autoComplete="off" {...register("name")} error={errors.name?.message} />
+            <Input label="નામ (Gujarati)" readOnly={!allowGujaratiEdit} autoComplete="off" {...register("nameGu")} />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Father/Husband (English)" {...register("fatherOrHusbandName")} />
-            <Input label="પિતા/પતિનું નામ" readOnly={!allowGujaratiEdit} {...register("fatherOrHusbandNameGu")} />
+            <Input label="Father/Husband (English)" autoComplete="off" {...register("fatherOrHusbandName")} />
+            <Input label="પિતા/પતિનું નામ" readOnly={!allowGujaratiEdit} autoComplete="off" {...register("fatherOrHusbandNameGu")} />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Address (English)" {...register("address")} error={errors.address?.message} />
-            <Input label="સરનામું (Gujarati)" readOnly={!allowGujaratiEdit} {...register("addressGu")} />
+            <Input label="Address (English)" autoComplete="off" {...register("address")} error={errors.address?.message} />
+            <Input label="સરનામું (Gujarati)" readOnly={!allowGujaratiEdit} autoComplete="off" {...register("addressGu")} />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -383,19 +385,20 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Input label="Mobile" {...register("mobile")} />
-            <Input label="Emergency Contact" {...register("emergencyContact")} />
+            <Input label="Mobile" autoComplete="off" {...register("mobile")} />
+            <Input label="Emergency Contact" autoComplete="off" {...register("emergencyContact")} />
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input
               label="Aadhaar Number"
               placeholder="XXXX XXXX XXXX"
+              autoComplete="off"
               value={aadhaarNumber}
               onChange={(e) => setValue("aadhaarNumber", formatAadhaar(e.target.value), { shouldDirty: true })}
               error={errors.aadhaarNumber?.message}
             />
-            <Input label="Designation / Work Type" {...register("designation")} />
+            <Input label="Designation / Work Type" autoComplete="off" {...register("designation")} />
           </div>
 
           <label className="flex items-center gap-2 text-sm text-[#1A1A1A] cursor-pointer select-none">

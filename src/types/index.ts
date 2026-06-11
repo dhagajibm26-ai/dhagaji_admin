@@ -85,8 +85,8 @@ export interface IBanglesStock {
 export const banglesStockSchema = z.object({
   size: z.string().min(1, "Size required"),
   cutType: z.enum(["C1", "C2", "C4", "C6"]),
-  quantityAdd: z.number().min(0),
-  pricePerPiece: z.number().min(0),
+  quantityAdd: z.number().min(0, "Quantity must be 0 or more"),
+  pricePerPiece: z.number().min(0, "Price must be 0 or more"),
   netUsed: z.number().min(0).default(0),
 });
 export type BanglesStockInput = z.infer<typeof banglesStockSchema>;
@@ -117,7 +117,7 @@ export const threadsStockSchema = z.object({
   stockAdd: z.number().min(0).default(0),
   openingStock: z.number().min(0).default(0),
   netUsed: z.number().min(0).default(0),
-  costPerUnit: z.number().min(0),
+  costPerUnit: z.number().min(0, "Cost must be 0 or more"),
 });
 export type ThreadsStockInput = z.infer<typeof threadsStockSchema>;
 

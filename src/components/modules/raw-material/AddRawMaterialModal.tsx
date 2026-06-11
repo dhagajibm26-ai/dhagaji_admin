@@ -39,6 +39,8 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     watch,
     formState: { errors, isSubmitting },
   } = useForm<RawMaterialFormInput, unknown, RawMaterialInput>({
+    mode: "onChange",
+    reValidateMode: "onChange",
     resolver: zodResolver(rawMaterialSchema),
     defaultValues: {
       openingStock: 0,
@@ -193,6 +195,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
             placeholder="e.g. Red Glass Beads"
             required
             error={errors.itemName?.message}
+            autoComplete="off"
             {...register("itemName")}
           />
           <Input
@@ -200,6 +203,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
             placeholder="e.g. Dark Red, 4mm, No.12"
             hint="Aa box ma tame manually kai pan lakhine sub-category set kari shako"
             error={errors.colorType?.message}
+            autoComplete="off"
             {...register("colorType")}
           />
         </div>

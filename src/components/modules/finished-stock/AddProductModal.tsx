@@ -63,6 +63,8 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
     control,
     formState: { errors },
   } = useForm<FormInput, unknown, FormOutput>({
+    mode: "onChange",
+    reValidateMode: "onChange",
     resolver: zodResolver(schema),
     defaultValues: product
       ? {
@@ -172,6 +174,7 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
               required
               placeholder="e.g. DC-001"
               error={errors.designCode?.message}
+              autoComplete="off"
               {...register("designCode")}
             />
           </div>
@@ -181,6 +184,7 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
               required
               placeholder="e.g. Red Bangle Set"
               error={errors.designName?.message}
+              autoComplete="off"
               {...register("designName")}
             />
           </div>
@@ -190,6 +194,7 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
               required
               placeholder="e.g. 2.4, S/M/L"
               error={errors.size?.message}
+              autoComplete="off"
               {...register("size")}
             />
           </div>

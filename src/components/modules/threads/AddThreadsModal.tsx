@@ -72,6 +72,19 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
   }, [isOpen, item, reset]);
 
   const onSubmit = (data: ThreadsStockInput) => {
+    // Validate all required fields are actually provided
+    const validation = {
+      threadCode: !data.threadCode?.trim(),
+      threadColour: !data.threadColour?.trim(),
+      threadCompanyName: !data.threadCompanyName?.trim(),
+      costPerUnit: data.costPerUnit == null || isNaN(data.costPerUnit),
+    };
+
+    const hasErrors = Object.values(validation).some(v => v);
+    if (hasErrors) {
+      return; // RHF will show validation errors
+    }
+
     if (item) {
       patchMutation.mutate(
         {

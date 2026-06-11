@@ -73,6 +73,18 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
   }, [isOpen, item, reset]);
 
   const onSubmit = (data: BanglesStockInput) => {
+    // Validate all required fields are actually provided
+    const validation = {
+      size: !data.size?.trim(),
+      quantityAdd: data.quantityAdd == null || isNaN(data.quantityAdd),
+      pricePerPiece: data.pricePerPiece == null || isNaN(data.pricePerPiece),
+    };
+
+    const hasErrors = Object.values(validation).some(v => v);
+    if (hasErrors) {
+      return; // RHF will show validation errors
+    }
+
     if (item) {
       patchMutation.mutate(
         {
@@ -81,6 +93,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
           cutType: data.cutType,
           quantityAdd: data.quantityAdd,
           pricePerPiece: data.pricePerPiece,
+          netUsed: data.netUsed,
         },
         { onSuccess: () => onClose() }
       );
