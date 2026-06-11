@@ -19,6 +19,7 @@ interface AddBanglesModalProps {
 }
 
 export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps) {
+  "use no memo";
   const addMutation = useAddBangles();
   const patchMutation = usePatchBangles();
   const isEdit = !!item;

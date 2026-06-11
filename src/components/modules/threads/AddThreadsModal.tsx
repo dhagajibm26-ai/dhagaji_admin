@@ -16,6 +16,7 @@ interface AddThreadsModalProps {
 }
 
 export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps) {
+  "use no memo";
   const addMutation = useAddThread();
   const patchMutation = usePatchThread();
   const isEdit = !!item;

@@ -40,6 +40,7 @@ interface AddWorkerModalProps {
 }
 
 export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps) {
+  "use no memo";
   const isEdit = !!worker;
   const createWorker = useCreateWorker();
   const updateWorker = useUpdateWorker();

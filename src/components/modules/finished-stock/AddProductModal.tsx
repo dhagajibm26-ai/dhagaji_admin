@@ -50,6 +50,7 @@ interface AddProductModalProps {
 }
 
 export function AddProductModal({ isOpen, onClose, product }: AddProductModalProps) {
+  "use no memo";
   const isEdit = !!product;
   const create = useCreateFinishedProduct();
   const update = useUpdateFinishedProduct();

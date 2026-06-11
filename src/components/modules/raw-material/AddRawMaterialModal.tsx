@@ -25,6 +25,7 @@ interface AddRawMaterialModalProps {
 }
 
 export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialModalProps) {
+  "use no memo";
   const addMutation = useAddRawMaterial();
   const patchMutation = usePatchRawMaterial();
   const { data: categories = [] } = useMaterialCategories();

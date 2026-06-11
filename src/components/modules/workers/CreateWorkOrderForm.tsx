@@ -233,13 +233,20 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   }
 
   const sortedRawMaterials = useMemo(() => {
-    return [...rawMaterials].sort((a, b) => {
-      const catCmp = (a.category ?? "").localeCompare(b.category ?? "");
-      if (catCmp !== 0) return catCmp;
-      if (a.closingStock > 0 && b.closingStock <= 0) return -1;
-      if (a.closingStock <= 0 && b.closingStock > 0) return 1;
-      return a.itemName.localeCompare(b.itemName);
-    });
+    return [...rawMaterials]
+      .filter((m) => {
+        const cat = (m.category ?? "").toLowerCase();
+        const name = (m.itemName ?? "").toLowerCase();
+        // Exclude bangle-type items — those are managed in the Bangles section
+        return !cat.includes("bangle") && !name.includes("bangle");
+      })
+      .sort((a, b) => {
+        const catCmp = (a.category ?? "").localeCompare(b.category ?? "");
+        if (catCmp !== 0) return catCmp;
+        if (a.closingStock > 0 && b.closingStock <= 0) return -1;
+        if (a.closingStock <= 0 && b.closingStock > 0) return 1;
+        return a.itemName.localeCompare(b.itemName);
+      });
   }, [rawMaterials]);
 
   // Group raw materials by category for <optgroup>
@@ -529,12 +536,12 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
         )}
       </div>
 
-      {/* ── TOOLS & CONSUMABLES ─────────────────────────────── */}
+      {/* ── RAW MATERIALS ─────────────────────────────── */}
       <div className="rounded-xl border border-orange-100 bg-orange-50/30 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-orange-500 shrink-0" />
-          <p className="text-sm font-bold text-slate-800">Tools & Consumables</p>
-          <span className="text-xs text-slate-400">(Glue, Cutter, any raw material)</span>
+          <p className="text-sm font-bold text-slate-800">Raw Materials</p>
+          <span className="text-xs text-slate-400">(Glue, Cutter, and other materials)</span>
           {toolQueued.length > 0 && (
             <span className="ml-auto rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
               {toolQueued.length} added
