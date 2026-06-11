@@ -3,15 +3,12 @@
 import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { useAddBangles, usePatchBangles } from "@/hooks/useBangles";
-import { banglesStockSchema, type BanglesStockInput, type IBanglesStock } from "@/types";
-
-type BanglesFormInput = z.input<typeof banglesStockSchema>;
+import { banglesStockSchema, type IBanglesStock } from "@/types";
 
 const PETA_MAP = { C1: 12, C2: 24, C4: 48, C6: 72 } as const;
 
@@ -32,63 +29,42 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
     reset,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<BanglesFormInput, unknown, BanglesStockInput>({
+  } = useForm({
     resolver: zodResolver(banglesStockSchema),
-    mode: "onBlur",
-    reValidateMode: "onChange",
-    shouldFocusError: false,
+    mode: "onChange",
+    reValidateMode: "onBlur",
     defaultValues: {
       size: "",
       cutType: "C1",
       quantityAdd: 0,
       pricePerPiece: 0,
-      netUsed: 0,
     },
   });
 
-  // Watch cutType to auto-show peta
   const cutType = useWatch({ control, name: "cutType" }) as keyof typeof PETA_MAP | undefined;
   const peta = cutType && cutType in PETA_MAP ? PETA_MAP[cutType as keyof typeof PETA_MAP] : null;
 
   useEffect(() => {
-    if (!isOpen) {
-      reset();
-      return;
-    }
-
+    if (!isOpen) return;
+    
     if (item) {
       reset({
         size: item.size,
         cutType: item.cutType,
         quantityAdd: item.quantityAdd,
         pricePerPiece: item.pricePerPiece,
-        netUsed: item.netUsed,
       });
-      return;
+    } else {
+      reset({
+        size: "",
+        cutType: "C1",
+        quantityAdd: 0,
+        pricePerPiece: 0,
+      });
     }
-
-    reset({
-      netUsed: 0,
-      cutType: "C1",
-      quantityAdd: 0,
-      pricePerPiece: 0,
-      size: "",
-    });
   }, [isOpen, item, reset]);
 
-  const onSubmit = (data: BanglesStockInput) => {
-    // Validate all required fields are actually provided
-    const validation = {
-      size: !data.size?.trim(),
-      quantityAdd: data.quantityAdd == null || isNaN(data.quantityAdd),
-      pricePerPiece: data.pricePerPiece == null || isNaN(data.pricePerPiece),
-    };
-
-    const hasErrors = Object.values(validation).some(v => v);
-    if (hasErrors) {
-      return; // RHF will show validation errors
-    }
-
+  const onSubmit = (data: any) => {
     if (item) {
       patchMutation.mutate(
         {
@@ -97,36 +73,15 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
           cutType: data.cutType,
           quantityAdd: data.quantityAdd,
           pricePerPiece: data.pricePerPiece,
-          netUsed: data.netUsed,
         },
         { onSuccess: () => onClose() }
       );
-      return;
+    } else {
+      addMutation.mutate(data, { onSuccess: () => onClose() });
     }
-
-    addMutation.mutate(data, { onSuccess: () => onClose() });
   };
 
   const isMutating = isSubmitting || addMutation.isPending || patchMutation.isPending;
-
-  const footer = (
-    <>
-      <Button
-        variant="ghost"
-        onClick={onClose}
-        disabled={isMutating}
-      >
-        Cancel
-      </Button>
-      <Button
-        type="submit"
-        form="add-bangles-form"
-        isLoading={isMutating}
-      >
-        {isEdit ? "Update Bangles" : "Add Bangles"}
-      </Button>
-    </>
-  );
 
   return (
     <Modal
@@ -134,27 +89,33 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
       onClose={onClose}
       title={isEdit ? "Edit Bangles Stock" : "Add Bangles Stock"}
       size="md"
-      footer={footer}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={isMutating}>
+            Cancel
+          </Button>
+          <Button type="submit" form="bangles-form" isLoading={isMutating}>
+            {isEdit ? "Update Bangles" : "Add Bangles"}
+          </Button>
+        </>
+      }
     >
       <form
-        id="add-bangles-form"
+        id="bangles-form"
         onSubmit={handleSubmit(onSubmit)}
         autoComplete="off"
         noValidate
         className="space-y-4"
       >
-        {/* Row 1: Size + Cut Type */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Size (diameter)"
-            placeholder='e.g. 2.4, 2.6, 2.8'
+            placeholder="e.g. 2.4"
             required
             autoComplete="off"
             error={errors.size?.message}
             {...register("size")}
           />
-
-          {/* Cut Type dropdown */}
           <div className="flex flex-col gap-1.5">
             <Select
               label="Cut Type"
@@ -167,7 +128,6 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
               <option value="C4">C4</option>
               <option value="C6">C6</option>
             </Select>
-            {/* Auto peta hint */}
             {peta !== null && (
               <p className="text-xs text-slate-400">
                 Peta: <span className="font-semibold text-slate-700">{peta} pieces/set</span>
@@ -176,7 +136,6 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
           </div>
         </div>
 
-        {/* Row 2: Quantity + Price per piece */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Quantity Added (sets)"

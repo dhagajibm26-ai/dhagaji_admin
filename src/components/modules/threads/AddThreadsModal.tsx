@@ -3,14 +3,11 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { useAddThread, usePatchThread } from "@/hooks/useThreads";
-import { threadsStockSchema, type ThreadsStockInput, type IThreadsStock } from "@/types";
-
-type ThreadsFormInput = z.input<typeof threadsStockSchema>;
+import { threadsStockSchema, type IThreadsStock } from "@/types";
 
 interface AddThreadsModalProps {
   isOpen: boolean;
@@ -28,11 +25,10 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<ThreadsFormInput, unknown, ThreadsStockInput>({
+  } = useForm({
     resolver: zodResolver(threadsStockSchema),
-    mode: "onBlur",
-    reValidateMode: "onChange",
-    shouldFocusError: false,
+    mode: "onChange",
+    reValidateMode: "onBlur",
     defaultValues: {
       threadCode: "",
       threadColour: "",
@@ -46,11 +42,8 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
   });
 
   useEffect(() => {
-    if (!isOpen) {
-      reset();
-      return;
-    }
-
+    if (!isOpen) return;
+    
     if (item) {
       reset({
         threadCode: item.threadCode,
@@ -62,35 +55,21 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
         netUsed: item.netUsed,
         costPerUnit: item.costPerUnit,
       });
-      return;
+    } else {
+      reset({
+        threadCode: "",
+        threadColour: "",
+        threadCompanyName: "",
+        weightPerUnit: 0,
+        stockAdd: 0,
+        openingStock: 0,
+        netUsed: 0,
+        costPerUnit: 0,
+      });
     }
-
-    reset({
-      threadCode: "",
-      threadColour: "",
-      threadCompanyName: "",
-      weightPerUnit: 0,
-      openingStock: 0,
-      stockAdd: 0,
-      netUsed: 0,
-      costPerUnit: 0,
-    });
   }, [isOpen, item, reset]);
 
-  const onSubmit = (data: ThreadsStockInput) => {
-    // Validate all required fields are actually provided
-    const validation = {
-      threadCode: !data.threadCode?.trim(),
-      threadColour: !data.threadColour?.trim(),
-      threadCompanyName: !data.threadCompanyName?.trim(),
-      costPerUnit: data.costPerUnit == null || isNaN(data.costPerUnit),
-    };
-
-    const hasErrors = Object.values(validation).some(v => v);
-    if (hasErrors) {
-      return; // RHF will show validation errors
-    }
-
+  const onSubmit = (data: any) => {
     if (item) {
       patchMutation.mutate(
         {
@@ -106,32 +85,12 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
         },
         { onSuccess: () => onClose() }
       );
-      return;
+    } else {
+      addMutation.mutate(data, { onSuccess: () => onClose() });
     }
-
-    addMutation.mutate(data, { onSuccess: () => onClose() });
   };
 
   const isMutating = isSubmitting || addMutation.isPending || patchMutation.isPending;
-
-  const footer = (
-    <>
-      <Button
-        variant="ghost"
-        onClick={onClose}
-        disabled={isMutating}
-      >
-        Cancel
-      </Button>
-      <Button
-        type="submit"
-        form="add-threads-form"
-        isLoading={isMutating}
-      >
-        {isEdit ? "Update Thread" : "Add Thread"}
-      </Button>
-    </>
-  );
 
   return (
     <Modal
@@ -139,20 +98,28 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
       onClose={onClose}
       title={isEdit ? "Edit Thread Stock" : "Add Thread Stock"}
       size="lg"
-      footer={footer}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={isMutating}>
+            Cancel
+          </Button>
+          <Button type="submit" form="thread-form" isLoading={isMutating}>
+            {isEdit ? "Update Thread" : "Add Thread"}
+          </Button>
+        </>
+      }
     >
       <form
-        id="add-threads-form"
+        id="thread-form"
         onSubmit={handleSubmit(onSubmit)}
         autoComplete="off"
         noValidate
         className="space-y-4"
       >
-        {/* Row 1: Thread Code + Colour */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Thread Code"
-            placeholder="e.g. T001, RED-01"
+            placeholder="e.g. T001"
             required
             autoComplete="off"
             error={errors.threadCode?.message}
@@ -160,7 +127,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
           />
           <Input
             label="Thread Colour"
-            placeholder="e.g. Red, Navy Blue"
+            placeholder="e.g. Red"
             required
             autoComplete="off"
             error={errors.threadColour?.message}
@@ -168,11 +135,10 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
           />
         </div>
 
-        {/* Row 2: Company + Weight per unit */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Company Name"
-            placeholder="e.g. Krishna Threads Co."
+            placeholder="e.g. Krishna Threads"
             required
             autoComplete="off"
             error={errors.threadCompanyName?.message}
@@ -184,13 +150,11 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
             min="0"
             step="any"
             placeholder="0"
-            required
             error={errors.weightPerUnit?.message}
             {...register("weightPerUnit", { valueAsNumber: true })}
           />
         </div>
 
-        {/* Row 3: Opening stock + Stock Add */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Opening Stock (g)"
@@ -214,7 +178,6 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
           />
         </div>
 
-        {/* Row 4: Cost per unit */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Cost per Unit (₹/g)"
