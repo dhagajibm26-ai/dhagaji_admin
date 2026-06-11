@@ -39,14 +39,22 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     watch,
     formState: { errors, isSubmitting },
   } = useForm<RawMaterialFormInput, unknown, RawMaterialInput>({
-    mode: "onChange",
+    mode: "onBlur",
     reValidateMode: "onChange",
+    shouldFocusError: false,
     resolver: zodResolver(rawMaterialSchema),
     defaultValues: {
+      itemName: "",
+      colorType: "",
+      category: "",
+      unit: "pcs",
       openingStock: 0,
       purchasedQty: 0,
       usedQty: 0,
+      ratePerUnit: 0,
       lowStockThreshold: 10,
+      supplier: "",
+      lastPurchaseDate: undefined,
     },
   });
 

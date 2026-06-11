@@ -54,8 +54,9 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
     watch,
     formState: { errors },
   } = useForm<z.input<typeof workerSchema>, unknown, WorkerInput>({
-    mode: "onChange",
+    mode: "onBlur",
     reValidateMode: "onChange",
+    shouldFocusError: false,
     resolver: zodResolver(workerSchema),
     defaultValues: worker
       ? {

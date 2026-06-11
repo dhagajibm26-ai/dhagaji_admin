@@ -63,8 +63,9 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
     control,
     formState: { errors },
   } = useForm<FormInput, unknown, FormOutput>({
-    mode: "onChange",
+    mode: "onBlur",
     reValidateMode: "onChange",
+    shouldFocusError: false,
     resolver: zodResolver(schema),
     defaultValues: product
       ? {

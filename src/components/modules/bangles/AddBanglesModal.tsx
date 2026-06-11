@@ -34,11 +34,15 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
     formState: { errors, isSubmitting },
   } = useForm<BanglesFormInput, unknown, BanglesStockInput>({
     resolver: zodResolver(banglesStockSchema),
-    mode: "onChange",
+    mode: "onBlur",
     reValidateMode: "onChange",
+    shouldFocusError: false,
     defaultValues: {
-      netUsed: 0,
+      size: "",
       cutType: "C1",
+      quantityAdd: 0,
+      pricePerPiece: 0,
+      netUsed: 0,
     },
   });
 

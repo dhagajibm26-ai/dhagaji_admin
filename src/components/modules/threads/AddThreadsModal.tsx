@@ -30,12 +30,18 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
     formState: { errors, isSubmitting },
   } = useForm<ThreadsFormInput, unknown, ThreadsStockInput>({
     resolver: zodResolver(threadsStockSchema),
-    mode: "onChange",
+    mode: "onBlur",
     reValidateMode: "onChange",
+    shouldFocusError: false,
     defaultValues: {
+      threadCode: "",
+      threadColour: "",
+      threadCompanyName: "",
+      weightPerUnit: 0,
       stockAdd: 0,
       openingStock: 0,
       netUsed: 0,
+      costPerUnit: 0,
     },
   });
 
