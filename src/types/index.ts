@@ -83,7 +83,7 @@ export interface IBanglesStock {
 }
 
 export const banglesStockSchema = z.object({
-  size: z.string().min(1, "Size required"),
+  size: z.string().min(1, "Bangle size is required (e.g. 2.4 or 2,4)"),
   cutType: z.enum(["C1", "C2", "C4", "C6"]),
   quantityAdd: z.number().min(0, "Quantity must be 0 or more"),
   pricePerPiece: z.number().min(0, "Price must be 0 or more"),

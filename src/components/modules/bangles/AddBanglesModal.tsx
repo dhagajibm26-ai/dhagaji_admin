@@ -110,8 +110,9 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label="Size (diameter)"
+            label="Bangle Size (diameter in cm)"
             placeholder="e.g. 2.4"
+            hint="Enter diameter like 2.4 or 2,4"
             required
             autoComplete="off"
             error={errors.size?.message}
