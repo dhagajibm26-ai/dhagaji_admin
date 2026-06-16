@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
+import { softDeleteById, ACTIVE_FILTER } from "@/lib/softDelete";
 import { RawMaterialCategory } from "@/models/RawMaterialCategory";
 import { rawMaterialCategorySchema } from "@/types";
 import type { ApiResponse } from "@/types";
@@ -28,7 +29,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     await connectDB();
 
     const doc = await RawMaterialCategory.findOneAndUpdate(
-      { _id: id, isDeleted: { $ne: true } },
+      { _id: id, ...ACTIVE_FILTER },
       {
         $set: {
           ...(parsed.data.name ? { name: parsed.data.name.trim() } : {}),
@@ -58,11 +59,7 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     const { id } = await params;
     await connectDB();
 
-    const doc = await RawMaterialCategory.findOneAndUpdate(
-      { _id: id, isDeleted: { $ne: true } },
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
+    const doc = await softDeleteById(RawMaterialCategory, id);
 
     if (!doc) {
       return NextResponse.json<ApiResponse>({ success: false, error: "Category not found" }, { status: 404 });

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useWorkOrders, useReturnWorkOrder } from "@/hooks/useWorkOrders";
 import { useFinishedStock } from "@/hooks/useFinishedStock";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import type { CutType } from "@/types";
+import { FINISHED_PRODUCT_CATEGORIES, type CutType } from "@/types";
 
 interface ReturnMaterialFormProps {
   isOpen: boolean;
@@ -16,13 +16,16 @@ interface ReturnMaterialFormProps {
   preSelectedOrderId?: string;
 }
 
+type FinishedMode = "none" | "existing" | "new";
+
 interface ReturnState {
   workOrderId: string;
+  finishedMode: FinishedMode;
   finishedProductId: string;
-  banglesReturned: Array<{ cutType: CutType; cuts: number; pieces: number }>;
+  newCategory: string;
+  newDesignName: string;
+  newSize: string;
   threadsReturned: number;
-  glueReturned: number;
-  cutterReturned: number;
   finishedPieces: number;
   qualityOK: number;
   damageNotes: string;
@@ -30,11 +33,12 @@ interface ReturnState {
 
 const empty: ReturnState = {
   workOrderId: "",
+  finishedMode: "new",
   finishedProductId: "",
-  banglesReturned: [],
+  newCategory: "Bangle",
+  newDesignName: "",
+  newSize: "",
   threadsReturned: 0,
-  glueReturned: 0,
-  cutterReturned: 0,
   finishedPieces: 0,
   qualityOK: 0,
   damageNotes: "",
@@ -47,12 +51,11 @@ export function ReturnMaterialForm({
   preSelectedOrderId,
 }: ReturnMaterialFormProps) {
   const [state, setState] = useState<ReturnState>(empty);
-  const [banglesReturnEntry, setBanglesReturnEntry] = useState({
-    cutType: "C1" as CutType,
-    cuts: "",
-    pieces: "",
-  });
-  const [qualityError, setQualityError] = useState("");
+  // Returned pieces per issued bangle line (keyed by index in banglesGiven)
+  const [bangleReturns, setBangleReturns] = useState<Record<number, string>>({});
+  // Returned qty per issued raw material (keyed by rawMaterialId)
+  const [rawReturns, setRawReturns] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
 
   const returnMutation = useReturnWorkOrder();
   const { data: finishedProducts = [] } = useFinishedStock();
@@ -65,11 +68,13 @@ export function ReturnMaterialForm({
   const selectedOrderId = state.workOrderId || preSelectedOrderId || "";
   const selectedOrder = openOrders.find((o) => o._id === selectedOrderId);
 
-  // Derive dynamic units from the selected order's raw materials
-  const glueUnit =
-    selectedOrder?.rawMaterialsGiven?.find((r) => r.kind === "glue")?.unit ?? "units";
-  const cutterUnit =
-    selectedOrder?.rawMaterialsGiven?.find((r) => r.kind === "cutter")?.unit ?? "pcs";
+  const threadGivenTotal = useMemo(() => {
+    if (!selectedOrder) return 0;
+    const items = selectedOrder.threadItemsGiven ?? [];
+    return items.length > 0
+      ? items.reduce((s, t) => s + t.grams, 0)
+      : selectedOrder.threadsGiven;
+  }, [selectedOrder]);
 
   // Wage calculations
   const rejected = Math.max(0, state.finishedPieces - state.qualityOK);
@@ -78,60 +83,93 @@ export function ReturnMaterialForm({
   const rejectionDeduction = rejected * perPieceRate * 0.5;
   const netEarnings = Math.max(0, okEarnings - rejectionDeduction);
 
-  function addBangleReturn() {
-    if (!banglesReturnEntry.cuts || !banglesReturnEntry.pieces) return;
-    setState((s) => ({
-      ...s,
-      banglesReturned: [
-        ...s.banglesReturned,
-        {
-          cutType: banglesReturnEntry.cutType,
-          cuts: parseFloat(banglesReturnEntry.cuts),
-          pieces: parseFloat(banglesReturnEntry.pieces),
-        },
-      ],
-    }));
-    setBanglesReturnEntry((p) => ({ ...p, cuts: "", pieces: "" }));
-  }
-
-  function removeBangleReturn(i: number) {
-    setState((s) => ({
-      ...s,
-      banglesReturned: s.banglesReturned.filter((_, idx) => idx !== i),
-    }));
+  function resetOrderInputs(workOrderId: string) {
+    setState({ ...empty, workOrderId });
+    setBangleReturns({});
+    setRawReturns({});
+    setError("");
   }
 
   function handleClose() {
     setState(empty);
-    setQualityError("");
+    setBangleReturns({});
+    setRawReturns({});
+    setError("");
     onClose();
   }
 
   function handleSubmit() {
-    if (!selectedOrderId) return;
+    if (!selectedOrder) return;
     if (state.qualityOK > state.finishedPieces) {
-      setQualityError("Quality OK pieces cannot exceed total finished pieces");
+      setError("Quality OK pieces cannot exceed total finished pieces");
       return;
     }
-    setQualityError("");
 
-    const otherReturned: Array<{ name: string; qty: number }> = [];
-    if (state.cutterReturned > 0) {
-      otherReturned.push({ name: "Cutter", qty: state.cutterReturned });
+    // Build per-line bangle returns from the issued lines
+    const banglesReturned = (selectedOrder.banglesGiven ?? [])
+      .map((g, idx) => {
+        const pieces = parseFloat(bangleReturns[idx] || "0");
+        if (!pieces || pieces <= 0) return null;
+        const peta = g.pieces > 0 && g.cuts > 0 ? g.pieces / g.cuts : 1;
+        return {
+          banglesStockId: g.banglesStockId,
+          size: g.size,
+          cutType: g.cutType,
+          cuts: Number((pieces / (peta || 1)).toFixed(2)),
+          pieces,
+        };
+      })
+      .filter((b): b is NonNullable<typeof b> => b !== null);
+
+    // Build per-line raw material returns
+    const rawMaterialsReturned = (selectedOrder.rawMaterialsGiven ?? [])
+      .map((r) => {
+        const qty = parseFloat(rawReturns[r.rawMaterialId] || "0");
+        if (!qty || qty <= 0) return null;
+        return { rawMaterialId: r.rawMaterialId, itemName: r.itemName, qty };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    // Finished stock integration
+    let finishedProductId: string | undefined;
+    let newFinishedProduct:
+      | { category: string; designName: string; size: string }
+      | undefined;
+
+    if (state.qualityOK > 0 && state.finishedMode === "existing") {
+      if (!state.finishedProductId) {
+        setError("Select a finished product, or switch to 'Create new'");
+        return;
+      }
+      finishedProductId = state.finishedProductId;
+    } else if (state.qualityOK > 0 && state.finishedMode === "new") {
+      if (!state.newDesignName.trim() || !state.newSize.trim()) {
+        setError("Enter a design name and size for the new finished product");
+        return;
+      }
+      newFinishedProduct = {
+        category: state.newCategory,
+        designName: state.newDesignName.trim(),
+        size: state.newSize.trim(),
+      };
     }
+
+    setError("");
 
     returnMutation.mutate(
       {
-        id: selectedOrderId,
+        id: selectedOrder._id,
         data: {
-          banglesReturned: state.banglesReturned,
+          banglesReturned,
+          rawMaterialsReturned,
           threadsReturned: state.threadsReturned,
-          glueReturned: state.glueReturned,
-          cutterReturned: state.cutterReturned,
-          otherReturned,
+          glueReturned: 0,
+          cutterReturned: 0,
+          otherReturned: [],
           finishedPieces: state.finishedPieces,
           qualityOK: state.qualityOK,
-          finishedProductId: state.finishedProductId || undefined,
+          finishedProductId,
+          newFinishedProduct,
           damageNotes: state.damageNotes || undefined,
         },
       },
@@ -159,7 +197,7 @@ export function ReturnMaterialForm({
             variant="primary"
             size="sm"
             isLoading={returnMutation.isPending}
-            disabled={!selectedOrderId || state.finishedPieces === 0}
+            disabled={!selectedOrder || state.finishedPieces === 0}
             onClick={handleSubmit}
           >
             Save Return
@@ -172,7 +210,7 @@ export function ReturnMaterialForm({
           label="Open Work Order"
           required
           value={selectedOrderId}
-          onChange={(e) => setState({ ...empty, workOrderId: e.target.value })}
+          onChange={(e) => resetOrderInputs(e.target.value)}
         >
           <option value="">Select work order...</option>
           {openOrders.map((o) => {
@@ -191,72 +229,6 @@ export function ReturnMaterialForm({
 
         {selectedOrder && (
           <>
-            {/* Issued materials summary */}
-            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs space-y-1">
-              <p className="font-bold text-amber-800 mb-1.5">Materials Issued to Worker:</p>
-
-              {/* Bangles per cut type */}
-              {selectedOrder.banglesGiven.map((b, i) => (
-                <div key={i} className="flex justify-between text-amber-700">
-                  <span>Bangles {b.cutType}:</span>
-                  <span className="font-semibold">{b.pieces.toLocaleString("en-IN")} pcs</span>
-                </div>
-              ))}
-
-              {/* Threads per item (detail view) */}
-              {(selectedOrder.threadItemsGiven ?? []).length > 0
-                ? (selectedOrder.threadItemsGiven ?? []).map((t, i) => (
-                    <div key={i} className="flex justify-between text-amber-700">
-                      <span>Thread: {t.threadCode} ({t.threadColour})</span>
-                      <span className="font-semibold">{t.grams} g</span>
-                    </div>
-                  ))
-                : selectedOrder.threadsGiven > 0 && (
-                    <div className="flex justify-between text-amber-700">
-                      <span>Thread:</span>
-                      <span className="font-semibold">{selectedOrder.threadsGiven} g</span>
-                    </div>
-                  )}
-
-              {/* Raw materials per item (detail view) */}
-              {(selectedOrder.rawMaterialsGiven ?? []).length > 0
-                ? (selectedOrder.rawMaterialsGiven ?? []).map((r, i) => (
-                    <div key={i} className="flex justify-between text-amber-700">
-                      <span>{r.itemName}:</span>
-                      <span className="font-semibold">
-                        {r.qty} {r.unit ?? "units"}
-                      </span>
-                    </div>
-                  ))
-                : (
-                    <>
-                      {selectedOrder.glueGiven > 0 && (
-                        <div className="flex justify-between text-amber-700">
-                          <span>Glue:</span>
-                          <span className="font-semibold">{selectedOrder.glueGiven} {glueUnit}</span>
-                        </div>
-                      )}
-                      {(selectedOrder.cutterGiven ?? 0) > 0 && (
-                        <div className="flex justify-between text-amber-700">
-                          <span>Cutter:</span>
-                          <span className="font-semibold">{selectedOrder.cutterGiven} {cutterUnit}</span>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-              {selectedOrder.otherMaterialGiven.map((m, i) => (
-                <div key={i} className="flex justify-between text-amber-700">
-                  <span>{m.name}:</span>
-                  <span className="font-semibold">{m.qty}</span>
-                </div>
-              ))}
-              <div className="flex justify-between text-amber-700 border-t border-amber-200 pt-1 mt-1">
-                <span>Rate per piece:</span>
-                <span className="font-bold">₹{selectedOrder.perPieceRate}</span>
-              </div>
-            </div>
-
             {/* Production count */}
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
@@ -277,46 +249,24 @@ export function ReturnMaterialForm({
                     }))
                   }
                 />
-                <div className="space-y-1">
-                  <Input
-                    label="Quality OK Pieces"
-                    type="number"
-                    required
-                    min={0}
-                    max={state.finishedPieces || undefined}
-                    placeholder="Good pieces"
-                    value={state.qualityOK || ""}
-                    onChange={(e) => {
-                      setState((s) => ({
-                        ...s,
-                        qualityOK: parseFloat(e.target.value) || 0,
-                      }));
-                      setQualityError("");
-                    }}
-                  />
-                  {qualityError && (
-                    <p className="text-xs text-rose-600 font-medium">{qualityError}</p>
-                  )}
-                </div>
+                <Input
+                  label="Quality OK Pieces"
+                  type="number"
+                  required
+                  min={0}
+                  max={state.finishedPieces || undefined}
+                  placeholder="Good pieces"
+                  value={state.qualityOK || ""}
+                  onChange={(e) => {
+                    setState((s) => ({
+                      ...s,
+                      qualityOK: parseFloat(e.target.value) || 0,
+                    }));
+                    setError("");
+                  }}
+                />
               </div>
             </div>
-
-            {/* Link to finished product */}
-            <Select
-              label="Finished Product (optional)"
-              hint="Quality OK pieces will be added to this product's ready stock"
-              value={state.finishedProductId}
-              onChange={(e) =>
-                setState((s) => ({ ...s, finishedProductId: e.target.value }))
-              }
-            >
-              <option value="">Select finished product...</option>
-              {finishedProducts.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.designCode} - {p.designName} ({p.size})
-                </option>
-              ))}
-            </Select>
 
             {/* Earnings breakdown */}
             {state.finishedPieces > 0 && (
@@ -351,129 +301,184 @@ export function ReturnMaterialForm({
               </div>
             )}
 
-            {/* Bangles returned */}
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Bangles Returned
+            {/* Add finished pieces to Finished Stock */}
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                Add Finished Pieces to Stock
               </p>
-              <div className="rounded-xl border border-slate-200 p-3 space-y-2">
-                <div className="grid grid-cols-3 gap-2">
+              <Select
+                label="What did the worker finish?"
+                value={state.finishedMode}
+                onChange={(e) =>
+                  setState((s) => ({
+                    ...s,
+                    finishedMode: e.target.value as FinishedMode,
+                  }))
+                }
+              >
+                <option value="new">Create new finished product</option>
+                <option value="existing">Add to existing product</option>
+                <option value="none">Don&apos;t add to finished stock</option>
+              </Select>
+
+              {state.finishedMode === "existing" && (
+                <Select
+                  label="Finished Product"
+                  hint={`${state.qualityOK} OK pcs will be added to its ready stock`}
+                  value={state.finishedProductId}
+                  onChange={(e) =>
+                    setState((s) => ({ ...s, finishedProductId: e.target.value }))
+                  }
+                >
+                  <option value="">Select finished product...</option>
+                  {finishedProducts.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.designCode} - {p.designName} ({p.category} · {p.size})
+                    </option>
+                  ))}
+                </Select>
+              )}
+
+              {state.finishedMode === "new" && (
+                <div className="grid grid-cols-2 gap-3">
                   <Select
-                    value={banglesReturnEntry.cutType}
+                    label="Category"
+                    value={state.newCategory}
                     onChange={(e) =>
-                      setBanglesReturnEntry((p) => ({
-                        ...p,
-                        cutType: e.target.value as CutType,
-                      }))
+                      setState((s) => ({ ...s, newCategory: e.target.value }))
                     }
                   >
-                    {(["C1", "C2", "C4", "C6"] as CutType[]).map((c) => (
+                    {FINISHED_PRODUCT_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>
                     ))}
                   </Select>
                   <Input
-                    type="number"
-                    placeholder="Cuts"
-                    value={banglesReturnEntry.cuts}
-                    min={0}
+                    label="Size"
+                    placeholder="e.g. 2.4"
+                    value={state.newSize}
                     onChange={(e) =>
-                      setBanglesReturnEntry((p) => ({ ...p, cuts: e.target.value }))
+                      setState((s) => ({ ...s, newSize: e.target.value }))
                     }
                   />
-                  <Input
-                    type="number"
-                    placeholder="Pieces"
-                    value={banglesReturnEntry.pieces}
-                    min={0}
-                    onChange={(e) =>
-                      setBanglesReturnEntry((p) => ({ ...p, pieces: e.target.value }))
-                    }
-                  />
-                </div>
-                <Button size="sm" variant="outline" className="w-full" onClick={addBangleReturn}>
-                  + Add Bangle Return
-                </Button>
-                {state.banglesReturned.length > 0 && (
-                  <div className="space-y-1 pt-1">
-                    {state.banglesReturned.map((b, i) => (
-                      <div
-                        key={i}
-                        className="flex justify-between items-center text-sm bg-white rounded-lg px-3 py-1.5 border border-slate-100"
-                      >
-                        <span className="text-slate-700">
-                          {b.cutType}: {b.cuts} cuts / {b.pieces} pcs
-                        </span>
-                        <button
-                          onClick={() => removeBangleReturn(i)}
-                          className="text-rose-400 hover:text-rose-600 text-xs font-bold"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
+                  <div className="col-span-2">
+                    <Input
+                      label="Design Name"
+                      placeholder="e.g. Red Kundan Bangle Set"
+                      value={state.newDesignName}
+                      onChange={(e) =>
+                        setState((s) => ({ ...s, newDesignName: e.target.value }))
+                      }
+                    />
                   </div>
-                )}
-              </div>
+                  <p className="col-span-2 text-[11px] text-emerald-700">
+                    A new product is created with {state.qualityOK || 0} pcs ready
+                    stock. Making cost defaults to ₹{perPieceRate}/pc — edit later
+                    in Finished Stock.
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Other materials returned — only show if they were issued */}
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Other Materials Returned
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                {selectedOrder.threadsGiven > 0 && (
-                  <Input
-                    label="Thread (grams)"
-                    type="number"
-                    min={0}
-                    max={selectedOrder.threadsGiven}
-                    placeholder="0"
-                    value={state.threadsReturned || ""}
-                    onChange={(e) =>
-                      setState((s) => ({
-                        ...s,
-                        threadsReturned: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                  />
-                )}
-                {selectedOrder.glueGiven > 0 && (
-                  <Input
-                    label={`Glue (${glueUnit})`}
-                    type="number"
-                    min={0}
-                    max={selectedOrder.glueGiven}
-                    placeholder="0"
-                    value={state.glueReturned || ""}
-                    onChange={(e) =>
-                      setState((s) => ({
-                        ...s,
-                        glueReturned: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                  />
-                )}
-                {(selectedOrder.cutterGiven ?? 0) > 0 && (
-                  <Input
-                    label={`Cutter (${cutterUnit})`}
-                    type="number"
-                    min={0}
-                    max={selectedOrder.cutterGiven ?? undefined}
-                    placeholder="0"
-                    value={state.cutterReturned || ""}
-                    onChange={(e) =>
-                      setState((s) => ({
-                        ...s,
-                        cutterReturned: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                  />
-                )}
+            {/* Bangles returned (leftover, per issued line) */}
+            {(selectedOrder.banglesGiven ?? []).length > 0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Bangles Returned (leftover)
+                </p>
+                <div className="rounded-xl border border-slate-200 divide-y divide-slate-100">
+                  {selectedOrder.banglesGiven.map((g, idx) => (
+                    <div
+                      key={idx}
+                      className="grid grid-cols-[1fr_120px] gap-2 items-center px-3 py-2"
+                    >
+                      <span className="text-sm text-slate-700">
+                        {g.size} · {g.cutType}
+                        <span className="text-slate-400">
+                          {" "}
+                          (issued {g.pieces} pcs)
+                        </span>
+                      </span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={g.pieces}
+                        placeholder="0 pcs"
+                        value={bangleReturns[idx] ?? ""}
+                        onChange={(e) =>
+                          setBangleReturns((p) => ({
+                            ...p,
+                            [idx]: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Thread returned */}
+            {threadGivenTotal > 0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Thread Returned
+                </p>
+                <Input
+                  label={`Thread (grams) — issued ${threadGivenTotal} g`}
+                  type="number"
+                  min={0}
+                  max={threadGivenTotal}
+                  placeholder="0"
+                  value={state.threadsReturned || ""}
+                  onChange={(e) =>
+                    setState((s) => ({
+                      ...s,
+                      threadsReturned: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </div>
+            )}
+
+            {/* Raw materials returned (per issued line) */}
+            {(selectedOrder.rawMaterialsGiven ?? []).length > 0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Tools / Raw Materials Returned
+                </p>
+                <div className="rounded-xl border border-slate-200 divide-y divide-slate-100">
+                  {(selectedOrder.rawMaterialsGiven ?? []).map((r) => (
+                    <div
+                      key={r.rawMaterialId}
+                      className="grid grid-cols-[1fr_120px] gap-2 items-center px-3 py-2"
+                    >
+                      <span className="text-sm text-slate-700">
+                        {r.itemName}
+                        <span className="text-slate-400">
+                          {" "}
+                          (issued {r.qty} {r.unit ?? "units"})
+                        </span>
+                      </span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={r.qty}
+                        placeholder={`0 ${r.unit ?? ""}`.trim()}
+                        value={rawReturns[r.rawMaterialId] ?? ""}
+                        onChange={(e) =>
+                          setRawReturns((p) => ({
+                            ...p,
+                            [r.rawMaterialId]: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Damage / Notes */}
             <div>
@@ -490,6 +495,10 @@ export function ReturnMaterialForm({
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F] resize-none placeholder:text-slate-400"
               />
             </div>
+
+            {error && (
+              <p className="text-sm text-rose-600 font-medium">{error}</p>
+            )}
           </>
         )}
       </div>

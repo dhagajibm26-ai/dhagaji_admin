@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+export interface IPurchaseEntry {
+  quantity: number;
+  totalAmount: number;
+  ratePerUnit: number;
+  purchasedAt: string;
+}
+
+const purchaseEntrySchema = z.object({
+  quantity: z.number().min(0),
+  totalAmount: z.number().min(0),
+  ratePerUnit: z.number().min(0),
+  purchasedAt: z.string(),
+});
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 /** `username` key is required by next-auth Credentials; the VALUE is the email */
 export const loginSchema = z.object({
@@ -32,6 +46,7 @@ export interface IRawMaterial {
   category: RawMaterialCategory;
   colorType?: string;
   unit: RawMaterialUnit;
+  unitsPerPack?: number;
   openingStock: number;
   purchasedQty: number;
   usedQty: number;
@@ -39,6 +54,7 @@ export interface IRawMaterial {
   lowStockThreshold: number;
   supplier?: string;
   lastPurchaseDate?: string;
+  purchaseHistory?: IPurchaseEntry[];
   // virtuals
   closingStock: number;
   totalValue: number;
@@ -51,6 +67,7 @@ export const rawMaterialSchema = z.object({
   category: z.string().min(1, "Category required"),
   colorType: z.string().optional(),
   unit: z.enum(["gram", "pcs", "tube", "box", "meter"]),
+  unitsPerPack: z.number().min(1).default(1),
   openingStock: z.number().min(0).default(0),
   purchasedQty: z.number().min(0).default(0),
   usedQty: z.number().min(0).default(0),
@@ -58,6 +75,7 @@ export const rawMaterialSchema = z.object({
   lowStockThreshold: z.number().min(0).default(10),
   supplier: z.string().optional(),
   lastPurchaseDate: z.string().optional(),
+  purchaseHistory: z.array(purchaseEntrySchema).optional(),
 });
 export type RawMaterialInput = z.infer<typeof rawMaterialSchema>;
 
@@ -71,6 +89,7 @@ export interface IBanglesStock {
   quantityAdd: number;
   pricePerPiece: number;
   netUsed: number;
+  purchaseHistory?: IPurchaseEntry[];
   // virtuals
   peta: number;
   totalQuantity: number;
@@ -88,8 +107,23 @@ export const banglesStockSchema = z.object({
   quantityAdd: z.number().min(0, "Quantity must be 0 or more"),
   pricePerPiece: z.number().min(0, "Price must be 0 or more"),
   netUsed: z.number().min(0).default(0),
+  purchaseHistory: z.array(purchaseEntrySchema).optional(),
 });
 export type BanglesStockInput = z.infer<typeof banglesStockSchema>;
+
+export interface IBangleSize {
+  _id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const bangleSizeSchema = z.object({
+  name: z.string().min(1, "Bangle size name required"),
+  isActive: z.boolean().default(true),
+});
+export type BangleSizeInput = z.infer<typeof bangleSizeSchema>;
 
 // ─── Threads Stock ────────────────────────────────────────────────────────────
 export interface IThreadsStock {
@@ -102,6 +136,7 @@ export interface IThreadsStock {
   openingStock: number;
   netUsed: number;
   costPerUnit: number;
+  purchaseHistory?: IPurchaseEntry[];
   // virtuals
   closingStock: number;
   totalValue: number;
@@ -113,11 +148,12 @@ export const threadsStockSchema = z.object({
   threadCode: z.string().min(1, "Thread code required"),
   threadColour: z.string().min(1, "Colour required"),
   threadCompanyName: z.string().min(1, "Company name required"),
-  weightPerUnit: z.number().min(0),
+  weightPerUnit: z.number().min(0).default(0),
   stockAdd: z.number().min(0).default(0),
   openingStock: z.number().min(0).default(0),
   netUsed: z.number().min(0).default(0),
   costPerUnit: z.number().min(0, "Cost must be 0 or more"),
+  purchaseHistory: z.array(purchaseEntrySchema).optional(),
 });
 export type ThreadsStockInput = z.infer<typeof threadsStockSchema>;
 
@@ -204,6 +240,7 @@ export type RawMaterialCategoryInput = z.infer<typeof rawMaterialCategorySchema>
 
 export const banglesGivenItemSchema = z.object({
   banglesStockId: z.string().min(1, "Bangles stock ID required"),
+  size: z.string().optional(),
   cutType: z.enum(["C1", "C2", "C4", "C6"]),
   cuts: z.number().min(0),
   pieces: z.number().min(0),
@@ -246,13 +283,35 @@ export const workOrderCreateSchema = z.object({
 });
 export type WorkOrderCreateInput = z.infer<typeof workOrderCreateSchema>;
 
+/** New finished product created directly from a worker return. */
+export const newFinishedProductSchema = z.object({
+  category: z.string().min(1).default("Bangle"),
+  designName: z.string().min(1, "Design name required"),
+  designCode: z.string().optional(),
+  size: z.string().min(1, "Size required"),
+  makingCostPerPc: z.number().min(0).optional(),
+  otherCostPerPc: z.number().min(0).optional(),
+});
+export type NewFinishedProductInput = z.infer<typeof newFinishedProductSchema>;
+
 export const workOrderReturnSchema = z.object({
   banglesReturned: z
     .array(
       z.object({
+        banglesStockId: z.string().optional(),
+        size: z.string().optional(),
         cutType: z.enum(["C1", "C2", "C4", "C6"]),
         cuts: z.number().min(0),
         pieces: z.number().min(0),
+      })
+    )
+    .default([]),
+  rawMaterialsReturned: z
+    .array(
+      z.object({
+        rawMaterialId: z.string().min(1),
+        itemName: z.string().min(1),
+        qty: z.number().min(0),
       })
     )
     .default([]),
@@ -265,6 +324,7 @@ export const workOrderReturnSchema = z.object({
   finishedPieces: z.number().min(0),
   qualityOK: z.number().min(0),
   finishedProductId: z.string().optional(),
+  newFinishedProduct: newFinishedProductSchema.optional(),
   perPieceRate: z.number().min(0).optional(),
   damageNotes: z.string().optional(),
 }).refine((d) => d.qualityOK <= d.finishedPieces, {
@@ -288,6 +348,7 @@ export interface IWorkOrder {
   // DENA
   banglesGiven: Array<{
     banglesStockId: string;
+    size?: string;
     cutType: CutType;
     cuts: number;
     pieces: number;
@@ -310,7 +371,18 @@ export interface IWorkOrder {
   cutterGiven?: number;
   otherMaterialGiven: Array<{ name: string; qty: number }>;
   // LENA
-  banglesReturned: Array<{ cutType: CutType; cuts: number; pieces: number }>;
+  banglesReturned: Array<{
+    banglesStockId?: string;
+    size?: string;
+    cutType: CutType;
+    cuts: number;
+    pieces: number;
+  }>;
+  rawMaterialsReturned?: Array<{
+    rawMaterialId: string;
+    itemName: string;
+    qty: number;
+  }>;
   threadsReturned: number;
   glueReturned: number;
   cutterReturned?: number;
@@ -318,6 +390,7 @@ export interface IWorkOrder {
   // OUTPUT
   finishedPieces: number;
   qualityOK: number;
+  finishedProductId?: string;
   // NOTES
   damageNotes?: string;
   // PAYMENT
@@ -339,10 +412,21 @@ export interface IWorkOrder {
 }
 
 // ─── Finished Product ─────────────────────────────────────────────────────────
+
+/** Categories used to classify what a worker finished (shown in Finished Stock). */
+export const FINISHED_PRODUCT_CATEGORIES = [
+  "Bangle",
+  "Thread Work",
+  "Kundan Work",
+  "Mix Set",
+  "Other",
+] as const;
+
 export interface IFinishedProduct {
   _id: string;
   designName: string;
   designCode: string;
+  category: string;
   size: string;
   makingCostPerPc: number;
   otherCostPerPc: number;
@@ -364,6 +448,7 @@ export interface IFinishedProduct {
 export const finishedProductSchema = z.object({
   designName: z.string().min(1, "Design name required"),
   designCode: z.string().min(1, "Design code required"),
+  category: z.string().min(1).default("Bangle"),
   size: z.string().min(1, "Size required"),
   makingCostPerPc: z.number().min(0),
   otherCostPerPc: z.number().min(0).default(0),

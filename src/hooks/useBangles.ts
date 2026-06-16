@@ -38,6 +38,7 @@ export interface PatchBanglesPayload {
   netUsed?: number;
   addNetUsed?: number;
   addQuantity?: number;
+  totalPurchaseAmount?: number;
   pricePerPiece?: number;
 }
 

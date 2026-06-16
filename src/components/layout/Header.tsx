@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell, Menu, Home,
-  LayoutDashboard, Package, Shapes, Circle, Layers, HardHat, Gem, Receipt, BarChart3,
+  LayoutDashboard, Package, Shapes, Circle, Layers, HardHat, Gem, Receipt, BarChart3, Ruler,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useUIStore } from "@/stores/useUIStore";
@@ -15,6 +15,7 @@ const BREADCRUMBS: Record<string, { label: string; Icon: React.ElementType }> = 
   "/":              { label: "Dashboard",     Icon: LayoutDashboard },
   "/raw-material":  { label: "Raw Material",  Icon: Package },
   "/material-categories": { label: "Material Categories", Icon: Shapes },
+  "/bangle-sizes": { label: "Bangle Sizes", Icon: Ruler },
   "/bangles":       { label: "Bangles",       Icon: Circle },
   "/threads":       { label: "Threads",       Icon: Layers },
   "/workers":       { label: "Workers",       Icon: HardHat },
@@ -26,9 +27,9 @@ const BREADCRUMBS: Record<string, { label: string; Icon: React.ElementType }> = 
 
 function useLowStockCount() {
   return useQuery<IRawMaterial[]>({
-    queryKey: ["raw-material", "list"],
+    queryKey: ["raw-material", "list", "all"],
     queryFn: async () => {
-      const res = await fetch("/api/raw-material");
+      const res = await fetch("/api/raw-material?all=true");
       const json: ApiResponse<IRawMaterial[]> = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       return json.data ?? [];

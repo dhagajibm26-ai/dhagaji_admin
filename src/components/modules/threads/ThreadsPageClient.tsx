@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ThreadsTable } from "./ThreadsTable";
@@ -42,8 +42,14 @@ export function ThreadsPageClient() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<IThreadsStock | null>(null);
   const [search, setSearch] = useState("");
-  const { data: items = [], isLoading, isError, error } = useThreadsStock();
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const { data: items = [], isLoading, isError } = useThreadsStock();
   const isOwner = useIsOwner();
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const openCreateModal = () => {
     setEditItem(null);
@@ -62,18 +68,8 @@ export function ThreadsPageClient() {
 
   const outOfStockItems = items.filter((i) => i.closingStock <= 0);
 
-  const filtered = search.trim()
-    ? items.filter(
-        (i) =>
-          i.threadCode.toLowerCase().includes(search.toLowerCase()) ||
-          i.threadColour.toLowerCase().includes(search.toLowerCase()) ||
-          i.threadCompanyName.toLowerCase().includes(search.toLowerCase())
-      )
-    : items;
-
   return (
     <div className="space-y-5 p-4 sm:p-6 animate-fade-in">
-      {/* Page header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-black text-slate-900">Threads Stock</h1>
@@ -87,10 +83,8 @@ export function ThreadsPageClient() {
         </Button>
       </div>
 
-      {/* Stats */}
       {!isLoading && !isError && <StatsBar items={items} isOwner={isOwner} />}
 
-      {/* Out of stock alert */}
       {outOfStockItems.length > 0 && (
         <div role="alert" className="flex items-start gap-3 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3.5">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#D32F2F]/10 mt-0.5">
@@ -107,7 +101,6 @@ export function ThreadsPageClient() {
         </div>
       )}
 
-      {/* Search */}
       <div className="flex items-center gap-3">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -129,18 +122,10 @@ export function ThreadsPageClient() {
         )}
       </div>
 
-      <ThreadsTable
-        items={filtered}
-        isLoading={isLoading}
-        isError={isError}
-        error={error as Error | null}
-        onAddNew={openCreateModal}
-        onEdit={openEditModal}
-      />
+      <ThreadsTable search={debouncedSearch} onAddNew={openCreateModal} onEdit={openEditModal} />
 
       <AddThreadsModal isOpen={modalOpen} onClose={closeModal} item={editItem} />
 
-      {/* FAB (mobile) */}
       <button
         onClick={openCreateModal}
         className="fixed bottom-20 right-4 flex items-center justify-center rounded-2xl bg-[#D32F2F] text-white shadow-xl shadow-red-700/30 transition-all hover:bg-[#B71C1C] active:scale-95 sm:hidden"

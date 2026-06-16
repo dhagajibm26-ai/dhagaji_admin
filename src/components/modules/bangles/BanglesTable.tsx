@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { usePatchBangles, useDeleteBangles } from "@/hooks/useBangles";
+import { formatPieceRate } from "@/lib/purchaseHistory";
 import { useIsOwner } from "@/stores/useAuthStore";
 import type { IBanglesStock } from "@/types";
 
@@ -167,7 +168,7 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
                 {/* Price per piece (owner only) */}
                 {isOwner && (
                   <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-gray-700">
-                    ₹{item.pricePerPiece.toFixed(2)}
+                    {formatPieceRate(item.pricePerPiece)}
                   </td>
                 )}
 

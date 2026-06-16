@@ -14,6 +14,7 @@ import {
   Gem,
   Receipt,
   BarChart3,
+  Ruler,
   LogOut,
   X,
   ChevronRight,
@@ -44,6 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/billing", label: "Billing", Icon: Receipt, highlight: true, section: "Operations" },
   { href: "/reports", label: "Reports", Icon: BarChart3, ownerOnly: true, section: "Analytics" },
   { href: "/material-categories", label: "Material Categories", Icon: Shapes, ownerOnly: true, section: "Setup" },
+  { href: "/bangle-sizes", label: "Bangle Sizes", Icon: Ruler, ownerOnly: true, section: "Setup" },
 ];
 
 export function Sidebar() {

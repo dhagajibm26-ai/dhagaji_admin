@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
+import { softDeleteById } from "@/lib/softDelete";
 import { BanglesStock } from "@/models/BanglesStock";
+import { buildDbPurchaseEntry, weightedRate } from "@/lib/purchaseHistory";
 import { z } from "zod";
 import type { ApiResponse } from "@/types";
 
-// ─── Validation ──────────────────────────────────────────────────────────────
+const PETA_MAP = { C1: 12, C2: 24, C4: 48, C6: 72 } as const;
 
 const patchSchema = z
   .object({
@@ -13,11 +15,9 @@ const patchSchema = z
     cutType: z.enum(["C1", "C2", "C4", "C6"]).optional(),
     quantityAdd: z.number().min(0).optional(),
     netUsed: z.number().min(0).optional(),
-    /** Add to netUsed (pieces given to worker) */
     addNetUsed: z.number().min(0).optional(),
-    /** Add more stock (increment quantityAdd) */
     addQuantity: z.number().min(0).optional(),
-    /** Override price per piece */
+    totalPurchaseAmount: z.number().min(0).optional(),
     pricePerPiece: z.number().min(0).optional(),
   })
   .refine(
@@ -28,11 +28,10 @@ const patchSchema = z
       d.netUsed !== undefined ||
       d.addNetUsed !== undefined ||
       d.addQuantity !== undefined ||
+      d.totalPurchaseAmount !== undefined ||
       d.pricePerPiece !== undefined,
     { message: "At least one field must be provided" }
   );
-
-// ─── PATCH ───────────────────────────────────────────────────────────────────
 
 export async function PATCH(
   request: Request,
@@ -48,7 +47,6 @@ export async function PATCH(
     }
 
     const { id } = await params;
-
     const body = await request.json();
     const parsed = patchSchema.safeParse(body);
     if (!parsed.success) {
@@ -60,6 +58,14 @@ export async function PATCH(
 
     await connectDB();
 
+    const existing = await BanglesStock.findById(id);
+    if (!existing) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: "Bangles entry not found" },
+        { status: 404 }
+      );
+    }
+
     const {
       size,
       cutType,
@@ -67,34 +73,50 @@ export async function PATCH(
       netUsed,
       addNetUsed,
       addQuantity,
+      totalPurchaseAmount,
       pricePerPiece,
     } = parsed.data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const update: Record<string, any> = {};
+    const update: Record<string, any> = { $set: {} };
+
+    if (size !== undefined) update.$set.size = size;
+    if (cutType !== undefined) update.$set.cutType = cutType;
+    if (quantityAdd !== undefined) update.$set.quantityAdd = quantityAdd;
+    if (netUsed !== undefined) update.$set.netUsed = netUsed;
 
     if (addNetUsed !== undefined && addNetUsed > 0) {
       update.$inc = { ...(update.$inc ?? {}), netUsed: addNetUsed };
     }
+
     if (addQuantity !== undefined && addQuantity > 0) {
+      const effectiveCut = cutType ?? existing.cutType;
+      const peta = PETA_MAP[effectiveCut];
+      const addPieces = addQuantity * peta;
+      const amount =
+        totalPurchaseAmount !== undefined
+          ? totalPurchaseAmount
+          : pricePerPiece !== undefined
+            ? addPieces * pricePerPiece
+            : addPieces * existing.pricePerPiece;
+
+      const entry = buildDbPurchaseEntry(addPieces, amount);
+      const existingPieces = existing.quantityAdd * PETA_MAP[existing.cutType];
+      const newRate = weightedRate(
+        existingPieces,
+        existing.pricePerPiece,
+        addPieces,
+        entry.ratePerUnit
+      );
+
       update.$inc = { ...(update.$inc ?? {}), quantityAdd: addQuantity };
+      update.$push = { purchaseHistory: entry };
+      update.$set.pricePerPiece = newRate;
+    } else if (pricePerPiece !== undefined && addQuantity === undefined) {
+      update.$set.pricePerPiece = pricePerPiece;
     }
 
-    if (size !== undefined) {
-      update.$set = { ...(update.$set ?? {}), size };
-    }
-    if (cutType !== undefined) {
-      update.$set = { ...(update.$set ?? {}), cutType };
-    }
-    if (quantityAdd !== undefined) {
-      update.$set = { ...(update.$set ?? {}), quantityAdd };
-    }
-    if (netUsed !== undefined) {
-      update.$set = { ...(update.$set ?? {}), netUsed };
-    }
-    if (pricePerPiece !== undefined) {
-      update.$set = { ...(update.$set ?? {}), pricePerPiece };
-    }
+    if (Object.keys(update.$set).length === 0) delete update.$set;
 
     if (Object.keys(update).length === 0) {
       return NextResponse.json<ApiResponse>(
@@ -108,14 +130,7 @@ export async function PATCH(
       runValidators: true,
     });
 
-    if (!doc) {
-      return NextResponse.json<ApiResponse>(
-        { success: false, error: "Bangles entry not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json<ApiResponse>({ success: true, data: doc.toJSON() });
+    return NextResponse.json<ApiResponse>({ success: true, data: doc!.toJSON() });
   } catch {
     return NextResponse.json<ApiResponse>(
       { success: false, error: "Internal server error" },
@@ -123,8 +138,6 @@ export async function PATCH(
     );
   }
 }
-
-// ─── DELETE (soft) ───────────────────────────────────────────────────────────
 
 export async function DELETE(
   _request: Request,
@@ -147,15 +160,9 @@ export async function DELETE(
     }
 
     const { id } = await params;
-
     await connectDB();
 
-    const doc = await BanglesStock.findByIdAndUpdate(
-      id,
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
-
+    const doc = await softDeleteById(BanglesStock, id);
     if (!doc) {
       return NextResponse.json<ApiResponse>(
         { success: false, error: "Bangles entry not found" },

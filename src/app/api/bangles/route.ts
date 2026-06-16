@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { BanglesStock } from "@/models/BanglesStock";
+import { buildDbPurchaseEntry } from "@/lib/purchaseHistory";
 import { banglesStockSchema } from "@/types";
 import type { ApiResponse } from "@/types";
+
+const PETA_MAP = { C1: 12, C2: 24, C4: 48, C6: 72 } as const;
 
 export async function GET() {
   try {
@@ -34,7 +37,16 @@ export async function POST(request: Request) {
       );
     }
     await connectDB();
-    const item = await BanglesStock.create(parsed.data);
+    const { quantityAdd, cutType, pricePerPiece, ...rest } = parsed.data;
+    const pieces = quantityAdd * PETA_MAP[cutType];
+    const totalAmount = Number((pieces * pricePerPiece).toFixed(2));
+    const item = await BanglesStock.create({
+      ...rest,
+      cutType,
+      quantityAdd,
+      pricePerPiece,
+      purchaseHistory: pieces > 0 ? [buildDbPurchaseEntry(pieces, totalAmount)] : [],
+    });
     return NextResponse.json<ApiResponse>({ success: true, data: item.toJSON() }, { status: 201 });
   } catch {
     return NextResponse.json<ApiResponse>({ success: false, error: "Internal server error" }, { status: 500 });

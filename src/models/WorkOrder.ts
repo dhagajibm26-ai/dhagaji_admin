@@ -5,6 +5,7 @@ import mongoose, { Schema, Document, Model, Types } from "mongoose";
 /** DENA — materials sent out to worker */
 interface IBanglesGiven {
   banglesStockId: Types.ObjectId;
+  size?: string;
   cutType: "C1" | "C2" | "C4" | "C6";
   cuts: number;
   pieces: number;
@@ -32,9 +33,17 @@ interface IOtherMaterialGiven {
 
 /** LENA — materials returned by worker */
 interface IBanglesReturned {
+  banglesStockId?: Types.ObjectId | string;
+  size?: string;
   cutType: "C1" | "C2" | "C4" | "C6";
   cuts: number;
   pieces: number;
+}
+
+interface IRawMaterialReturned {
+  rawMaterialId: Types.ObjectId | string;
+  itemName: string;
+  qty: number;
 }
 
 interface IOtherReturned {
@@ -63,6 +72,7 @@ export interface IWorkOrderDocument extends Document {
 
   // LENA (returned by worker)
   banglesReturned: IBanglesReturned[];
+  rawMaterialsReturned: IRawMaterialReturned[];
   threadsReturned: number;
   glueReturned: number;
   cutterReturned: number;
@@ -71,6 +81,8 @@ export interface IWorkOrderDocument extends Document {
   // OUTPUT
   finishedPieces: number;
   qualityOK: number;
+  /** Finished product these pieces were added to (set on return). */
+  finishedProductId?: Types.ObjectId;
 
   // NOTES
   damageNotes?: string;
@@ -107,6 +119,7 @@ const BanglesGivenSchema = new Schema<IBanglesGiven>(
       ref: "BanglesStock",
       required: true,
     },
+    size: { type: String, trim: true },
     cutType: { type: String, enum: ["C1", "C2", "C4", "C6"], required: true },
     cuts: { type: Number, required: true, min: 0 },
     pieces: { type: Number, required: true, min: 0 },
@@ -153,9 +166,20 @@ const RawMaterialGivenSchema = new Schema<IRawMaterialGiven>(
 
 const BanglesReturnedSchema = new Schema<IBanglesReturned>(
   {
+    banglesStockId: { type: Schema.Types.ObjectId, ref: "BanglesStock" },
+    size: { type: String, trim: true },
     cutType: { type: String, enum: ["C1", "C2", "C4", "C6"], required: true },
     cuts: { type: Number, required: true, min: 0 },
     pieces: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
+
+const RawMaterialReturnedSchema = new Schema<IRawMaterialReturned>(
+  {
+    rawMaterialId: { type: Schema.Types.ObjectId, ref: "RawMaterial", required: true },
+    itemName: { type: String, required: true, trim: true },
+    qty: { type: Number, required: true, min: 0 },
   },
   { _id: false }
 );
@@ -191,6 +215,7 @@ const WorkOrderSchema = new Schema<IWorkOrderDocument>(
 
     // LENA
     banglesReturned: { type: [BanglesReturnedSchema], default: [] },
+    rawMaterialsReturned: { type: [RawMaterialReturnedSchema], default: [] },
     threadsReturned: { type: Number, default: 0, min: 0 },
     glueReturned: { type: Number, default: 0, min: 0 },
     cutterReturned: { type: Number, default: 0, min: 0 },
@@ -199,6 +224,7 @@ const WorkOrderSchema = new Schema<IWorkOrderDocument>(
     // OUTPUT
     finishedPieces: { type: Number, default: 0, min: 0 },
     qualityOK: { type: Number, default: 0, min: 0 },
+    finishedProductId: { type: Schema.Types.ObjectId, ref: "FinishedProduct" },
 
     // NOTES
     damageNotes: { type: String, trim: true },

@@ -271,6 +271,10 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
     return map[unit] ?? unit;
   }
 
+  const hasBanglePieces = (["C1", "C2", "C4", "C6"] as CutType[]).some(
+    (c) => parseFloat(banglePiecesByCut[c] || "0") > 0
+  );
+
   const bangleQueued = denaItems.filter((d) => d.type === "bangle");
   const threadQueued = denaItems.filter((d) => d.type === "thread");
   const toolQueued = denaItems.filter(
@@ -414,10 +418,19 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
           </div>
         )}
 
-        {/* Add another size to queue */}
-        {selectedSize && denaItems.some((d) => d.type === "bangle") && (
-          <Button size="sm" variant="ghost" onClick={addBanglesForSelectedSize} className="w-full text-indigo-600">
-            + Also add another size
+        {/* Commit this size to the order so another size can be added */}
+        {selectedSize && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              addBanglesForSelectedSize();
+              setSelectedSize("");
+            }}
+            disabled={!hasBanglePieces}
+            className="w-full text-indigo-600"
+          >
+            + Add this size & pick another
           </Button>
         )}
 
@@ -869,6 +882,7 @@ export function CreateWorkOrderForm({
       .filter((d): d is BangleDenaItem => d.type === "bangle")
       .map((d) => ({
         banglesStockId: d.banglesStockId,
+        size: d.size,
         cutType: d.cutType,
         cuts: d.cuts,
         pieces: d.pieces,

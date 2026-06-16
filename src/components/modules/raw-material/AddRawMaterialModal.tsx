@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useMemo } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Modal } from "@/components/ui/Modal";
@@ -10,18 +10,36 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { useAddRawMaterial, usePatchRawMaterial } from "@/hooks/useRawMaterial";
 import { useMaterialCategories } from "@/hooks/useMaterialCategories";
-import { rawMaterialSchema, type RawMaterialInput, type IRawMaterial } from "@/types";
+import { PurchaseHistoryPanel } from "@/components/ui/PurchaseHistoryPanel";
+import { formatGramRate, formatKgRateFromGramRate, resolvePurchaseHistory } from "@/lib/purchaseHistory";
+import type { IRawMaterial } from "@/types";
 
-type RawMaterialFormInput = z.input<typeof rawMaterialSchema>;
+const UNITS = ["gram", "tube", "box", "meter"] as const;
+type UnitType = (typeof UNITS)[number];
 
-const UNITS = ["gram", "pcs", "tube", "box", "meter"] as const;
+const formSchema = z.object({
+  itemName: z.string().min(1, "Item name required"),
+  colorType: z.string().optional(),
+  category: z.string().min(1, "Category required"),
+  unit: z.enum(UNITS),
+  quantity: z.number().min(0),
+  totalAmount: z.number().min(0, "Amount must be 0 or more"),
+  unitsPerPack: z.number().min(1, "Must be 1 or more").default(1),
+  lowStockThreshold: z.number().min(0).default(10),
+  supplier: z.string().optional(),
+});
 
-// ─── Component ────────────────────────────────────────────────────────────────
+type RawMaterialFormInput = z.input<typeof formSchema>;
+type RawMaterialFormOutput = z.output<typeof formSchema>;
 
 interface AddRawMaterialModalProps {
   isOpen: boolean;
   onClose: () => void;
   item?: IRawMaterial | null;
+}
+
+function isPackUnit(unit?: string): unit is "box" | "tube" {
+  return unit === "box" || unit === "tube";
 }
 
 export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialModalProps) {
@@ -30,36 +48,36 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
   const patchMutation = usePatchRawMaterial();
   const { data: categories = [] } = useMaterialCategories();
   const isEdit = !!item;
-  const [qtyForPrice, setQtyForPrice] = useState("0");
-  const [totalPriceForQty, setTotalPriceForQty] = useState("0");
 
   const {
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
+    setError,
     formState: { errors, isSubmitting },
-  } = useForm<RawMaterialFormInput, unknown, RawMaterialInput>({
+  } = useForm<RawMaterialFormInput, unknown, RawMaterialFormOutput>({
     mode: "onBlur",
     reValidateMode: "onChange",
     shouldFocusError: false,
-    resolver: zodResolver(rawMaterialSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       itemName: "",
       colorType: "",
       category: "",
-      unit: "pcs",
-      openingStock: 0,
-      purchasedQty: 0,
-      usedQty: 0,
-      ratePerUnit: 0,
+      unit: "gram",
+      quantity: 0,
+      totalAmount: 0,
+      unitsPerPack: 1,
       lowStockThreshold: 10,
       supplier: "",
-      lastPurchaseDate: undefined,
     },
   });
 
-  const unit = watch("unit");
+  const unit = useWatch({ control, name: "unit" }) as UnitType | undefined;
+  const quantity = useWatch({ control, name: "quantity" });
+  const totalAmount = useWatch({ control, name: "totalAmount" });
+  const unitsPerPack = useWatch({ control, name: "unitsPerPack" });
 
   const categoryOptions = useMemo(() => {
     const fromCategoryMaster = categories
@@ -73,7 +91,6 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     return [...unique].sort((a, b) => a.localeCompare(b));
   }, [categories, item]);
 
-  // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
       reset();
@@ -81,62 +98,72 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     }
 
     if (item) {
-      const currentRate = Number(item.ratePerUnit || 0);
-      const currentQty = Number(item.openingStock || 0);
+      const safeUnitsPerPack = Number(item.unitsPerPack || 1);
       reset({
         itemName: item.itemName,
         colorType: item.colorType ?? "",
         category: item.category,
-        unit: item.unit,
-        openingStock: item.openingStock,
-        purchasedQty: item.purchasedQty,
-        usedQty: item.usedQty,
-        ratePerUnit: item.ratePerUnit,
+        unit: item.unit === "gram" || item.unit === "box" || item.unit === "tube" || item.unit === "meter"
+          ? item.unit
+          : "gram",
+        quantity: 0,
+        totalAmount: 0,
+        unitsPerPack: safeUnitsPerPack,
         lowStockThreshold: item.lowStockThreshold,
         supplier: item.supplier ?? "",
-        lastPurchaseDate: item.lastPurchaseDate
-          ? new Date(item.lastPurchaseDate).toISOString().slice(0, 10)
-          : undefined,
       });
-      setQtyForPrice(currentQty > 0 ? String(currentQty) : "1");
-      setTotalPriceForQty(String(Number((currentRate * (currentQty || 1)).toFixed(2))));
       return;
     }
 
     reset({
       itemName: "",
       colorType: "",
-      category: undefined,
-      unit: undefined,
-      openingStock: 0,
-      purchasedQty: 0,
-      usedQty: 0,
-      ratePerUnit: 0,
+      category: "",
+      unit: "gram",
+      quantity: 0,
+      totalAmount: 0,
+      unitsPerPack: 1,
       lowStockThreshold: 10,
       supplier: "",
-      lastPurchaseDate: undefined,
     });
-    setQtyForPrice("0");
-    setTotalPriceForQty("0");
-  }, [isOpen, item, reset, categoryOptions]);
+  }, [isOpen, item, reset]);
 
-  const onSubmit = (data: RawMaterialInput) => {
+  const effectiveUnitsPerPack = isPackUnit(unit) ? Number(unitsPerPack || 1) : 1;
+  const effectiveQty = Number(quantity || 0) * effectiveUnitsPerPack;
+  const computedRate = effectiveQty > 0 ? Number((Number(totalAmount || 0) / effectiveQty).toFixed(4)) : 0;
+
+  const qtyNumber = Number(quantity || 0);
+  const amountNumber = Number(totalAmount || 0);
+  const perUnitRate = qtyNumber > 0 ? Number((amountNumber / qtyNumber).toFixed(4)) : 0;
+  const perPieceRate = effectiveQty > 0 ? Number((amountNumber / effectiveQty).toFixed(4)) : 0;
+  const perKgRate = unit === "gram" ? Number((computedRate * 1000).toFixed(2)) : null;
+
+  const purchaseHistory = useMemo(() => {
+    if (!item) return [];
+    return resolvePurchaseHistory(item.purchaseHistory, {
+      quantity: item.purchasedQty,
+      totalAmount: Number((item.purchasedQty * item.ratePerUnit).toFixed(2)),
+      ratePerUnit: item.ratePerUnit,
+      date: item.lastPurchaseDate ?? String(item.createdAt),
+    });
+  }, [item]);
+
+  const onSubmit = (data: RawMaterialFormOutput) => {
     const finalCategory = data.category?.trim();
+    if (!finalCategory) return;
 
-    if (!finalCategory) {
+    if (!item && effectiveQty <= 0) {
+      setError("quantity", { message: "Quantity must be more than 0" });
       return;
     }
 
-    const qtyNumber = Number.parseFloat(qtyForPrice || "0");
-    const totalPriceNumber = Number.parseFloat(totalPriceForQty || "0");
-    const computedRate =
-      qtyNumber > 0 && totalPriceNumber >= 0 ? Number((totalPriceNumber / qtyNumber).toFixed(4)) : null;
-
-    const payload: RawMaterialInput = {
-      ...data,
-      category: finalCategory,
-      ratePerUnit: computedRate ?? data.ratePerUnit,
+    const payloadBase = {
+      itemName: data.itemName.trim(),
       colorType: data.colorType?.trim() || undefined,
+      category: finalCategory,
+      unit: data.unit,
+      unitsPerPack: isPackUnit(data.unit) ? Number(data.unitsPerPack || 1) : 1,
+      lowStockThreshold: data.lowStockThreshold,
       supplier: data.supplier?.trim() || undefined,
     };
 
@@ -144,44 +171,35 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       patchMutation.mutate(
         {
           id: item._id,
-          itemName: payload.itemName,
-          colorType: payload.colorType,
-          category: payload.category,
-          unit: payload.unit,
-          openingStock: payload.openingStock,
-          purchasedQty: payload.purchasedQty,
-          usedQty: payload.usedQty,
-          ratePerUnit: payload.ratePerUnit,
-          lowStockThreshold: payload.lowStockThreshold,
-          supplier: payload.supplier,
-          lastPurchaseDate: payload.lastPurchaseDate,
+          ...payloadBase,
+          ...(effectiveQty > 0
+            ? {
+                addPurchasedQty: effectiveQty,
+                totalPurchaseAmount: amountNumber,
+                ratePerUnit: computedRate,
+                lastPurchaseDate: new Date().toISOString(),
+              }
+            : {}),
         },
         { onSuccess: () => onClose() }
       );
       return;
     }
 
-    addMutation.mutate(payload, {
-      onSuccess: () => onClose(),
-    });
+    addMutation.mutate(
+      {
+        ...payloadBase,
+        openingStock: 0,
+        purchasedQty: effectiveQty,
+        usedQty: 0,
+        ratePerUnit: computedRate,
+        lastPurchaseDate: new Date().toISOString(),
+      },
+      { onSuccess: () => onClose() }
+    );
   };
 
   const isMutating = isSubmitting || addMutation.isPending || patchMutation.isPending;
-
-  const footer = (
-    <>
-      <Button variant="ghost" onClick={onClose} disabled={isMutating}>
-        Cancel
-      </Button>
-      <Button
-        type="submit"
-        form="add-raw-material-form"
-        isLoading={isMutating}
-      >
-        {isEdit ? "Update Material" : "Add Material"}
-      </Button>
-    </>
-  );
 
   return (
     <Modal
@@ -189,19 +207,22 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       onClose={onClose}
       title={isEdit ? "Edit Raw Material" : "Add Raw Material"}
       size="lg"
-      footer={footer}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={isMutating}>
+            Cancel
+          </Button>
+          <Button type="submit" form="add-raw-material-form" isLoading={isMutating}>
+            {isEdit ? "Update Material" : "Add Material"}
+          </Button>
+        </>
+      }
     >
-      <form
-        id="add-raw-material-form"
-        onSubmit={handleSubmit(onSubmit)}
-        noValidate
-        className="space-y-4"
-      >
-        {/* Row 1: Item name + Color type */}
+      <form id="add-raw-material-form" onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Item Name"
-            placeholder="e.g. Red Glass Beads"
+            placeholder="e.g. PVC Line"
             required
             error={errors.itemName?.message}
             autoComplete="off"
@@ -209,23 +230,15 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
           />
           <Input
             label="Sub Category / Details"
-            placeholder="e.g. Dark Red, 4mm, No.12"
-            hint="Aa box ma tame manually kai pan lakhine sub-category set kari shako"
+            placeholder="e.g. White, 2mm"
             error={errors.colorType?.message}
             autoComplete="off"
             {...register("colorType")}
           />
         </div>
 
-        {/* Row 2: Category + Unit */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {/* Category dropdown */}
-          <Select
-            label="Category"
-            required
-            error={errors.category?.message}
-            {...register("category")}
-          >
+          <Select label="Category" required error={errors.category?.message} {...register("category")}>
             <option value="">Select category…</option>
             {categoryOptions.map((c) => (
               <option key={c} value={c}>
@@ -234,13 +247,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
             ))}
           </Select>
 
-          {/* Unit dropdown */}
-          <Select
-            label="Unit"
-            required
-            error={errors.unit?.message}
-            {...register("unit")}
-          >
+          <Select label="Unit" required error={errors.unit?.message} {...register("unit")}>
             <option value="">Select unit…</option>
             {UNITS.map((u) => (
               <option key={u} value={u}>
@@ -256,86 +263,138 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
           </p>
         )}
 
-        {/* Row 3: Opening stock + Rate per unit */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label={`Opening Stock (${unit || "unit"})`}
+            label={unit ? `Add Stock (${unit})` : "Add Stock"}
             type="number"
             min="0"
             step="any"
             placeholder="0"
-            error={errors.openingStock?.message}
-            {...register("openingStock", { valueAsNumber: true })}
+            required={!isEdit}
+            error={errors.quantity?.message}
+            {...register("quantity", { valueAsNumber: true })}
           />
+
           <Input
-            label="Rate per Unit (₹)"
+            label="Total Purchase Amount (₹)"
             type="number"
             min="0"
             step="0.01"
             placeholder="0.00"
-            required
-            error={errors.ratePerUnit?.message}
-            {...register("ratePerUnit", { valueAsNumber: true })}
+            required={!isEdit}
+            error={errors.totalAmount?.message}
+            {...register("totalAmount", { valueAsNumber: true })}
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            label={`Qty for Total Price (${unit || "unit"})`}
-            type="number"
-            min="0"
-            step="any"
-            value={qtyForPrice}
-            onChange={(e) => setQtyForPrice(e.target.value)}
-            hint="Example: 1000 gram"
-          />
-          <Input
-            label="Total Price for Above Qty (₹)"
-            type="number"
-            min="0"
-            step="0.01"
-            value={totalPriceForQty}
-            onChange={(e) => setTotalPriceForQty(e.target.value)}
-            hint="Example: 1000"
-          />
-          <p className="text-xs text-slate-500 sm:col-span-2">
-            Auto unit rate: ₹
-            {(() => {
-              const q = Number.parseFloat(qtyForPrice || "0");
-              const t = Number.parseFloat(totalPriceForQty || "0");
-              if (q <= 0 || t < 0) return "0.0000";
-              return (t / q).toFixed(4);
-            })()}
-            {unit ? ` per ${unit}` : " per unit"}
+        {isEdit && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            Add new stock at updated price (e.g. ₹1000/kg → ₹1200/kg). Leave stock at 0 to update details only.
           </p>
+        )}
+
+        {isPackUnit(unit) && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              label={unit === "box" ? "Pieces per Box" : "Pieces per Tube"}
+              type="number"
+              min="1"
+              step="1"
+              required
+              error={errors.unitsPerPack?.message}
+              {...register("unitsPerPack", { valueAsNumber: true })}
+            />
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              Effective total pieces: <span className="font-semibold">{effectiveQty.toLocaleString("en-IN")}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">Current Purchase Calculation</p>
+          <div className="mt-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+            <p className="text-slate-600">
+              Quantity: <span className="font-semibold text-slate-900">{qtyNumber.toLocaleString("en-IN")} {unit || "unit"}</span>
+            </p>
+            <p className="text-slate-600">
+              Total Amount: <span className="font-semibold text-slate-900">₹{amountNumber.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+            </p>
+
+            {unit === "gram" && (
+              <>
+                <p className="text-slate-600">
+                  1 gram rate: <span className="font-semibold text-slate-900">{formatGramRate(computedRate)}</span>
+                </p>
+                <p className="text-slate-600">
+                  1 kg rate: <span className="font-semibold text-slate-900">{formatKgRateFromGramRate(computedRate)}</span>
+                </p>
+              </>
+            )}
+
+            {unit === "box" && (
+              <>
+                <p className="text-slate-600">
+                  Per box rate: <span className="font-semibold text-slate-900">₹{perUnitRate.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                </p>
+                <p className="text-slate-600">
+                  Total pieces: <span className="font-semibold text-slate-900">{effectiveQty.toLocaleString("en-IN")}</span>
+                </p>
+                <p className="text-slate-600 sm:col-span-2">
+                  Per piece rate: <span className="font-semibold text-slate-900">₹{perPieceRate.toLocaleString("en-IN", { maximumFractionDigits: 4 })}</span>
+                </p>
+              </>
+            )}
+
+            {unit === "tube" && (
+              <>
+                <p className="text-slate-600">
+                  Per tube rate: <span className="font-semibold text-slate-900">₹{perUnitRate.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+                </p>
+                <p className="text-slate-600">
+                  Total pieces: <span className="font-semibold text-slate-900">{effectiveQty.toLocaleString("en-IN")}</span>
+                </p>
+                <p className="text-slate-600 sm:col-span-2">
+                  Per piece rate: <span className="font-semibold text-slate-900">₹{perPieceRate.toLocaleString("en-IN", { maximumFractionDigits: 4 })}</span>
+                </p>
+              </>
+            )}
+
+            {unit === "meter" && (
+              <p className="text-slate-600 sm:col-span-2">
+                Per meter rate: <span className="font-semibold text-slate-900">₹{computedRate.toLocaleString("en-IN", { maximumFractionDigits: 4 })}</span>
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Row 4: Low stock threshold + Supplier */}
+        {isEdit && purchaseHistory.length > 0 && (
+          <PurchaseHistoryPanel
+            entries={purchaseHistory}
+            quantityLabel={unit === "gram" ? "Qty (g)" : "Qty"}
+          />
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label={`Low Stock Alert Threshold (${unit || "unit"})`}
+            label={unit ? `Low Stock Alert (${unit})` : "Low Stock Alert"}
             type="number"
             min="0"
             step="any"
             placeholder="10"
-            hint="Alert when closing stock falls below this"
+            hint="Alert when stock goes below this"
             error={errors.lowStockThreshold?.message}
             {...register("lowStockThreshold", { valueAsNumber: true })}
           />
           <Input
-            label="Supplier"
-            placeholder="Supplier name (optional)"
+            label="Supplier (Optional)"
+            placeholder="Supplier name"
             error={errors.supplier?.message}
             {...register("supplier")}
           />
         </div>
 
-        {/* Mutation error */}
         {(addMutation.isError || patchMutation.isError) && (
-          <p
-            role="alert"
-            className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700"
-          >
+          <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
             {((addMutation.error ?? patchMutation.error) as Error).message}
           </p>
         )}

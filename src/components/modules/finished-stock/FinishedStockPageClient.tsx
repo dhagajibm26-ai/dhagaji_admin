@@ -31,6 +31,7 @@ export function FinishedStockPageClient() {
 
   const [search, setSearch] = useState("");
   const [sizeFilter, setSizeFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [addOpen, setAddOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<IFinishedProduct | null>(null);
@@ -52,6 +53,11 @@ export function FinishedStockPageClient() {
     [products]
   );
 
+  const categories = useMemo(
+    () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort(),
+    [products]
+  );
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return products.filter((p) => {
@@ -61,9 +67,10 @@ export function FinishedStockPageClient() {
         p.designCode.toLowerCase().includes(q) ||
         p.barcodeId.toLowerCase().includes(q);
       const matchSize = !sizeFilter || p.size === sizeFilter;
-      return matchSearch && matchSize;
+      const matchCategory = !categoryFilter || p.category === categoryFilter;
+      return matchSearch && matchSize && matchCategory;
     });
-  }, [products, search, sizeFilter]);
+  }, [products, search, sizeFilter, categoryFilter]);
 
   const lowStockProducts = products.filter((p) => p.readyStock < LOW_STOCK_THRESHOLD);
 
@@ -153,6 +160,16 @@ export function FinishedStockPageClient() {
           />
         </div>
         <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]"
+        >
+          <option value="">All Categories</option>
+          {categories.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <select
           value={sizeFilter}
           onChange={(e) => setSizeFilter(e.target.value)}
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]"
@@ -230,6 +247,7 @@ export function FinishedStockPageClient() {
                 <th className="px-3 py-3 w-8"><span className="sr-only">Select</span></th>
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Design</th>
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Code</th>
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Category</th>
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Size</th>
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Stock</th>
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Selling ₹</th>
@@ -261,6 +279,9 @@ export function FinishedStockPageClient() {
                     </td>
                     <td className="px-4 py-3 font-semibold text-slate-800">{product.designName}</td>
                     <td className="px-4 py-3 text-slate-500">{product.designCode}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant="info">{product.category || "—"}</Badge>
+                    </td>
                     <td className="px-4 py-3 text-slate-500">{product.size}</td>
                     <td className="px-4 py-3 text-right">
                       <span className={cn("font-bold tabular-nums", isLow ? "text-[#D32F2F]" : "text-slate-800")}>

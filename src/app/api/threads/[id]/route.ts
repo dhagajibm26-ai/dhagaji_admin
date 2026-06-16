@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
+import { softDeleteById } from "@/lib/softDelete";
 import { ThreadsStock } from "@/models/ThreadsStock";
+import { buildDbPurchaseEntry, weightedRate } from "@/lib/purchaseHistory";
 import { z } from "zod";
 import type { ApiResponse } from "@/types";
-
-// ─── Validation ──────────────────────────────────────────────────────────────
 
 const patchSchema = z
   .object({
@@ -16,11 +16,9 @@ const patchSchema = z
     openingStock: z.number().min(0).optional(),
     stockAdd: z.number().min(0).optional(),
     netUsed: z.number().min(0).optional(),
-    /** Deduct from stock (given to worker) */
     addNetUsed: z.number().min(0).optional(),
-    /** Add new stock (grams) */
     addStockQty: z.number().min(0).optional(),
-    /** Override cost per unit */
+    totalPurchaseAmount: z.number().min(0).optional(),
     costPerUnit: z.number().min(0).optional(),
   })
   .refine(
@@ -34,11 +32,10 @@ const patchSchema = z
       d.netUsed !== undefined ||
       d.addNetUsed !== undefined ||
       d.addStockQty !== undefined ||
+      d.totalPurchaseAmount !== undefined ||
       d.costPerUnit !== undefined,
     { message: "At least one field must be provided" }
   );
-
-// ─── PATCH ───────────────────────────────────────────────────────────────────
 
 export async function PATCH(
   request: Request,
@@ -54,7 +51,6 @@ export async function PATCH(
     }
 
     const { id } = await params;
-
     const body = await request.json();
     const parsed = patchSchema.safeParse(body);
     if (!parsed.success) {
@@ -66,6 +62,14 @@ export async function PATCH(
 
     await connectDB();
 
+    const existing = await ThreadsStock.findById(id);
+    if (!existing) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: "Thread entry not found" },
+        { status: 404 }
+      );
+    }
+
     const {
       threadCode,
       threadColour,
@@ -76,43 +80,49 @@ export async function PATCH(
       netUsed,
       addNetUsed,
       addStockQty,
+      totalPurchaseAmount,
       costPerUnit,
     } = parsed.data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const update: Record<string, any> = {};
+    const update: Record<string, any> = { $set: {} };
+
+    if (threadCode !== undefined) update.$set.threadCode = threadCode;
+    if (threadColour !== undefined) update.$set.threadColour = threadColour;
+    if (threadCompanyName !== undefined) update.$set.threadCompanyName = threadCompanyName;
+    if (weightPerUnit !== undefined) update.$set.weightPerUnit = weightPerUnit;
+    if (openingStock !== undefined) update.$set.openingStock = openingStock;
+    if (stockAdd !== undefined) update.$set.stockAdd = stockAdd;
+    if (netUsed !== undefined) update.$set.netUsed = netUsed;
 
     if (addNetUsed !== undefined && addNetUsed > 0) {
       update.$inc = { ...(update.$inc ?? {}), netUsed: addNetUsed };
     }
+
     if (addStockQty !== undefined && addStockQty > 0) {
+      const amount =
+        totalPurchaseAmount !== undefined
+          ? totalPurchaseAmount
+          : costPerUnit !== undefined
+            ? addStockQty * costPerUnit
+            : addStockQty * existing.costPerUnit;
+
+      const entry = buildDbPurchaseEntry(addStockQty, amount);
+      const newRate = weightedRate(
+        existing.stockAdd,
+        existing.costPerUnit,
+        addStockQty,
+        entry.ratePerUnit
+      );
+
       update.$inc = { ...(update.$inc ?? {}), stockAdd: addStockQty };
+      update.$push = { purchaseHistory: entry };
+      update.$set.costPerUnit = newRate;
+    } else if (costPerUnit !== undefined && addStockQty === undefined) {
+      update.$set.costPerUnit = costPerUnit;
     }
 
-    if (threadCode !== undefined) {
-      update.$set = { ...(update.$set ?? {}), threadCode };
-    }
-    if (threadColour !== undefined) {
-      update.$set = { ...(update.$set ?? {}), threadColour };
-    }
-    if (threadCompanyName !== undefined) {
-      update.$set = { ...(update.$set ?? {}), threadCompanyName };
-    }
-    if (weightPerUnit !== undefined) {
-      update.$set = { ...(update.$set ?? {}), weightPerUnit };
-    }
-    if (openingStock !== undefined) {
-      update.$set = { ...(update.$set ?? {}), openingStock };
-    }
-    if (stockAdd !== undefined) {
-      update.$set = { ...(update.$set ?? {}), stockAdd };
-    }
-    if (netUsed !== undefined) {
-      update.$set = { ...(update.$set ?? {}), netUsed };
-    }
-    if (costPerUnit !== undefined) {
-      update.$set = { ...(update.$set ?? {}), costPerUnit };
-    }
+    if (Object.keys(update.$set).length === 0) delete update.$set;
 
     if (Object.keys(update).length === 0) {
       return NextResponse.json<ApiResponse>(
@@ -126,14 +136,7 @@ export async function PATCH(
       runValidators: true,
     });
 
-    if (!doc) {
-      return NextResponse.json<ApiResponse>(
-        { success: false, error: "Thread entry not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json<ApiResponse>({ success: true, data: doc.toJSON() });
+    return NextResponse.json<ApiResponse>({ success: true, data: doc!.toJSON() });
   } catch {
     return NextResponse.json<ApiResponse>(
       { success: false, error: "Internal server error" },
@@ -141,8 +144,6 @@ export async function PATCH(
     );
   }
 }
-
-// ─── DELETE (soft) ───────────────────────────────────────────────────────────
 
 export async function DELETE(
   _request: Request,
@@ -165,15 +166,9 @@ export async function DELETE(
     }
 
     const { id } = await params;
-
     await connectDB();
 
-    const doc = await ThreadsStock.findByIdAndUpdate(
-      id,
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
-
+    const doc = await softDeleteById(ThreadsStock, id);
     if (!doc) {
       return NextResponse.json<ApiResponse>(
         { success: false, error: "Thread entry not found" },

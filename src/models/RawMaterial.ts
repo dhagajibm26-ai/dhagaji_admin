@@ -1,5 +1,15 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
+const PurchaseEntrySchema = new Schema(
+  {
+    quantity: { type: Number, required: true, min: 0 },
+    totalAmount: { type: Number, required: true, min: 0 },
+    ratePerUnit: { type: Number, required: true, min: 0 },
+    purchasedAt: { type: Date, required: true, default: Date.now },
+  },
+  { _id: false }
+);
+
 export type RawMaterialCategory = string;
 
 export type RawMaterialUnit = "gram" | "pcs" | "tube" | "box" | "meter";
@@ -9,6 +19,7 @@ export interface IRawMaterialDocument extends Document {
   category: RawMaterialCategory;
   colorType?: string;
   unit: RawMaterialUnit;
+  unitsPerPack?: number;
   openingStock: number;
   purchasedQty: number;
   usedQty: number;
@@ -16,6 +27,12 @@ export interface IRawMaterialDocument extends Document {
   lowStockThreshold: number;
   supplier?: string;
   lastPurchaseDate?: Date;
+  purchaseHistory?: Array<{
+    quantity: number;
+    totalAmount: number;
+    ratePerUnit: number;
+    purchasedAt: Date;
+  }>;
   /** Soft-delete flag — filtered out in all list queries */
   isDeleted?: boolean;
   // virtuals
@@ -39,6 +56,7 @@ const RawMaterialSchema = new Schema<IRawMaterialDocument>(
       enum: ["gram", "pcs", "tube", "box", "meter"],
       required: true,
     },
+    unitsPerPack: { type: Number, default: 1, min: 1 },
     openingStock: { type: Number, required: true, default: 0, min: 0 },
     purchasedQty: { type: Number, default: 0, min: 0 },
     usedQty: { type: Number, default: 0, min: 0 },
@@ -46,6 +64,7 @@ const RawMaterialSchema = new Schema<IRawMaterialDocument>(
     lowStockThreshold: { type: Number, default: 10, min: 0 },
     supplier: { type: String, trim: true },
     lastPurchaseDate: { type: Date },
+    purchaseHistory: { type: [PurchaseEntrySchema], default: [] },
     isDeleted: { type: Boolean, default: false, index: true },
   },
   {

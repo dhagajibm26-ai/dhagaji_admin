@@ -11,6 +11,8 @@ function generateBarcodeId(): string {
 export interface IFinishedProductDocument extends Document {
   designName: string;
   designCode: string;
+  /** What kind of finished item this is — e.g. Bangle, Thread Work, Mix Set */
+  category: string;
   size: string;
   makingCostPerPc: number;
   otherCostPerPc: number;
@@ -37,6 +39,7 @@ const FinishedProductSchema = new Schema<IFinishedProductDocument>(
   {
     designName: { type: String, required: true, trim: true },
     designCode: { type: String, required: true, trim: true },
+    category: { type: String, default: "Bangle", trim: true },
     size: { type: String, required: true, trim: true },
     makingCostPerPc: { type: Number, required: true, min: 0 },
     otherCostPerPc: { type: Number, default: 0, min: 0 },
@@ -83,6 +86,7 @@ FinishedProductSchema.virtual("profitPerPc").get(function (
 FinishedProductSchema.index({ barcodeId: 1 }, { unique: true });
 FinishedProductSchema.index({ designCode: 1 });
 FinishedProductSchema.index({ designName: 1 });
+FinishedProductSchema.index({ category: 1 });
 
 export const FinishedProduct: Model<IFinishedProductDocument> =
   mongoose.models.FinishedProduct ??

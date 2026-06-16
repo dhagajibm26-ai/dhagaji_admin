@@ -7,18 +7,20 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import {
   useCreateFinishedProduct,
   useUpdateFinishedProduct,
 } from "@/hooks/useFinishedStock";
-import type { IFinishedProduct } from "@/types";
+import { FINISHED_PRODUCT_CATEGORIES, type IFinishedProduct } from "@/types";
 
 // ─── Local form schema ────────────────────────────────────────────────────────
 
 const schema = z.object({
   designName: z.string().min(1, "Design name required"),
   designCode: z.string().min(1, "Design code required"),
+  category: z.string().min(1, "Category required").default("Bangle"),
   size: z.string().min(1, "Size required"),
   makingCostPerPc: z
     .number({ error: "Making cost required" })
@@ -72,6 +74,7 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
       ? {
           designName: product.designName,
           designCode: product.designCode,
+          category: product.category ?? "Bangle",
           size: product.size,
           makingCostPerPc: product.makingCostPerPc,
           otherCostPerPc: product.otherCostPerPc,
@@ -84,6 +87,7 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
       : {
           designName: "",
           designCode: "",
+          category: "Bangle",
           size: "",
           makingCostPerPc: 0,
           otherCostPerPc: 0,
@@ -129,6 +133,7 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
     const payload = {
       designName: data.designName,
       designCode: data.designCode,
+      category: data.category,
       size: data.size,
       makingCostPerPc: data.makingCostPerPc,
       otherCostPerPc: data.otherCostPerPc,
@@ -189,6 +194,19 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
               autoComplete="off"
               {...register("designName")}
             />
+          </div>
+          <div>
+            <Select
+              label="Category"
+              error={errors.category?.message}
+              {...register("category")}
+            >
+              {FINISHED_PRODUCT_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
           </div>
           <div>
             <Input

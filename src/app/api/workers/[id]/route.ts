@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
+import { softDeleteById, ACTIVE_FILTER } from "@/lib/softDelete";
 import { Worker } from "@/models/Worker";
 import { workerSchema } from "@/types";
 import type { ApiResponse } from "@/types";
@@ -30,7 +31,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
     }
     const { id } = await params;
     await connectDB();
-    const worker = await Worker.findOne({ _id: id, isDeleted: { $ne: true } });
+    const worker = await Worker.findOne({ _id: id, ...ACTIVE_FILTER });
     if (!worker) {
       return NextResponse.json<ApiResponse>({ success: false, error: "Worker not found" }, { status: 404 });
     }
@@ -57,7 +58,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     }
     await connectDB();
     const worker = await Worker.findOneAndUpdate(
-      { _id: id, isDeleted: { $ne: true } },
+      { _id: id, ...ACTIVE_FILTER },
       { $set: normalizeWorkerPayload(parsed.data) },
       { new: true, runValidators: true }
     );
@@ -78,11 +79,7 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
     }
     const { id } = await params;
     await connectDB();
-    const worker = await Worker.findOneAndUpdate(
-      { _id: id, isDeleted: { $ne: true } },
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
+    const worker = await softDeleteById(Worker, id);
     if (!worker) {
       return NextResponse.json<ApiResponse>({ success: false, error: "Worker not found" }, { status: 404 });
     }

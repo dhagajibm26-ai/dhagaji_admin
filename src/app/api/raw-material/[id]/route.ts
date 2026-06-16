@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
+import { softDeleteById } from "@/lib/softDelete";
 import { RawMaterial } from "@/models/RawMaterial";
+import { buildPurchaseEntry, buildDbPurchaseEntry, weightedRate } from "@/lib/purchaseHistory";
 import { z } from "zod";
 import type { ApiResponse } from "@/types";
-
-// ─── Validation ──────────────────────────────────────────────────────────────
 
 const patchSchema = z
   .object({
@@ -13,18 +13,15 @@ const patchSchema = z
     category: z.string().min(1).optional(),
     colorType: z.string().optional(),
     unit: z.enum(["gram", "pcs", "tube", "box", "meter"]).optional(),
+    unitsPerPack: z.number().min(1).optional(),
     openingStock: z.number().min(0).optional(),
     purchasedQty: z.number().min(0).optional(),
     usedQty: z.number().min(0).optional(),
-    /** Add stock to purchasedQty (e.g. received new delivery) */
     addPurchasedQty: z.number().min(0).optional(),
-    /** Override rate per unit */
+    totalPurchaseAmount: z.number().min(0).optional(),
     ratePerUnit: z.number().min(0).optional(),
-    /** Override low-stock threshold */
     lowStockThreshold: z.number().min(0).optional(),
-    /** Override supplier name */
     supplier: z.string().optional(),
-    /** Record date of this stock addition */
     lastPurchaseDate: z.string().optional(),
   })
   .refine(
@@ -33,18 +30,18 @@ const patchSchema = z
       d.category !== undefined ||
       d.colorType !== undefined ||
       d.unit !== undefined ||
+      d.unitsPerPack !== undefined ||
       d.openingStock !== undefined ||
       d.purchasedQty !== undefined ||
       d.usedQty !== undefined ||
       d.addPurchasedQty !== undefined ||
+      d.totalPurchaseAmount !== undefined ||
       d.ratePerUnit !== undefined ||
       d.lowStockThreshold !== undefined ||
       d.supplier !== undefined ||
       d.lastPurchaseDate !== undefined,
     { message: "At least one field must be provided" }
   );
-
-// ─── PATCH — update stock / rate ─────────────────────────────────────────────
 
 export async function PATCH(
   request: Request,
@@ -60,7 +57,6 @@ export async function PATCH(
     }
 
     const { id } = await params;
-
     const body = await request.json();
     const parsed = patchSchema.safeParse(body);
     if (!parsed.success) {
@@ -75,57 +71,71 @@ export async function PATCH(
 
     await connectDB();
 
-    const { addPurchasedQty, ...directFields } = parsed.data;
-
-    // Build update object
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const update: Record<string, any> = { $set: {} };
-    if (directFields.ratePerUnit !== undefined)
-      update.$set.ratePerUnit = directFields.ratePerUnit;
-    if (directFields.lowStockThreshold !== undefined)
-      update.$set.lowStockThreshold = directFields.lowStockThreshold;
-    if (directFields.supplier !== undefined)
-      update.$set.supplier = directFields.supplier;
-    if (directFields.itemName !== undefined)
-      update.$set.itemName = directFields.itemName;
-    if (directFields.category !== undefined)
-      update.$set.category = directFields.category;
-    if (directFields.colorType !== undefined)
-      update.$set.colorType = directFields.colorType;
-    if (directFields.unit !== undefined)
-      update.$set.unit = directFields.unit;
-    if (directFields.openingStock !== undefined)
-      update.$set.openingStock = directFields.openingStock;
-    if (directFields.purchasedQty !== undefined)
-      update.$set.purchasedQty = directFields.purchasedQty;
-    if (directFields.usedQty !== undefined)
-      update.$set.usedQty = directFields.usedQty;
-    if (directFields.lastPurchaseDate !== undefined)
-      update.$set.lastPurchaseDate = new Date(directFields.lastPurchaseDate);
-
-    if (addPurchasedQty !== undefined && addPurchasedQty > 0) {
-      update.$inc = { purchasedQty: addPurchasedQty };
-      update.$set.lastPurchaseDate =
-        directFields.lastPurchaseDate
-          ? new Date(directFields.lastPurchaseDate)
-          : new Date();
-    }
-
-    const doc = await RawMaterial.findByIdAndUpdate(id, update, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!doc) {
+    const existing = await RawMaterial.findById(id);
+    if (!existing) {
       return NextResponse.json<ApiResponse>(
         { success: false, error: "Material not found" },
         { status: 404 }
       );
     }
 
+    const { addPurchasedQty, totalPurchaseAmount, ratePerUnit, ...directFields } = parsed.data;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const update: Record<string, any> = { $set: {} };
+
+    if (directFields.itemName !== undefined) update.$set.itemName = directFields.itemName;
+    if (directFields.category !== undefined) update.$set.category = directFields.category;
+    if (directFields.colorType !== undefined) update.$set.colorType = directFields.colorType;
+    if (directFields.unit !== undefined) update.$set.unit = directFields.unit;
+    if (directFields.unitsPerPack !== undefined) update.$set.unitsPerPack = directFields.unitsPerPack;
+    if (directFields.openingStock !== undefined) update.$set.openingStock = directFields.openingStock;
+    if (directFields.purchasedQty !== undefined) update.$set.purchasedQty = directFields.purchasedQty;
+    if (directFields.usedQty !== undefined) update.$set.usedQty = directFields.usedQty;
+    if (directFields.lowStockThreshold !== undefined)
+      update.$set.lowStockThreshold = directFields.lowStockThreshold;
+    if (directFields.supplier !== undefined) update.$set.supplier = directFields.supplier;
+
+    if (addPurchasedQty !== undefined && addPurchasedQty > 0) {
+      const amount =
+        totalPurchaseAmount !== undefined
+          ? totalPurchaseAmount
+          : ratePerUnit !== undefined
+            ? addPurchasedQty * ratePerUnit
+            : addPurchasedQty * existing.ratePerUnit;
+
+      const entry = buildDbPurchaseEntry(addPurchasedQty, amount);
+      const newRate = weightedRate(
+        existing.purchasedQty,
+        existing.ratePerUnit,
+        addPurchasedQty,
+        entry.ratePerUnit
+      );
+
+      update.$inc = { purchasedQty: addPurchasedQty };
+      update.$push = { purchaseHistory: entry };
+      update.$set.ratePerUnit = newRate;
+      update.$set.lastPurchaseDate = directFields.lastPurchaseDate
+        ? new Date(directFields.lastPurchaseDate)
+        : new Date();
+    } else if (ratePerUnit !== undefined && addPurchasedQty === undefined) {
+      update.$set.ratePerUnit = ratePerUnit;
+    }
+
+    if (directFields.lastPurchaseDate !== undefined && !update.$set.lastPurchaseDate) {
+      update.$set.lastPurchaseDate = new Date(directFields.lastPurchaseDate);
+    }
+
+    if (Object.keys(update.$set).length === 0) delete update.$set;
+
+    const doc = await RawMaterial.findByIdAndUpdate(id, update, {
+      new: true,
+      runValidators: true,
+    });
+
     return NextResponse.json<ApiResponse>({
       success: true,
-      data: doc.toJSON(),
+      data: doc!.toJSON(),
     });
   } catch {
     return NextResponse.json<ApiResponse>(
@@ -134,8 +144,6 @@ export async function PATCH(
     );
   }
 }
-
-// ─── DELETE — soft delete ─────────────────────────────────────────────────────
 
 export async function DELETE(
   _request: Request,
@@ -150,7 +158,6 @@ export async function DELETE(
       );
     }
 
-    // Only owner can delete
     if (session.user.role !== "owner") {
       return NextResponse.json<ApiResponse>(
         { success: false, error: "Forbidden" },
@@ -159,15 +166,9 @@ export async function DELETE(
     }
 
     const { id } = await params;
-
     await connectDB();
 
-    const doc = await RawMaterial.findByIdAndUpdate(
-      id,
-      { $set: { isDeleted: true } },
-      { new: true }
-    );
-
+    const doc = await softDeleteById(RawMaterial, id);
     if (!doc) {
       return NextResponse.json<ApiResponse>(
         { success: false, error: "Material not found" },

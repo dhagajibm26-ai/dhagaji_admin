@@ -16,6 +16,7 @@ import {
   Circle,
   Layers,
   Gem,
+  Ruler,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -33,6 +34,7 @@ const MORE_ITEMS = [
   { href: "/bangles", label: "Bangles", Icon: Circle },
   { href: "/threads", label: "Threads", Icon: Layers },
   { href: "/material-categories", label: "Material Categories", Icon: Shapes, ownerOnly: true },
+  { href: "/bangle-sizes", label: "Bangle Sizes", Icon: Ruler, ownerOnly: true },
 ];
 
 export function MobileNav() {

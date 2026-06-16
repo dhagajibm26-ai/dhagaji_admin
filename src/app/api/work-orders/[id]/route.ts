@@ -61,6 +61,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     const {
       banglesReturned,
+      rawMaterialsReturned,
       threadsReturned,
       glueReturned,
       cutterReturned,
@@ -68,11 +69,13 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       finishedPieces,
       qualityOK,
       finishedProductId,
+      newFinishedProduct,
       perPieceRate,
       damageNotes,
     } = parsed.data;
 
     order.banglesReturned = banglesReturned as typeof order.banglesReturned;
+    order.rawMaterialsReturned = rawMaterialsReturned as typeof order.rawMaterialsReturned;
     order.threadsReturned = threadsReturned;
     order.glueReturned = glueReturned;
     order.cutterReturned = cutterReturned;
@@ -83,21 +86,21 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (damageNotes !== undefined) order.damageNotes = damageNotes;
     order.status = "Returned";
 
-    await order.save();
-
     // ── Restore returned stock back to inventory ──────────────────────────────
 
-    // Bangles returned → reduce netUsed per cutType
+    // Bangles returned → reduce netUsed on the exact stock issued.
+    // Prefer the explicit stock id; fall back to matching by cutType.
     if (banglesReturned.length > 0) {
       const banglesOps = banglesReturned
         .map((ret) => {
-          const original = order.banglesGiven.find(
-            (g) => g.cutType === ret.cutType
-          );
-          if (!original) return null;
+          const stockId =
+            ret.banglesStockId ??
+            order.banglesGiven.find((g) => g.cutType === ret.cutType)
+              ?.banglesStockId;
+          if (!stockId) return null;
           return {
             updateOne: {
-              filter: { _id: original.banglesStockId },
+              filter: { _id: stockId },
               update: { $inc: { netUsed: -ret.pieces } },
             },
           };
@@ -126,15 +129,36 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       if (threadOps.length > 0) await ThreadsStock.bulkWrite(threadOps);
     }
 
-    // Glue returned → reduce usedQty for glue raw materials
-    if (glueReturned > 0 && order.rawMaterialsGiven?.length > 0) {
-      const glueItems = order.rawMaterialsGiven.filter((r) => r.kind === "glue");
-      const totalGlueGiven = glueItems.reduce((s, r) => s + r.qty, 0);
-      if (glueItems.length > 0 && totalGlueGiven > 0) {
-        const glueOps = glueItems.map((r) => {
+    // Raw materials returned.
+    // Preferred path: per-line returns mapped to the exact RawMaterial issued.
+    if (rawMaterialsReturned.length > 0) {
+      const givenById = new Map(
+        order.rawMaterialsGiven.map((r) => [String(r.rawMaterialId), r.qty])
+      );
+      const rawOps = rawMaterialsReturned
+        .filter((r) => r.qty > 0)
+        .map((r) => {
+          const maxQty = givenById.get(String(r.rawMaterialId)) ?? r.qty;
+          const qty = Math.min(r.qty, maxQty);
+          return {
+            updateOne: {
+              filter: { _id: r.rawMaterialId },
+              update: { $inc: { usedQty: -qty } },
+            },
+          };
+        });
+      if (rawOps.length > 0) await RawMaterial.bulkWrite(rawOps);
+    } else {
+      // Legacy fallback: aggregate glue / cutter totals split proportionally.
+      const restockByKind = async (kind: string, returnedQty: number) => {
+        if (returnedQty <= 0 || !order.rawMaterialsGiven?.length) return;
+        const items = order.rawMaterialsGiven.filter((r) => r.kind === kind);
+        const totalGiven = items.reduce((s, r) => s + r.qty, 0);
+        if (items.length === 0 || totalGiven <= 0) return;
+        const ops = items.map((r) => {
           const share = Math.min(
             r.qty,
-            Math.round((r.qty / totalGlueGiven) * glueReturned * 100) / 100
+            Math.round((r.qty / totalGiven) * returnedQty * 100) / 100
           );
           return {
             updateOne: {
@@ -143,29 +167,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
             },
           };
         });
-        await RawMaterial.bulkWrite(glueOps);
-      }
-    }
-
-    // Cutter returned → reduce usedQty for cutter raw materials
-    if (cutterReturned > 0 && order.rawMaterialsGiven?.length > 0) {
-      const cutterItems = order.rawMaterialsGiven.filter((r) => r.kind === "cutter");
-      const totalCutterGiven = cutterItems.reduce((s, r) => s + r.qty, 0);
-      if (cutterItems.length > 0 && totalCutterGiven > 0) {
-        const cutterOps = cutterItems.map((r) => {
-          const share = Math.min(
-            r.qty,
-            Math.round((r.qty / totalCutterGiven) * cutterReturned * 100) / 100
-          );
-          return {
-            updateOne: {
-              filter: { _id: r.rawMaterialId },
-              update: { $inc: { usedQty: -share } },
-            },
-          };
-        });
-        await RawMaterial.bulkWrite(cutterOps);
-      }
+        await RawMaterial.bulkWrite(ops);
+      };
+      await restockByKind("glue", glueReturned);
+      await restockByKind("cutter", cutterReturned);
     }
 
     // ── Update Worker.totalEarned ─────────────────────────────────────────────
@@ -177,11 +182,37 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       await Worker.findByIdAndUpdate(order.workerId, { $inc: { totalEarned: netAmountDue } });
     }
 
-    if (finishedProductId && qualityOK > 0) {
+    // ── Finished stock integration ────────────────────────────────────────────
+    // Either create a brand-new finished product from this return, or add the
+    // OK pieces to an existing one. The link is persisted on the work order.
+    if (qualityOK > 0 && newFinishedProduct) {
+      const makingCost = newFinishedProduct.makingCostPerPc ?? order.perPieceRate;
+      const otherCost = newFinishedProduct.otherCostPerPc ?? 0;
+      const totalCost = makingCost + otherCost;
+      const created = await FinishedProduct.create({
+        designName: newFinishedProduct.designName,
+        designCode:
+          newFinishedProduct.designCode?.trim() ||
+          `WO-${String(order._id).slice(-6).toUpperCase()}`,
+        category: newFinishedProduct.category,
+        size: newFinishedProduct.size,
+        makingCostPerPc: makingCost,
+        otherCostPerPc: otherCost,
+        MRP: Math.round(totalCost * 4),
+        wholesalePrice: Math.round(totalCost * 2.5),
+        sellingPrice: Math.round(totalCost * 3),
+        readyStock: qualityOK,
+      });
+      order.finishedProductId = created._id as typeof order.finishedProductId;
+    } else if (finishedProductId && qualityOK > 0) {
       await FinishedProduct.findByIdAndUpdate(finishedProductId, {
         $inc: { readyStock: qualityOK },
       });
+      order.finishedProductId =
+        finishedProductId as unknown as typeof order.finishedProductId;
     }
+
+    await order.save();
 
     return NextResponse.json<ApiResponse>({ success: true, data: order.toJSON() });
   } catch {

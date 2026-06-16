@@ -2,21 +2,64 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUIStore } from "@/stores/useUIStore";
 import type { IThreadsStock, ThreadsStockInput, ApiResponse } from "@/types";
 
+export const THREADS_PAGE_SIZES = [10, 20, 50, 100, 500] as const;
+export type ThreadsPageSize = (typeof THREADS_PAGE_SIZES)[number];
+
+export interface ThreadsPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface ThreadsPaginatedResult {
+  items: IThreadsStock[];
+  pagination: ThreadsPagination;
+}
+
 // ─── Query key factory ────────────────────────────────────────────────────────
 
 export const THREADS_KEYS = {
   all: ["threads"] as const,
   lists: () => [...THREADS_KEYS.all, "list"] as const,
+  listAll: () => [...THREADS_KEYS.lists(), "all"] as const,
+  listPaginated: (page: number, limit: number, search: string) =>
+    [...THREADS_KEYS.lists(), "page", page, limit, search] as const,
   detail: (id: string) => [...THREADS_KEYS.all, "detail", id] as const,
 };
 
 // ─── Fetch helpers ────────────────────────────────────────────────────────────
 
-async function fetchThreads(): Promise<IThreadsStock[]> {
-  const res = await fetch("/api/threads");
+async function fetchAllThreads(): Promise<IThreadsStock[]> {
+  const res = await fetch("/api/threads?all=true");
   const json: ApiResponse<IThreadsStock[]> = await res.json();
   if (!res.ok) throw new Error(json.error ?? "Failed to fetch threads");
   return json.data ?? [];
+}
+
+async function fetchThreadsPaginated(
+  page: number,
+  limit: ThreadsPageSize,
+  search: string
+): Promise<ThreadsPaginatedResult> {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (search.trim()) params.set("search", search.trim());
+
+  const res = await fetch(`/api/threads?${params.toString()}`);
+  const json: ApiResponse<IThreadsStock[]> = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "Failed to fetch threads");
+  return {
+    items: json.data ?? [],
+    pagination: json.pagination ?? {
+      page,
+      limit,
+      total: json.data?.length ?? 0,
+      totalPages: 1,
+    },
+  };
 }
 
 async function createThread(data: ThreadsStockInput): Promise<IThreadsStock> {
@@ -41,6 +84,7 @@ export interface PatchThreadsPayload {
   netUsed?: number;
   addNetUsed?: number;
   addStockQty?: number;
+  totalPurchaseAmount?: number;
   costPerUnit?: number;
 }
 
@@ -63,11 +107,22 @@ async function deleteThread(id: string): Promise<void> {
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
+/** Full list — for dropdowns, stats, alerts */
 export function useThreadsStock() {
   return useQuery({
-    queryKey: THREADS_KEYS.lists(),
-    queryFn: fetchThreads,
+    queryKey: THREADS_KEYS.listAll(),
+    queryFn: fetchAllThreads,
     staleTime: 1000 * 60 * 2,
+  });
+}
+
+/** Paginated list — for the threads table */
+export function useThreadsPaginated(page: number, limit: ThreadsPageSize, search = "") {
+  return useQuery({
+    queryKey: THREADS_KEYS.listPaginated(page, limit, search),
+    queryFn: () => fetchThreadsPaginated(page, limit, search),
+    staleTime: 1000 * 60 * 2,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -77,7 +132,7 @@ export function useAddThread() {
   return useMutation({
     mutationFn: createThread,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: THREADS_KEYS.lists() });
+      qc.invalidateQueries({ queryKey: THREADS_KEYS.all });
       addToast({ type: "success", message: "Thread added successfully" });
     },
     onError: (err: Error) => {
@@ -92,8 +147,8 @@ export function usePatchThread() {
   return useMutation({
     mutationFn: patchThread,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: THREADS_KEYS.lists() });
-      addToast({ type: "success", message: "Thread stock updated" });
+      qc.invalidateQueries({ queryKey: THREADS_KEYS.all });
+      addToast({ type: "success", message: "Thread updated successfully" });
     },
     onError: (err: Error) => {
       addToast({ type: "error", message: err.message });
@@ -107,7 +162,7 @@ export function useDeleteThread() {
   return useMutation({
     mutationFn: deleteThread,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: THREADS_KEYS.lists() });
+      qc.invalidateQueries({ queryKey: THREADS_KEYS.all });
       addToast({ type: "success", message: "Thread entry deleted" });
     },
     onError: (err: Error) => {

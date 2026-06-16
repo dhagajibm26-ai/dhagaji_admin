@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { AlertTriangle, Search, Plus } from "lucide-react";
+import { AlertTriangle, Search, Plus, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { BanglesTable } from "./BanglesTable";
 import { AddBanglesModal } from "./AddBanglesModal";
@@ -80,10 +81,20 @@ export function BanglesPageClient() {
             Track bangle sizes, cut types, and closing stock by pieces.
           </p>
         </div>
-        <Button onClick={openCreateModal} size="sm" className="hidden sm:inline-flex">
-          <Plus size={14} className="mr-1" />
-          Add Bangles
-        </Button>
+        <div className="hidden sm:flex sm:items-center sm:gap-2">
+          {isOwner && (
+            <Link href="/bangle-sizes" className="inline-flex">
+              <Button variant="outline" size="sm">
+                <Ruler size={14} className="mr-1" />
+                Manage Sizes
+              </Button>
+            </Link>
+          )}
+          <Button onClick={openCreateModal} size="sm" className="hidden sm:inline-flex">
+            <Plus size={14} className="mr-1" />
+            Add Bangles
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}

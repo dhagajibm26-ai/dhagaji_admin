@@ -1,5 +1,15 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
+const PurchaseEntrySchema = new Schema(
+  {
+    quantity: { type: Number, required: true, min: 0 },
+    totalAmount: { type: Number, required: true, min: 0 },
+    ratePerUnit: { type: Number, required: true, min: 0 },
+    purchasedAt: { type: Date, required: true, default: Date.now },
+  },
+  { _id: false }
+);
+
 export interface IThreadsStockDocument extends Document {
   threadCode: string;
   threadColour: string;
@@ -9,6 +19,12 @@ export interface IThreadsStockDocument extends Document {
   openingStock: number;    // prev closing + new stockAdd
   netUsed: number;         // total consumed (grams)
   costPerUnit: number;     // cost per gram
+  purchaseHistory?: Array<{
+    quantity: number;
+    totalAmount: number;
+    ratePerUnit: number;
+    purchasedAt: Date;
+  }>;
   isDeleted?: boolean;
   // virtuals
   closingStock: number;
@@ -22,11 +38,12 @@ const ThreadsStockSchema = new Schema<IThreadsStockDocument>(
     threadCode: { type: String, required: true, trim: true },
     threadColour: { type: String, required: true, trim: true },
     threadCompanyName: { type: String, required: true, trim: true },
-    weightPerUnit: { type: Number, required: true, min: 0 },
+    weightPerUnit: { type: Number, default: 0, min: 0 },
     stockAdd: { type: Number, default: 0, min: 0 },
     openingStock: { type: Number, default: 0, min: 0 },
     netUsed: { type: Number, default: 0, min: 0 },
     costPerUnit: { type: Number, required: true, min: 0 },
+    purchaseHistory: { type: [PurchaseEntrySchema], default: [] },
     isDeleted: { type: Boolean, default: false },
   },
   {

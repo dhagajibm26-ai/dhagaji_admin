@@ -50,9 +50,16 @@ export function ProductCard({
 
       {/* Header */}
       <div className="pr-6">
-        <p className="font-semibold text-[#1A1A1A] text-sm leading-tight">
-          {product.designName}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="font-semibold text-[#1A1A1A] text-sm leading-tight">
+            {product.designName}
+          </p>
+          {product.category && (
+            <Badge variant="info" className="text-[9px] px-1.5 py-0 shrink-0">
+              {product.category}
+            </Badge>
+          )}
+        </div>
         <p className="text-xs text-gray-500 mt-0.5">
           Code: <span className="font-medium text-[#1A1A1A]">{product.designCode}</span>
           {" · "}Size: <span className="font-medium text-[#1A1A1A]">{product.size}</span>
