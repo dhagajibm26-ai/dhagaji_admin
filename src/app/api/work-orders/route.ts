@@ -63,6 +63,9 @@ export async function POST(request: Request) {
       date,
       workType,
       perPieceRate,
+      assignmentType,
+      parentWorkOrderId,
+      allowReturn,
       banglesGiven,
       threadItemsGiven,
       threadsGiven,
@@ -80,6 +83,23 @@ export async function POST(request: Request) {
     const worker = await Worker.findOne({ _id: workerId, isDeleted: { $ne: true } });
     if (!worker) {
       return NextResponse.json<ApiResponse>({ success: false, error: "Worker not found" }, { status: 404 });
+    }
+
+    // For half-work continuations, validate the parent order
+    if (assignmentType === "half" && parentWorkOrderId) {
+      const parentOrder = await WorkOrder.findById(parentWorkOrderId);
+      if (!parentOrder) {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: "Parent work order not found" },
+          { status: 404 }
+        );
+      }
+      if (parentOrder.status !== "Open") {
+        return NextResponse.json<ApiResponse>(
+          { success: false, error: "Parent work order is already closed or returned" },
+          { status: 400 }
+        );
+      }
     }
 
     // Deduct bangles stock (netUsed)
@@ -254,11 +274,15 @@ export async function POST(request: Request) {
       : cutterGiven;
 
     // Create work order
-    const order = await WorkOrder.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const order = await (WorkOrder as any).create({
       workerId,
       date: date ? new Date(date) : new Date(),
       workType,
       perPieceRate,
+      assignmentType: assignmentType ?? "full",
+      parentWorkOrderId: parentWorkOrderId ?? undefined,
+      allowReturn: allowReturn ?? true,
       banglesGiven,
       threadItemsGiven,
       threadsGiven: totalThreads,

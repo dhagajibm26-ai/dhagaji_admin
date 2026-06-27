@@ -5,7 +5,7 @@ import { useWorkers } from "@/hooks/useWorkers";
 import { useBanglesStock } from "@/hooks/useBangles";
 import { useThreadsStock } from "@/hooks/useThreads";
 import { useRawMaterials } from "@/hooks/useRawMaterial";
-import { useCreateWorkOrder } from "@/hooks/useWorkOrders";
+import { useCreateWorkOrder, useWorkOrders } from "@/hooks/useWorkOrders";
 import {
   useWorkOrderStep,
   useWorkOrderWorkerId,
@@ -14,6 +14,10 @@ import {
   useWorkOrderWorkType,
   useWorkOrderPerPieceRate,
   useWorkOrderDenaItems,
+  useWorkOrderAssignmentType,
+  useWorkOrderParentId,
+  useWorkOrderParentDetails,
+  useWorkOrderAllowReturn,
   useWorkOrderActions,
   type DenaItem,
   type BangleDenaItem,
@@ -26,21 +30,168 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import type { CutType, WorkOrderCreateInput } from "@/types";
+import type { CutType, WorkOrderCreateInput, IWorkOrder } from "@/types";
 
 interface CreateWorkOrderFormProps {
   isOpen: boolean;
   onClose: () => void;
   preSelectedWorkerId?: string;
   preSelectedWorkerName?: string;
+  /** Pre-configure as Half Work continuation from this parent order */
+  preSelectedParentOrder?: IWorkOrder;
 }
 
-function Step1({ onNext }: { onNext: () => void }) {
+// ─── Assignment Type Picker ────────────────────────────────────────────────────
+
+function AssignmentTypePicker() {
+  const assignmentType = useWorkOrderAssignmentType();
+  const { setAssignmentType } = useWorkOrderActions();
+
+  return (
+    <div className="mb-5">
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Assignment Type</p>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setAssignmentType("full")}
+          className={`relative rounded-xl border-2 p-3 text-left transition-all ${assignmentType === "full"
+              ? "border-indigo-500 bg-indigo-50 shadow-sm"
+              : "border-slate-200 bg-white hover:border-slate-300"
+            }`}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <span
+              className={`h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${assignmentType === "full" ? "border-indigo-500" : "border-slate-300"
+                }`}
+            >
+              {assignmentType === "full" && (
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+              )}
+            </span>
+            <span className={`text-sm font-bold ${assignmentType === "full" ? "text-indigo-700" : "text-slate-700"}`}>
+              Full Work
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 pl-5">Single worker completes the entire product</p>
+          {assignmentType === "full" && (
+            <span className="absolute top-2 right-2 text-[10px] font-bold text-indigo-500 bg-indigo-100 rounded-full px-1.5 py-0.5">CLASSIC</span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setAssignmentType("half")}
+          className={`relative rounded-xl border-2 p-3 text-left transition-all ${assignmentType === "half"
+              ? "border-amber-500 bg-amber-50 shadow-sm"
+              : "border-slate-200 bg-white hover:border-slate-300"
+            }`}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <span
+              className={`h-3.5 w-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${assignmentType === "half" ? "border-amber-500" : "border-slate-300"
+                }`}
+            >
+              {assignmentType === "half" && (
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              )}
+            </span>
+            <span className={`text-sm font-bold ${assignmentType === "half" ? "text-amber-700" : "text-slate-700"}`}>
+              Half Work
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 pl-5">Multiple workers collaborate sequentially</p>
+          {assignmentType === "half" && (
+            <span className="absolute top-2 right-2 text-[10px] font-bold text-amber-600 bg-amber-100 rounded-full px-1.5 py-0.5">CHAIN</span>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Half Work Parent Selector ─────────────────────────────────────────────────
+
+function HalfWorkParentSelector({ locked }: { locked: boolean }) {
+  const parentDetails = useWorkOrderParentDetails();
+  const { setParentWorkOrder } = useWorkOrderActions();
+  const { data: allOrders = [] } = useWorkOrders();
+
+  // Only Open half-work orders where allowReturn is false AND not already continued
+  const eligibleParents = useMemo(
+    () => {
+      const continuedIds = new Set(
+        allOrders
+          .map((o) => o.parentWorkOrderId)
+          .filter((id): id is string => !!id)
+      );
+
+      return allOrders.filter(
+        (o) =>
+          o.status === "Open" &&
+          o.assignmentType === "half" &&
+          o.allowReturn === false &&
+          !continuedIds.has(o._id)
+      );
+    },
+    [allOrders]
+  );
+
+  function getWorkerName(order: IWorkOrder): string {
+    if (typeof order.workerId === "object" && order.workerId && "name" in (order.workerId as object)) {
+      return (order.workerId as unknown as { name?: string }).name ?? "Unknown";
+    }
+    return "Unknown";
+  }
+
+  if (locked && parentDetails) {
+    return (
+      <div className="rounded-xl border-2 border-amber-200 bg-amber-50 p-3 space-y-1">
+        <p className="text-xs font-bold uppercase tracking-wider text-amber-600">Continuing From</p>
+        <p className="text-sm font-semibold text-slate-800">
+          {parentDetails.workType}
+        </p>
+        <p className="text-xs text-slate-500">
+          Worker: {getWorkerName(parentDetails)} · Rate: Rs {parentDetails.perPieceRate}
+        </p>
+        <p className="text-[10px] text-amber-600 font-medium">🔒 Product details are locked from the original assignment</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <Select
+        label="Continue From Existing Half Work (optional)"
+        value={parentDetails?._id ?? ""}
+        onChange={(e) => {
+          const order = eligibleParents.find((o) => o._id === e.target.value) ?? null;
+          setParentWorkOrder(order);
+        }}
+      >
+        <option value="">— Select previous half-work order —</option>
+        {eligibleParents.length === 0 && (
+          <option value="" disabled>No in-progress half-work orders found</option>
+        )}
+        {eligibleParents.map((o) => (
+          <option key={o._id} value={o._id}>
+            {o.workType} · {getWorkerName(o)} · {new Date(o.date).toLocaleDateString("en-IN")}
+          </option>
+        ))}
+      </Select>
+    </div>
+  );
+}
+
+// ─── Step 1 ────────────────────────────────────────────────────────────────────
+
+function Step1({ onNext, lockedParent }: { onNext: () => void; lockedParent: boolean }) {
   const { setWorkerId, setDate, setWorkType, setPerPieceRate } = useWorkOrderActions();
   const workerId = useWorkOrderWorkerId();
   const date = useWorkOrderDate();
   const workType = useWorkOrderWorkType();
   const perPieceRate = useWorkOrderPerPieceRate();
+  const assignmentType = useWorkOrderAssignmentType();
+  const parentDetails = useWorkOrderParentDetails();
   const { data: workers = [] } = useWorkers();
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -54,8 +205,16 @@ function Step1({ onNext }: { onNext: () => void }) {
     return Object.keys(e).length === 0;
   }
 
+  const isWorkTypeLocked = assignmentType === "half" && !!parentDetails;
+
   return (
     <div className="space-y-4">
+      <AssignmentTypePicker />
+
+      {assignmentType === "half" && (
+        <HalfWorkParentSelector locked={lockedParent} />
+      )}
+
       <Select
         label="Worker"
         required
@@ -85,14 +244,20 @@ function Step1({ onNext }: { onNext: () => void }) {
         error={errors.date}
       />
 
-      <Input
-        label="Work Type"
-        required
-        placeholder="e.g. Bangles threading, Bead work"
-        value={workType}
-        onChange={(e) => setWorkType(e.target.value)}
-        error={errors.workType}
-      />
+      <div className="relative">
+        <Input
+          label="Work Type"
+          required
+          placeholder="e.g. Bangles threading, Bead work"
+          value={workType}
+          onChange={(e) => setWorkType(e.target.value)}
+          error={errors.workType}
+          disabled={isWorkTypeLocked}
+        />
+        {isWorkTypeLocked && (
+          <span className="absolute right-3 top-9 text-[10px] font-bold text-amber-600 bg-amber-100 rounded px-1.5 py-0.5">LOCKED</span>
+        )}
+      </div>
 
       <Input
         label="Per Piece Rate (Rs)"
@@ -118,6 +283,8 @@ function Step1({ onNext }: { onNext: () => void }) {
     </div>
   );
 }
+
+// ─── Step 2 ────────────────────────────────────────────────────────────────────
 
 function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const { addDenaItem, removeDenaItem } = useWorkOrderActions();
@@ -430,7 +597,7 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
             disabled={!hasBanglePieces}
             className="w-full text-indigo-600"
           >
-            + Add this size & pick another
+            + Add this size &amp; pick another
           </Button>
         )}
 
@@ -717,13 +884,15 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
             Back
           </Button>
           <Button variant="primary" onClick={flushAndNext}>
-            Preview & Confirm →
+            Preview &amp; Confirm →
           </Button>
         </div>
       </div>
     </div>
   );
 }
+
+// ─── Step 3 ────────────────────────────────────────────────────────────────────
 
 function Step3({
   onBack,
@@ -739,6 +908,10 @@ function Step3({
   const workType = useWorkOrderWorkType();
   const perPieceRate = useWorkOrderPerPieceRate();
   const denaItems = useWorkOrderDenaItems();
+  const assignmentType = useWorkOrderAssignmentType();
+  const allowReturn = useWorkOrderAllowReturn();
+  const parentDetails = useWorkOrderParentDetails();
+  const { setAllowReturn } = useWorkOrderActions();
 
   function buildShareText() {
     const lines = denaItems.map((item) => {
@@ -750,7 +923,7 @@ function Step3({
     });
 
     return [
-      "Work Order",
+      `Work Order (${assignmentType === "half" ? "Half Work Assignment" : "Full Work Assignment"})`,
       `Worker: ${workerName}`,
       `Date: ${new Date(date).toLocaleDateString("en-IN")}`,
       `Work Type: ${workType}`,
@@ -790,6 +963,18 @@ function Step3({
     <div className="space-y-4">
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Step 3: Preview and Confirm</p>
 
+      {/* Assignment type badge */}
+      <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${assignmentType === "half"
+          ? "bg-amber-100 text-amber-700"
+          : "bg-indigo-100 text-indigo-700"
+        }`}>
+        <span className={`h-2 w-2 rounded-full ${assignmentType === "half" ? "bg-amber-500" : "bg-indigo-500"}`} />
+        {assignmentType === "half" ? "Half Work Assignment" : "Full Work Assignment"}
+        {assignmentType === "half" && parentDetails && (
+          <span className="text-amber-500">· Continuing from {parentDetails.workType}</span>
+        )}
+      </div>
+
       <div className="rounded-xl bg-slate-50 p-4 space-y-2 text-sm">
         <div className="flex justify-between">
           <span className="text-slate-500">Worker</span>
@@ -824,6 +1009,50 @@ function Step3({
         </div>
       </div>
 
+      {/* ── Allow Return toggle (half work only) ───────────────────── */}
+      {assignmentType === "half" && (
+        <div className="rounded-xl border-2 border-amber-200 bg-amber-50 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-bold text-slate-800">Allow Return After This Assignment</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {allowReturn
+                  ? "ON — This is the final step. Return will be enabled after this worker finishes."
+                  : "OFF — More workers will continue this work. Return is disabled."}
+              </p>
+            </div>
+            {/* Toggle button */}
+            <button
+              type="button"
+              onClick={() => setAllowReturn(!allowReturn)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 mt-0.5 ${allowReturn ? "bg-emerald-500" : "bg-slate-300"
+                }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${allowReturn ? "translate-x-6" : "translate-x-1"
+                  }`}
+              />
+            </button>
+          </div>
+
+          {allowReturn ? (
+            <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+              <p className="text-xs font-semibold text-emerald-700">
+                ✓ Final Assignment — Return will be enabled after this worker completes
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-300 px-3 py-2">
+              <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+              <p className="text-xs font-semibold text-amber-700">
+                ⏳ In Progress — Another worker will continue this work later
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" onClick={handlePrintCopies}>
           Print Office + Worker Copy
@@ -835,6 +1064,7 @@ function Step3({
 
       <p className="text-xs text-amber-700 bg-amber-50 rounded-md p-2">
         Confirming will deduct the above materials from stock.
+        {assignmentType === "half" && !allowReturn && " Return will be disabled until the final assignment."}
       </p>
 
       <div className="flex justify-between pt-2">
@@ -849,11 +1079,14 @@ function Step3({
   );
 }
 
+// ─── Root Form Component ───────────────────────────────────────────────────────
+
 export function CreateWorkOrderForm({
   isOpen,
   onClose,
   preSelectedWorkerId,
   preSelectedWorkerName,
+  preSelectedParentOrder,
 }: CreateWorkOrderFormProps) {
   const step = useWorkOrderStep();
   const workerId = useWorkOrderWorkerId();
@@ -861,8 +1094,14 @@ export function CreateWorkOrderForm({
   const workType = useWorkOrderWorkType();
   const perPieceRate = useWorkOrderPerPieceRate();
   const denaItems = useWorkOrderDenaItems();
-  const { nextStep, prevStep, reset, setWorkerId } = useWorkOrderActions();
+  const assignmentType = useWorkOrderAssignmentType();
+  const parentWorkOrderId = useWorkOrderParentId();
+  const allowReturn = useWorkOrderAllowReturn();
+  const { nextStep, prevStep, reset, setWorkerId, setAssignmentType, setParentWorkOrder } = useWorkOrderActions();
   const createOrder = useCreateWorkOrder();
+
+  // Track whether parent was injected externally (locks the selector)
+  const [lockedParent, setLockedParent] = useState(false);
 
   useEffect(() => {
     if (isOpen && preSelectedWorkerId && preSelectedWorkerName) {
@@ -870,8 +1109,19 @@ export function CreateWorkOrderForm({
     }
   }, [isOpen, preSelectedWorkerId, preSelectedWorkerName, setWorkerId]);
 
+  useEffect(() => {
+    if (isOpen && preSelectedParentOrder) {
+      setAssignmentType("half");
+      setParentWorkOrder(preSelectedParentOrder);
+      setLockedParent(true);
+    } else {
+      setLockedParent(false);
+    }
+  }, [isOpen, preSelectedParentOrder, setAssignmentType, setParentWorkOrder]);
+
   function handleClose() {
     reset();
+    setLockedParent(false);
     onClose();
   }
 
@@ -906,6 +1156,9 @@ export function CreateWorkOrderForm({
       date,
       workType,
       perPieceRate,
+      assignmentType,
+      parentWorkOrderId: parentWorkOrderId ?? undefined,
+      allowReturn,
       banglesGiven,
       threadItemsGiven: threadItems.map((t) => ({
         threadStockId: t.threadStockId,
@@ -952,9 +1205,13 @@ export function CreateWorkOrderForm({
   const stepTitle =
     step === 1 ? "Step 1: Worker and Details" : step === 2 ? "Step 2: Materials (DENA)" : "Step 3: Preview";
 
+  const modalTitle = assignmentType === "half"
+    ? `Half Work Assignment — ${stepTitle}`
+    : `Full Work Assignment — ${stepTitle}`;
+
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={`New Work Order - ${stepTitle}`} size="lg">
-      {step === 1 && <Step1 onNext={nextStep} />}
+    <Modal isOpen={isOpen} onClose={handleClose} title={modalTitle} size="lg">
+      {step === 1 && <Step1 onNext={nextStep} lockedParent={lockedParent} />}
       {step === 2 && <Step2 onNext={nextStep} onBack={prevStep} />}
       {step === 3 && <Step3 onBack={prevStep} onSubmit={handleSubmit} isPending={createOrder.isPending} />}
     </Modal>
