@@ -99,6 +99,10 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
 
     if (item) {
       const safeUnitsPerPack = Number(item.unitsPerPack || 1);
+      const effectiveUnitsPerPack = (item.unit === "box" || item.unit === "tube") ? safeUnitsPerPack : 1;
+      const prefillQty = (item.purchasedQty || 0) / effectiveUnitsPerPack;
+      const prefillAmount = Number(((item.purchasedQty || 0) * (item.ratePerUnit || 0)).toFixed(2));
+
       reset({
         itemName: item.itemName,
         colorType: item.colorType ?? "",
@@ -106,8 +110,8 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
         unit: item.unit === "gram" || item.unit === "box" || item.unit === "tube" || item.unit === "meter"
           ? item.unit
           : "gram",
-        quantity: 0,
-        totalAmount: 0,
+        quantity: prefillQty,
+        totalAmount: prefillAmount,
         unitsPerPack: safeUnitsPerPack,
         lowStockThreshold: item.lowStockThreshold,
         supplier: item.supplier ?? "",
@@ -172,14 +176,10 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
         {
           id: item._id,
           ...payloadBase,
-          ...(effectiveQty > 0
-            ? {
-                addPurchasedQty: effectiveQty,
-                totalPurchaseAmount: amountNumber,
-                ratePerUnit: computedRate,
-                lastPurchaseDate: new Date().toISOString(),
-              }
-            : {}),
+          purchasedQty: effectiveQty,
+          totalPurchaseAmount: amountNumber,
+          ratePerUnit: computedRate,
+          lastPurchaseDate: item.lastPurchaseDate,
         },
         { onSuccess: () => onClose() }
       );
@@ -287,11 +287,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
           />
         </div>
 
-        {isEdit && (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Add new stock at updated price (e.g. ₹1000/kg → ₹1200/kg). Leave stock at 0 to update details only.
-          </p>
-        )}
+
 
         {isPackUnit(unit) && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
