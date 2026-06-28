@@ -1,5 +1,5 @@
 /**
- * middleware.ts — Edge-runtime route guard.
+ * proxy.ts — Edge-runtime route guard.
  *
  * Uses NextAuth(authConfig) — NO Node.js-only imports allowed here.
  * Route protection logic lives in authConfig.callbacks.authorized.
