@@ -118,6 +118,17 @@ export async function PATCH(
       update.$inc = { ...(update.$inc ?? {}), stockAdd: addStockQty };
       update.$push = { purchaseHistory: entry };
       update.$set.costPerUnit = newRate;
+    } else if (stockAdd !== undefined) {
+      const effectiveCost = costPerUnit !== undefined ? costPerUnit : existing.costPerUnit;
+      const amount = totalPurchaseAmount !== undefined
+        ? totalPurchaseAmount
+        : Number((stockAdd * effectiveCost).toFixed(2));
+      const entry = buildDbPurchaseEntry(stockAdd, amount);
+      
+      update.$set.purchaseHistory = [entry];
+      if (costPerUnit !== undefined) {
+        update.$set.costPerUnit = costPerUnit;
+      }
     } else if (costPerUnit !== undefined && addStockQty === undefined) {
       update.$set.costPerUnit = costPerUnit;
     }

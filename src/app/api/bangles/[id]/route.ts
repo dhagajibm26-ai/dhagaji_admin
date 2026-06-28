@@ -112,6 +112,20 @@ export async function PATCH(
       update.$inc = { ...(update.$inc ?? {}), quantityAdd: addQuantity };
       update.$push = { purchaseHistory: entry };
       update.$set.pricePerPiece = newRate;
+    } else if (quantityAdd !== undefined) {
+      const effectiveCut = cutType ?? existing.cutType;
+      const peta = PETA_MAP[effectiveCut];
+      const pieces = quantityAdd * peta;
+      const effectivePrice = pricePerPiece !== undefined ? pricePerPiece : existing.pricePerPiece;
+      const amount = totalPurchaseAmount !== undefined
+        ? totalPurchaseAmount
+        : Number((pieces * effectivePrice).toFixed(2));
+      const entry = buildDbPurchaseEntry(pieces, amount);
+      
+      update.$set.purchaseHistory = [entry];
+      if (pricePerPiece !== undefined) {
+        update.$set.pricePerPiece = pricePerPiece;
+      }
     } else if (pricePerPiece !== undefined && addQuantity === undefined) {
       update.$set.pricePerPiece = pricePerPiece;
     }

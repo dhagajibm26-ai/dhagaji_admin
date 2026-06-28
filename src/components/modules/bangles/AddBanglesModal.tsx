@@ -119,8 +119,8 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
       reset({
         size: item.size,
         cutType: item.cutType,
-        quantityAdd: 0,
-        pricePerPiece: 0,
+        quantityAdd: item.quantityAdd,
+        pricePerPiece: item.pricePerPiece,
       });
     } else {
       reset({
@@ -139,7 +139,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
   }, [isOpen, isEdit, selectedSize, sizeOptions, setValue]);
 
   const onSubmit = (data: BanglesStockInput) => {
-    if (!item && data.quantityAdd <= 0) {
+    if (data.quantityAdd <= 0) {
       setError("quantityAdd", { message: "Quantity must be more than 0" });
       return;
     }
@@ -150,13 +150,9 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
           id: item._id,
           size: data.size,
           cutType: data.cutType,
-          ...(data.quantityAdd > 0
-            ? {
-                addQuantity: data.quantityAdd,
-                totalPurchaseAmount: addAmount,
-                pricePerPiece: Number(data.pricePerPiece || 0),
-              }
-            : {}),
+          quantityAdd: data.quantityAdd,
+          pricePerPiece: Number(data.pricePerPiece || 0),
+          totalPurchaseAmount: addAmount,
         },
         { onSuccess: () => onClose() }
       );
@@ -230,7 +226,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label="Quantity Added (sets)"
+            label={isEdit ? "Quantity (sets)" : "Quantity Added (sets)"}
             type="number"
             min="0"
             step="1"
@@ -251,13 +247,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
           />
         </div>
 
-        {isEdit && (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Add new stock at updated price. Leave quantity at 0 to update size/cut type only.
-          </p>
-        )}
-
-        {(selectedSize && cutType && (!isEdit || Number(quantityAdd) > 0)) && (
+        {(selectedSize && cutType && Number(quantityAdd) > 0) && (
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">
               {isEdit ? "Current Purchase Calculation" : "Current Running Valuation"}
@@ -274,7 +264,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
                 </>
               )}
               <p className="text-slate-600">
-                {isEdit ? "Add Sets" : "Add Now"}: <span className="font-semibold text-slate-900">{Number(quantityAdd || 0).toLocaleString("en-IN")} sets ({addPieces.toLocaleString("en-IN")} pcs)</span>
+                {isEdit ? "Quantity" : "Add Now"}: <span className="font-semibold text-slate-900">{Number(quantityAdd || 0).toLocaleString("en-IN")} sets ({addPieces.toLocaleString("en-IN")} pcs)</span>
               </p>
               <p className="text-slate-600">
                 {isEdit ? "Total Amount" : "Add Amount"}: <span className="font-semibold text-slate-900">₹{addAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
