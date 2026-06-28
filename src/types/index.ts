@@ -266,6 +266,10 @@ export const workOrderCreateSchema = z.object({
   date: z.string().optional(),
   workType: z.string().min(1, "Work type required"),
   perPieceRate: z.number().min(0, "Rate required"),
+  // ASSIGNMENT TYPE
+  assignmentType: z.enum(["full", "half"]).default("full"),
+  parentWorkOrderId: z.string().optional(),
+  allowReturn: z.boolean().default(true),
   // DENA
   banglesGiven: z.array(banglesGivenItemSchema).default([]),
   threadItemsGiven: z.array(threadGivenItemSchema).default([]),
@@ -327,6 +331,35 @@ export const workOrderReturnSchema = z.object({
   newFinishedProduct: newFinishedProductSchema.optional(),
   perPieceRate: z.number().min(0).optional(),
   damageNotes: z.string().optional(),
+  /** For half-work final leg: return data for each ancestor in the chain */
+  chainReturns: z
+    .array(
+      z.object({
+        orderId: z.string().min(1),
+        banglesReturned: z
+          .array(
+            z.object({
+              banglesStockId: z.string().optional(),
+              size: z.string().optional(),
+              cutType: z.enum(["C1", "C2", "C4", "C6"]),
+              cuts: z.number().min(0),
+              pieces: z.number().min(0),
+            })
+          )
+          .default([]),
+        rawMaterialsReturned: z
+          .array(
+            z.object({
+              rawMaterialId: z.string().min(1),
+              itemName: z.string().min(1),
+              qty: z.number().min(0),
+            })
+          )
+          .default([]),
+        threadsReturned: z.number().min(0).default(0),
+      })
+    )
+    .default([]),
 }).refine((d) => d.qualityOK <= d.finishedPieces, {
   message: "qualityOK cannot exceed finishedPieces",
   path: ["qualityOK"],
@@ -345,6 +378,10 @@ export interface IWorkOrder {
   workerId: string;
   date: Date;
   workType: string;
+  // ASSIGNMENT TYPE
+  assignmentType: "full" | "half";
+  parentWorkOrderId?: string;
+  allowReturn: boolean;
   // DENA
   banglesGiven: Array<{
     banglesStockId: string;

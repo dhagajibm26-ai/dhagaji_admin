@@ -118,6 +118,16 @@ export async function PATCH(
       update.$set.lastPurchaseDate = directFields.lastPurchaseDate
         ? new Date(directFields.lastPurchaseDate)
         : new Date();
+    } else if (directFields.purchasedQty !== undefined) {
+      const amount = totalPurchaseAmount !== undefined 
+        ? totalPurchaseAmount 
+        : directFields.purchasedQty * (ratePerUnit ?? existing.ratePerUnit);
+      const entry = buildDbPurchaseEntry(directFields.purchasedQty, amount);
+      update.$set.purchaseHistory = [entry];
+      
+      if (ratePerUnit !== undefined) {
+        update.$set.ratePerUnit = ratePerUnit;
+      }
     } else if (ratePerUnit !== undefined && addPurchasedQty === undefined) {
       update.$set.ratePerUnit = ratePerUnit;
     }

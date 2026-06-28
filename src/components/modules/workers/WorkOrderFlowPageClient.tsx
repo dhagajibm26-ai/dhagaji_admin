@@ -1,7 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { HardHat, Undo2, Plus, CheckCircle2, Search, ClipboardList, Sparkles } from "lucide-react";
+import {
+  HardHat,
+  Undo2,
+  Plus,
+  CheckCircle2,
+  Search,
+  ClipboardList,
+  Sparkles,
+  GitBranch,
+  ArrowRight,
+} from "lucide-react";
 import { useWorkers } from "@/hooks/useWorkers";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { CreateWorkOrderForm } from "./CreateWorkOrderForm";
@@ -22,6 +32,51 @@ function getTotalGivenPieces(order: IWorkOrder): number {
   return order.banglesGiven.reduce((sum, item) => sum + item.pieces, 0);
 }
 
+/** True when this half-work order is still in progress (return not yet allowed).
+ *  Uses !== true so that allowReturn=undefined (legacy/unset) is also treated as "in progress". */
+function isHalfWorkInProgress(order: IWorkOrder): boolean {
+  return order.assignmentType === "half" && order.allowReturn !== true && order.status === "Open";
+}
+
+interface ChainLinksInfo {
+  legNumber: number;
+  parentWorkerName?: string;
+  childWorkerName?: string;
+  isRoot: boolean;
+  isEnd: boolean;
+}
+
+function getChainLinks(order: IWorkOrder, allOrders: IWorkOrder[]): ChainLinksInfo | null {
+  if (order.assignmentType !== "half") return null;
+
+  // 1. Calculate Leg Number & Parent
+  let legNumber = 1;
+  let currentParentId = order.parentWorkOrderId;
+  let parentWorkerName: string | undefined;
+
+  while (currentParentId) {
+    const parent = allOrders.find((o) => o._id === currentParentId);
+    if (!parent) break;
+    if (legNumber === 1) {
+      parentWorkerName = getWorkerName(parent);
+    }
+    legNumber++;
+    currentParentId = parent.parentWorkOrderId;
+  }
+
+  // 2. Find if this order is continued by someone else (child order)
+  const child = allOrders.find((o) => o.parentWorkOrderId === order._id);
+  const childWorkerName = child ? getWorkerName(child) : undefined;
+
+  return {
+    legNumber,
+    parentWorkerName,
+    childWorkerName,
+    isRoot: !order.parentWorkOrderId,
+    isEnd: !child,
+  };
+}
+
 export function WorkOrderFlowPageClient() {
   const [search, setSearch] = useState("");
   const [activeListTab, setActiveListTab] = useState<"pending" | "complete">("pending");
@@ -29,6 +84,8 @@ export function WorkOrderFlowPageClient() {
   const [orderModalOpen, setOrderModalOpen] = useState(false);
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [returnOrderId, setReturnOrderId] = useState<string | undefined>();
+  /** Parent order pre-selected when user clicks "Continue Work" */
+  const [continueFromOrder, setContinueFromOrder] = useState<IWorkOrder | undefined>();
 
   const { data: workers = [], isLoading: workersLoading } = useWorkers();
   const { data: allOrders = [], isLoading: ordersLoading } = useWorkOrders();
@@ -45,28 +102,125 @@ export function WorkOrderFlowPageClient() {
     [allOrders]
   );
 
+  // Group and sort pending orders so chains stay together in sequence (root date desc, leg asc)
+  const sortedPending = useMemo(() => {
+    const processed = pendingOrders.map((order) => {
+      let rootId = order._id;
+      let legNumber = 1;
+      let currentParentId = order.parentWorkOrderId;
+
+      while (currentParentId) {
+        const parent = allOrders.find((o) => o._id === currentParentId);
+        if (!parent) break;
+        rootId = parent._id;
+        legNumber++;
+        currentParentId = parent.parentWorkOrderId;
+      }
+
+      return { order, rootId, legNumber };
+    });
+
+    const groups = new Map<string, typeof processed>();
+    for (const item of processed) {
+      if (!groups.has(item.rootId)) {
+        groups.set(item.rootId, []);
+      }
+      groups.get(item.rootId)!.push(item);
+    }
+
+    const getRootDate = (rootId: string) => {
+      const rootItem = allOrders.find((x) => x._id === rootId);
+      return rootItem ? new Date(rootItem.date).getTime() : 0;
+    };
+
+    const sortedRootIds = Array.from(groups.keys()).sort((a, b) => {
+      return getRootDate(b) - getRootDate(a);
+    });
+
+    const result: IWorkOrder[] = [];
+    for (const rootId of sortedRootIds) {
+      const groupItems = groups.get(rootId)!;
+      groupItems.sort((a, b) => a.legNumber - b.legNumber);
+      result.push(...groupItems.map((item) => item.order));
+    }
+
+    return result;
+  }, [pendingOrders, allOrders]);
+
+  // Group and sort complete orders so chains stay together in sequence
+  const sortedComplete = useMemo(() => {
+    const processed = completeOrders.map((order) => {
+      let rootId = order._id;
+      let legNumber = 1;
+      let currentParentId = order.parentWorkOrderId;
+
+      while (currentParentId) {
+        const parent = allOrders.find((o) => o._id === currentParentId);
+        if (!parent) break;
+        rootId = parent._id;
+        legNumber++;
+        currentParentId = parent.parentWorkOrderId;
+      }
+
+      return { order, rootId, legNumber };
+    });
+
+    const groups = new Map<string, typeof processed>();
+    for (const item of processed) {
+      if (!groups.has(item.rootId)) {
+        groups.set(item.rootId, []);
+      }
+      groups.get(item.rootId)!.push(item);
+    }
+
+    const getRootDate = (rootId: string) => {
+      const rootItem = allOrders.find((x) => x._id === rootId);
+      return rootItem ? new Date(rootItem.date).getTime() : 0;
+    };
+
+    const sortedRootIds = Array.from(groups.keys()).sort((a, b) => {
+      return getRootDate(b) - getRootDate(a);
+    });
+
+    const result: IWorkOrder[] = [];
+    for (const rootId of sortedRootIds) {
+      const groupItems = groups.get(rootId)!;
+      groupItems.sort((a, b) => a.legNumber - b.legNumber);
+      result.push(...groupItems.map((item) => item.order));
+    }
+
+    return result;
+  }, [completeOrders, allOrders]);
+
   const filteredPending = useMemo(() => {
-    if (!search.trim()) return pendingOrders;
+    if (!search.trim()) return sortedPending;
     const q = search.toLowerCase();
-    return pendingOrders.filter((o) => {
+    return sortedPending.filter((o) => {
       const workerName = getWorkerName(o).toLowerCase();
       return workerName.includes(q) || o.workType.toLowerCase().includes(q);
     });
-  }, [pendingOrders, search]);
+  }, [sortedPending, search]);
 
   const filteredComplete = useMemo(() => {
-    if (!search.trim()) return completeOrders;
+    if (!search.trim()) return sortedComplete;
     const q = search.toLowerCase();
-    return completeOrders.filter((o) => {
+    return sortedComplete.filter((o) => {
       const workerName = getWorkerName(o).toLowerCase();
       return workerName.includes(q) || o.workType.toLowerCase().includes(q);
     });
-  }, [completeOrders, search]);
+  }, [sortedComplete, search]);
 
   const currentRows = activeListTab === "pending" ? filteredPending : filteredComplete;
 
   function openCreateFor(worker?: IWorker) {
     setSelectedWorker(worker ?? null);
+    setContinueFromOrder(undefined);
+    setOrderModalOpen(true);
+  }
+
+  function openContinueHalfWork(parentOrder: IWorkOrder) {
+    setSelectedWorker(null);
+    setContinueFromOrder(parentOrder);
     setOrderModalOpen(true);
   }
 
@@ -186,15 +340,15 @@ export function WorkOrderFlowPageClient() {
 
         <div className="p-4">
           <div className="relative max-w-sm mb-4">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by worker or work type..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]"
-          />
-        </div>
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by worker or work type..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]"
+            />
+          </div>
 
           <div className="overflow-x-auto rounded-xl border border-slate-100">
             <table className="min-w-full text-sm">
@@ -203,6 +357,7 @@ export function WorkOrderFlowPageClient() {
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Worker</th>
                   <th className="px-4 py-3">Work Type</th>
+                  <th className="px-4 py-3">Type</th>
                   <th className="px-4 py-3 text-right">Bangles</th>
                   <th className="px-4 py-3 text-right">Thread</th>
                   <th className="px-4 py-3 text-center">Status</th>
@@ -213,51 +368,117 @@ export function WorkOrderFlowPageClient() {
                 {ordersLoading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i}>
-                      <td className="px-4 py-3" colSpan={7}>
+                      <td className="px-4 py-3" colSpan={8}>
                         <div className="h-9 skeleton rounded-lg" />
                       </td>
                     </tr>
                   ))
                 ) : currentRows.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-slate-500" colSpan={7}>
+                    <td className="px-4 py-8 text-center text-slate-500" colSpan={8}>
                       {activeListTab === "pending" ? "No pending returns." : "No completed orders yet."}
                     </td>
                   </tr>
                 ) : (
-                  currentRows.map((order) => (
-                    <tr key={order._id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-4 py-3 whitespace-nowrap text-slate-600">
-                        {new Date(order.date).toLocaleDateString("en-IN")}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-slate-800">{getWorkerName(order)}</td>
-                      <td className="px-4 py-3 text-slate-600">{order.workType}</td>
-                      <td className="px-4 py-3 text-right text-slate-700">{getTotalGivenPieces(order)}</td>
-                      <td className="px-4 py-3 text-right text-slate-700">{order.threadsGiven}g</td>
-                      <td className="px-4 py-3 text-center">
-                        {order.status === "Open" ? (
-                          <Badge variant="warning">Pending</Badge>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-emerald-700 text-xs font-semibold">
-                            <CheckCircle2 size={14} />
-                            {order.status === "Completed" ? "Completed" : "Returned"}
-                          </span>
+                  currentRows.map((order) => {
+                    const halfInProgress = isHalfWorkInProgress(order);
+                    return (
+                      <tr
+                        key={order._id}
+                        className={cn(
+                          "hover:bg-slate-50/70 transition-colors",
+                          order.assignmentType === "half" ? "border-l-4 border-l-amber-400" : ""
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {order.status === "Open" ? (
-                          <Button size="sm" onClick={() => openReturn(order._id)}>
-                            <Undo2 size={12} className="mr-1" />
-                            Return
-                          </Button>
-                        ) : (
-                          <Button size="sm" variant="ghost" onClick={() => openCreateFor()}>
-                            Re-assign
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                      >
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                          {new Date(order.date).toLocaleDateString("en-IN")}
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-slate-800">
+                          {(() => {
+                            const links = getChainLinks(order, allOrders);
+                            if (links && links.legNumber > 1) {
+                              return (
+                                <div className="flex items-center gap-1.5 pl-3">
+                                  <span className="text-slate-400 font-bold select-none text-xs">↳</span>
+                                  <span>{getWorkerName(order)}</span>
+                                </div>
+                              );
+                            }
+                            return <span>{getWorkerName(order)}</span>;
+                          })()}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">{order.workType}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {(() => {
+                            const links = getChainLinks(order, allOrders);
+                            if (links) {
+                              return (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
+                                  <GitBranch size={9} />
+                                  Half (Leg {links.legNumber})
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                                Full
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-4 py-3 text-right text-slate-700">{getTotalGivenPieces(order)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{order.threadsGiven}g</td>
+                        <td className="px-4 py-3 text-center">
+                          {order.status === "Open" ? (
+                            halfInProgress ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                In Progress
+                              </span>
+                            ) : (
+                              <Badge variant="warning">Pending</Badge>
+                            )
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 text-xs font-semibold">
+                              <CheckCircle2 size={14} />
+                              {order.status === "Completed" ? "Completed" : "Returned"}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {order.status === "Open" ? (
+                            halfInProgress ? (
+                              // If it has already been continued, don't show Continue button
+                              allOrders.some((o) => o.parentWorkOrderId === order._id) ? (
+                                <span className="text-xs font-semibold text-slate-400">
+                                  Transferred
+                                </span>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openContinueHalfWork(order)}
+                                  className="text-amber-700 border-amber-300 !bg-amber-100 hover:!bg-amber-200 hover:!text-amber-700 cursor-pointer"
+                                >
+                                  <ArrowRight size={12} />
+                                  Continue
+                                </Button>
+                              )
+                            ) : (
+                              <Button size="sm" onClick={() => openReturn(order._id)} className="cursor-pointer">
+                                <Undo2 size={12} className="mr-1" />
+                                Return
+                              </Button>
+                            )
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={() => openCreateFor()} className="cursor-pointer">
+                              Re-assign
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -270,9 +491,11 @@ export function WorkOrderFlowPageClient() {
         onClose={() => {
           setOrderModalOpen(false);
           setSelectedWorker(null);
+          setContinueFromOrder(undefined);
         }}
         preSelectedWorkerId={selectedWorker?._id}
         preSelectedWorkerName={selectedWorker?.name}
+        preSelectedParentOrder={continueFromOrder}
       />
 
       <ReturnMaterialForm

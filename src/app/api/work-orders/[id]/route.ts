@@ -72,6 +72,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       newFinishedProduct,
       perPieceRate,
       damageNotes,
+      chainReturns,
     } = parsed.data;
 
     order.banglesReturned = banglesReturned as typeof order.banglesReturned;
@@ -185,8 +186,23 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     // ── Finished stock integration ────────────────────────────────────────────
     // Either create a brand-new finished product from this return, or add the
     // OK pieces to an existing one. The link is persisted on the work order.
+    let resolvedFinishedProductId: typeof order.finishedProductId | undefined;
+
     if (qualityOK > 0 && newFinishedProduct) {
-      const makingCost = newFinishedProduct.makingCostPerPc ?? order.perPieceRate;
+      let makingCost = newFinishedProduct.makingCostPerPc;
+      if (makingCost === undefined) {
+        let sumRates = order.perPieceRate;
+        if (order.assignmentType === "half" && order.parentWorkOrderId) {
+          let currentParentId = order.parentWorkOrderId;
+          while (currentParentId) {
+            const parent = await WorkOrder.findById(currentParentId);
+            if (!parent) break;
+            sumRates += parent.perPieceRate;
+            currentParentId = parent.parentWorkOrderId as any;
+          }
+        }
+        makingCost = sumRates;
+      }
       const otherCost = newFinishedProduct.otherCostPerPc ?? 0;
       const totalCost = makingCost + otherCost;
       const created = await FinishedProduct.create({
@@ -203,16 +219,97 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         sellingPrice: Math.round(totalCost * 3),
         readyStock: qualityOK,
       });
-      order.finishedProductId = created._id as typeof order.finishedProductId;
+      resolvedFinishedProductId = created._id as typeof order.finishedProductId;
+      order.finishedProductId = resolvedFinishedProductId;
     } else if (finishedProductId && qualityOK > 0) {
       await FinishedProduct.findByIdAndUpdate(finishedProductId, {
         $inc: { readyStock: qualityOK },
       });
-      order.finishedProductId =
-        finishedProductId as unknown as typeof order.finishedProductId;
+      resolvedFinishedProductId = finishedProductId as unknown as typeof order.finishedProductId;
+      order.finishedProductId = resolvedFinishedProductId;
     }
 
     await order.save();
+
+    // ── Process ancestor legs in the half-work chain ──────────────────────────
+    // Walk up the parentWorkOrderId chain, closing each order as "Completed",
+    // copying finished/quality OK counts, crediting worker earnings, and restoring
+    // stock for any returned materials specified in chainReturns.
+    if (order.assignmentType === "half" && order.allowReturn === true && order.parentWorkOrderId) {
+      let currentParentId: typeof order.parentWorkOrderId | undefined = order.parentWorkOrderId;
+      const chainReturnsMap = new Map((chainReturns ?? []).map((cr) => [String(cr.orderId), cr]));
+
+      while (currentParentId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const ancestorOrder = await WorkOrder.findById(currentParentId) as any;
+        if (!ancestorOrder) break;
+
+        // 1. Copy finished pieces and quality counts
+        ancestorOrder.finishedPieces = finishedPieces;
+        ancestorOrder.qualityOK = qualityOK;
+        ancestorOrder.status = "Completed";
+
+        if (resolvedFinishedProductId) {
+          ancestorOrder.finishedProductId = resolvedFinishedProductId;
+        }
+
+        // 2. Process stock returns for this ancestor if provided in chainReturns
+        const cr = chainReturnsMap.get(String(ancestorOrder._id));
+        if (cr) {
+          if (cr.banglesReturned && cr.banglesReturned.length > 0) {
+            ancestorOrder.banglesReturned = cr.banglesReturned;
+            const banglesOps = cr.banglesReturned
+              .map((ret: { banglesStockId?: string; cutType: string; pieces: number }) => {
+                const stockId =
+                  ret.banglesStockId ??
+                  ancestorOrder.banglesGiven?.find((g: { cutType: string; banglesStockId: string }) => g.cutType === ret.cutType)?.banglesStockId;
+                if (!stockId || !ret.pieces) return null;
+                return { updateOne: { filter: { _id: stockId }, update: { $inc: { netUsed: -ret.pieces } } } };
+              })
+              .filter((op): op is NonNullable<typeof op> => op !== null);
+            if (banglesOps.length > 0) await BanglesStock.bulkWrite(banglesOps);
+          }
+
+          if (cr.threadsReturned > 0 && ancestorOrder.threadItemsGiven?.length > 0) {
+            ancestorOrder.threadsReturned = cr.threadsReturned;
+            const totalGiven = ancestorOrder.threadItemsGiven.reduce((s: number, t: { grams: number }) => s + t.grams, 0);
+            const threadOps = ancestorOrder.threadItemsGiven
+              .filter((t: { grams: number }) => t.grams > 0 && totalGiven > 0)
+              .map((t: { threadStockId: string; grams: number }) => {
+                const share = Math.min(t.grams, Math.round((t.grams / totalGiven) * cr.threadsReturned * 100) / 100);
+                return { updateOne: { filter: { _id: t.threadStockId }, update: { $inc: { netUsed: -share } } } };
+              });
+            if (threadOps.length > 0) await ThreadsStock.bulkWrite(threadOps);
+          }
+
+          if (cr.rawMaterialsReturned && cr.rawMaterialsReturned.length > 0) {
+            ancestorOrder.rawMaterialsReturned = cr.rawMaterialsReturned;
+            const rawOps = cr.rawMaterialsReturned
+              .filter((r: { qty: number }) => r.qty > 0)
+              .map((r: { rawMaterialId: string; qty: number }) => ({
+                updateOne: { filter: { _id: r.rawMaterialId }, update: { $inc: { usedQty: -r.qty } } },
+              }));
+            if (rawOps.length > 0) await RawMaterial.bulkWrite(rawOps);
+          }
+        }
+
+        // 3. Update ancestor worker's totalEarned
+        const ancestorOkEarnings = qualityOK * ancestorOrder.perPieceRate;
+        const ancestorRejected = Math.max(0, finishedPieces - qualityOK);
+        const ancestorRejectionDeduction = ancestorRejected * ancestorOrder.perPieceRate * 0.5;
+        const ancestorNetAmountDue = Math.max(0, ancestorOkEarnings - ancestorRejectionDeduction);
+        if (ancestorNetAmountDue > 0) {
+          await Worker.findByIdAndUpdate(ancestorOrder.workerId, { $inc: { totalEarned: ancestorNetAmountDue } });
+        }
+
+        await ancestorOrder.save();
+
+        // Move to the next parent in the chain
+        currentParentId = ancestorOrder.parentWorkOrderId ?? undefined;
+      }
+    }
+
+
 
     return NextResponse.json<ApiResponse>({ success: true, data: order.toJSON() });
   } catch {

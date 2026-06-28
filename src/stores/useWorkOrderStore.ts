@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { CutType } from "@/types";
+import type { CutType, IWorkOrder } from "@/types";
 
 // ─── DENA item types ──────────────────────────────────────────────────────────
 
@@ -64,6 +64,16 @@ interface WorkOrderDraftState {
   perPieceRate: number;
   denaItems: DenaItem[];
 
+  // HALF WORK ASSIGNMENT
+  /** "full" = traditional single-worker job; "half" = multi-worker sequential leg */
+  assignmentType: "full" | "half";
+  /** ID of the immediately preceding work order (half-work continuation) */
+  parentWorkOrderId: string | null;
+  /** Full details of the parent order, used for auto-fill & locking */
+  parentWorkOrderDetails: IWorkOrder | null;
+  /** When false, Return is disabled after this assignment (more legs to come) */
+  allowReturn: boolean;
+
   // Actions
   setStep: (step: 1 | 2 | 3) => void;
   nextStep: () => void;
@@ -75,6 +85,9 @@ interface WorkOrderDraftState {
   addDenaItem: (item: DenaItem) => void;
   removeDenaItem: (index: number) => void;
   updateDenaItem: (index: number, item: DenaItem) => void;
+  setAssignmentType: (type: "full" | "half") => void;
+  setParentWorkOrder: (order: IWorkOrder | null) => void;
+  setAllowReturn: (val: boolean) => void;
   reset: () => void;
 }
 
@@ -86,6 +99,10 @@ const initialState = {
   workType: "",
   perPieceRate: 0,
   denaItems: [] as DenaItem[],
+  assignmentType: "full" as const,
+  parentWorkOrderId: null,
+  parentWorkOrderDetails: null,
+  allowReturn: true,
 };
 
 export const useWorkOrderStore = create<WorkOrderDraftState>()((set, get) => ({
@@ -111,6 +128,30 @@ export const useWorkOrderStore = create<WorkOrderDraftState>()((set, get) => ({
     set((s) => ({
       denaItems: s.denaItems.map((d, i) => (i === index ? item : d)),
     })),
+
+  setAssignmentType: (assignmentType) =>
+    set({
+      assignmentType,
+      // Reset half-work specific state when switching type
+      parentWorkOrderId: null,
+      parentWorkOrderDetails: null,
+      allowReturn: assignmentType === "full" ? true : false,
+    }),
+
+  setParentWorkOrder: (order) =>
+    set({
+      parentWorkOrderId: order?._id ?? null,
+      parentWorkOrderDetails: order,
+      // Auto-fill workType from parent (same product), but NOT perPieceRate — each worker has their own rate
+      ...(order
+        ? {
+            workType: order.workType,
+          }
+        : {}),
+    }),
+
+  setAllowReturn: (allowReturn) => set({ allowReturn }),
+
   reset: () => set({ ...initialState, date: new Date().toISOString().slice(0, 10) }),
 }));
 
@@ -123,6 +164,11 @@ export const useWorkOrderDate = () => useWorkOrderStore((s) => s.date);
 export const useWorkOrderWorkType = () => useWorkOrderStore((s) => s.workType);
 export const useWorkOrderPerPieceRate = () => useWorkOrderStore((s) => s.perPieceRate);
 export const useWorkOrderDenaItems = () => useWorkOrderStore((s) => s.denaItems);
+export const useWorkOrderAssignmentType = () => useWorkOrderStore((s) => s.assignmentType);
+export const useWorkOrderParentId = () => useWorkOrderStore((s) => s.parentWorkOrderId);
+export const useWorkOrderParentDetails = () => useWorkOrderStore((s) => s.parentWorkOrderDetails);
+export const useWorkOrderAllowReturn = () => useWorkOrderStore((s) => s.allowReturn);
+
 export const useWorkOrderActions = () =>
   useWorkOrderStore(useShallow((s) => ({
     setStep: s.setStep,
@@ -135,5 +181,8 @@ export const useWorkOrderActions = () =>
     addDenaItem: s.addDenaItem,
     removeDenaItem: s.removeDenaItem,
     updateDenaItem: s.updateDenaItem,
+    setAssignmentType: s.setAssignmentType,
+    setParentWorkOrder: s.setParentWorkOrder,
+    setAllowReturn: s.setAllowReturn,
     reset: s.reset,
   })));
