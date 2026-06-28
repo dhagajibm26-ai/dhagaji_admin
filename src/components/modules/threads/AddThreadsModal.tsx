@@ -79,12 +79,13 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
     }
 
     if (item) {
+      const prefillAmount = Number((item.stockAdd * item.costPerUnit).toFixed(2));
       reset({
         threadCode: item.threadCode,
         threadColour: item.threadColour,
         threadCompanyName: item.threadCompanyName,
-        addStockGrams: 0,
-        totalPurchaseAmount: 0,
+        addStockGrams: item.stockAdd,
+        totalPurchaseAmount: prefillAmount,
       });
       return;
     }
@@ -99,7 +100,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
   }, [isOpen, item, reset]);
 
   const onSubmit = (data: ThreadFormOutput) => {
-    if (!item && data.addStockGrams <= 0) {
+    if (data.addStockGrams <= 0) {
       setError("addStockGrams", { message: "Stock must be more than 0" });
       return;
     }
@@ -111,13 +112,9 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
           threadCode: data.threadCode.trim(),
           threadColour: data.threadColour.trim(),
           threadCompanyName: data.threadCompanyName.trim(),
-          ...(data.addStockGrams > 0
-            ? {
-                addStockQty: data.addStockGrams,
-                totalPurchaseAmount: amount,
-                costPerUnit: perGramRate,
-              }
-            : {}),
+          stockAdd: data.addStockGrams,
+          totalPurchaseAmount: amount,
+          costPerUnit: perGramRate,
         },
         { onSuccess: () => onClose() }
       );
@@ -189,7 +186,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
-            label="Add Stock (gram)"
+            label={isEdit ? "Stock (gram)" : "Add Stock (gram)"}
             type="number"
             min="0"
             step="any"
@@ -209,12 +206,6 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
             {...register("totalPurchaseAmount", { valueAsNumber: true })}
           />
         </div>
-
-        {isEdit && (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Add new stock at updated price (e.g. ₹1000/kg → ₹1200/kg). Leave at 0 to update details only.
-          </p>
-        )}
 
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">Current Purchase Calculation</p>

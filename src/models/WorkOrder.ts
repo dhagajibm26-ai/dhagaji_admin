@@ -61,6 +61,14 @@ export interface IWorkOrderDocument extends Document {
   date: Date;
   workType: string;
 
+  // ASSIGNMENT TYPE
+  /** "full" = single-worker complete job; "half" = one leg of a multi-worker chain */
+  assignmentType: "full" | "half";
+  /** For half-work continuations: links to the immediately preceding work order */
+  parentWorkOrderId?: Types.ObjectId;
+  /** When false (half-work in progress), the Return flow is blocked */
+  allowReturn: boolean;
+
   // DENA (out to worker)
   banglesGiven: IBanglesGiven[];
   threadItemsGiven: IThreadGiven[];
@@ -203,6 +211,19 @@ const WorkOrderSchema = new Schema<IWorkOrderDocument>(
     },
     date: { type: Date, required: true, default: Date.now },
     workType: { type: String, required: true, trim: true },
+
+    // ASSIGNMENT TYPE
+    assignmentType: {
+      type: String,
+      enum: ["full", "half"],
+      default: "full",
+    },
+    parentWorkOrderId: {
+      type: Schema.Types.ObjectId,
+      ref: "WorkOrder",
+      default: null,
+    },
+    allowReturn: { type: Boolean, default: true },
 
     // DENA
     banglesGiven: { type: [BanglesGivenSchema], default: [] },
