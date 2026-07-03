@@ -101,6 +101,7 @@ export async function POST(request: Request) {
 
     await connectDB();
     const { purchasedQty, ratePerUnit, ...rest } = parsed.data;
+
     const totalAmount = Number((purchasedQty * ratePerUnit).toFixed(2));
     const purchaseHistory =
       purchasedQty > 0 ? [buildDbPurchaseEntry(purchasedQty, totalAmount)] : [];

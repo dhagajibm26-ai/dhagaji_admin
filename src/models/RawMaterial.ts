@@ -18,6 +18,8 @@ export interface IRawMaterialDocument extends Document {
   itemName: string;
   category: RawMaterialCategory;
   colorType?: string;
+  hsnCode?: string;
+  hsnCodes?: string[];
   unit: RawMaterialUnit;
   unitsPerPack?: number;
   openingStock: number;
@@ -51,6 +53,8 @@ const RawMaterialSchema = new Schema<IRawMaterialDocument>(
       trim: true,
     },
     colorType: { type: String, trim: true },
+    hsnCode: { type: String, trim: true },
+    hsnCodes: { type: [String], default: [] },
     unit: {
       type: String,
       enum: ["gram", "pcs", "tube", "box", "meter"],
@@ -69,8 +73,26 @@ const RawMaterialSchema = new Schema<IRawMaterialDocument>(
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    toJSON: {
+      virtuals: true,
+      transform: (doc, ret) => {
+        if (!ret.hsnCodes || ret.hsnCodes.length === 0) {
+          ret.hsnCodes = ret.hsnCode ? [ret.hsnCode] : [];
+        }
+        delete ret.hsnCode;
+        return ret;
+      }
+    },
+    toObject: {
+      virtuals: true,
+      transform: (doc, ret) => {
+        if (!ret.hsnCodes || ret.hsnCodes.length === 0) {
+          ret.hsnCodes = ret.hsnCode ? [ret.hsnCode] : [];
+        }
+        delete ret.hsnCode;
+        return ret;
+      }
+    },
   }
 );
 
@@ -88,6 +110,10 @@ RawMaterialSchema.virtual("totalValue").get(function (
 
 RawMaterialSchema.index({ itemName: 1 });
 RawMaterialSchema.index({ category: 1 });
+
+if (process.env.NODE_ENV === "development" && mongoose.models.RawMaterial) {
+  delete mongoose.models.RawMaterial;
+}
 
 export const RawMaterial: Model<IRawMaterialDocument> =
   mongoose.models.RawMaterial ??

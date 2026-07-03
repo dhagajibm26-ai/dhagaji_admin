@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import { Bill } from "@/models/Bill";
 import { FinishedProduct } from "@/models/FinishedProduct";
+import { WorkOrder } from "@/models/WorkOrder";
+import { RawMaterial } from "@/models/RawMaterial";
 import { billSchema } from "@/types";
 import type { ApiResponse, IBill } from "@/types";
 import { nextBillNumber } from "@/lib/billNumber";
@@ -58,7 +60,8 @@ export async function POST(request: Request) {
 
     await connectDB();
 
-    // 1. Validate stock availability for all items
+    // 1. Validate stock availability for all items and resolve raw material HSN codes
+    const updatedItems = [];
     for (const item of parsed.data.items) {
       const product = await FinishedProduct.findById(item.finishedProductId).select(
         "readyStock designName"
@@ -78,6 +81,34 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
+
+      // Find all work orders that produced this finished product
+      const workOrders = await WorkOrder.find({ finishedProductId: item.finishedProductId });
+      
+      // Extract raw material IDs
+      const rawMaterialIds = workOrders.flatMap((wo) => [
+        ...(wo.rawMaterialsGiven || []).map((rm) => rm.rawMaterialId.toString()),
+        ...(wo.rawMaterialsReturned || []).map((rm) => rm.rawMaterialId.toString()),
+      ]);
+      const uniqueRmIds = Array.from(new Set(rawMaterialIds));
+
+      // Fetch raw materials to get HSN codes
+      const rawMaterials = await RawMaterial.find({ _id: { $in: uniqueRmIds } }).select("hsnCodes hsnCode");
+      const hsnCodesSet = new Set<string>();
+      for (const rm of rawMaterials) {
+        if (rm.hsnCodes && rm.hsnCodes.length > 0) {
+          rm.hsnCodes.forEach((code) => {
+            if (code) hsnCodesSet.add(code);
+          });
+        } else if (rm.hsnCode) {
+          hsnCodesSet.add(rm.hsnCode);
+        }
+      }
+
+      updatedItems.push({
+        ...item,
+        hsnCodes: Array.from(hsnCodesSet),
+      });
     }
 
     // 2. Deduct stock atomically via bulkWrite
@@ -93,7 +124,7 @@ export async function POST(request: Request) {
     const billNumber = await nextBillNumber();
 
     // 4. Create the bill (billNumber already set → pre-save hook skips)
-    const bill = await Bill.create({ ...parsed.data, billNumber });
+    const bill = await Bill.create({ ...parsed.data, items: updatedItems, billNumber });
 
     return NextResponse.json<ApiResponse<IBill>>(
       { success: true, data: bill.toJSON() as unknown as IBill },

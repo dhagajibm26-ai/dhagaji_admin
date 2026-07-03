@@ -22,6 +22,7 @@ const patchSchema = z
     ratePerUnit: z.number().min(0).optional(),
     lowStockThreshold: z.number().min(0).optional(),
     supplier: z.string().optional(),
+    hsnCodes: z.array(z.string()).optional(),
     lastPurchaseDate: z.string().optional(),
   })
   .refine(
@@ -39,6 +40,7 @@ const patchSchema = z
       d.ratePerUnit !== undefined ||
       d.lowStockThreshold !== undefined ||
       d.supplier !== undefined ||
+      d.hsnCodes !== undefined ||
       d.lastPurchaseDate !== undefined,
     { message: "At least one field must be provided" }
   );
@@ -95,6 +97,11 @@ export async function PATCH(
     if (directFields.lowStockThreshold !== undefined)
       update.$set.lowStockThreshold = directFields.lowStockThreshold;
     if (directFields.supplier !== undefined) update.$set.supplier = directFields.supplier;
+    
+    if (directFields.hsnCodes !== undefined) {
+      update.$set.hsnCodes = directFields.hsnCodes;
+      update.$set.hsnCode = directFields.hsnCodes.length > 0 ? directFields.hsnCodes[0] : "";
+    }
 
     if (addPurchasedQty !== undefined && addPurchasedQty > 0) {
       const amount =

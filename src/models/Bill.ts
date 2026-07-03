@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Model, Types } from "mongoose";
 
 export type SalesSource = "Offline" | "Instagram" | "WhatsApp" | "Exhibition";
 export type PaymentMethod = "Cash" | "UPI" | "Card";
-export type GSTRate = 5 | 12 | 18;
+export type GSTRate = number;
 
 // ─── Sub-document interfaces ──────────────────────────────────────────────────
 
@@ -14,6 +14,7 @@ interface IBillItem {
   sellingPrice: number;
   discount: number;    // per unit discount
   lineTotal: number;   // (sellingPrice - discount) * qty
+  hsnCodes?: string[];
 }
 
 // ─── Main document interface ──────────────────────────────────────────────────
@@ -55,6 +56,7 @@ const BillItemSchema = new Schema<IBillItem>(
     sellingPrice: { type: Number, required: true, min: 0 },
     discount: { type: Number, default: 0, min: 0 },
     lineTotal: { type: Number, required: true, min: 0 },
+    hsnCodes: { type: [String], default: [] },
   },
   { _id: false }
 );
@@ -81,7 +83,7 @@ const BillSchema = new Schema<IBillDocument>(
     },
     items: { type: [BillItemSchema], required: true, default: [] },
     gstEnabled: { type: Boolean, default: false },
-    gstRate: { type: Number, enum: [5, 12, 18, null], default: null },
+    gstRate: { type: Number, default: null },
     gstNumber: { type: String, trim: true },
     paymentMethod: {
       type: String,
@@ -154,6 +156,10 @@ BillSchema.index({ billNumber: 1 }, { unique: true });
 BillSchema.index({ billDate: -1 });
 BillSchema.index({ customerPhone: 1 });
 BillSchema.index({ salesSource: 1 });
+
+if (process.env.NODE_ENV === "development" && mongoose.models.Bill) {
+  delete mongoose.models.Bill;
+}
 
 export const Bill: Model<IBillDocument> =
   mongoose.models.Bill ?? mongoose.model<IBillDocument>("Bill", BillSchema);

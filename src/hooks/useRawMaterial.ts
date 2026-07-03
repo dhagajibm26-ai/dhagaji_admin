@@ -81,6 +81,7 @@ export interface PatchRawMaterialPayload {
   ratePerUnit?: number;
   lowStockThreshold?: number;
   supplier?: string;
+  hsnCodes?: string[];
   lastPurchaseDate?: string;
 }
 

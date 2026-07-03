@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Plus, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { useAddRawMaterial, usePatchRawMaterial } from "@/hooks/useRawMaterial";
 import { useMaterialCategories } from "@/hooks/useMaterialCategories";
 import { PurchaseHistoryPanel } from "@/components/ui/PurchaseHistoryPanel";
@@ -27,6 +29,7 @@ const formSchema = z.object({
   unitsPerPack: z.number().min(1, "Must be 1 or more").default(1),
   lowStockThreshold: z.number().min(0).default(10),
   supplier: z.string().optional(),
+  hsnCodes: z.array(z.string()).default([]),
 });
 
 type RawMaterialFormInput = z.input<typeof formSchema>;
@@ -55,6 +58,8 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     reset,
     control,
     setError,
+    setValue,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<RawMaterialFormInput, unknown, RawMaterialFormOutput>({
     mode: "onBlur",
@@ -71,8 +76,33 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       unitsPerPack: 1,
       lowStockThreshold: 10,
       supplier: "",
+      hsnCodes: [],
     },
   });
+
+  const [hsnInput, setHsnInput] = useState("");
+  const hsnCodes = useWatch({ control, name: "hsnCodes" }) || [];
+
+  const handleAddHsn = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = hsnInput.trim();
+    if (!trimmed) return;
+    if (!/^\d+$/.test(trimmed)) {
+      setError("hsnCodes", { message: "HSN code must contain only numbers" });
+      return;
+    }
+    if (hsnCodes.includes(trimmed)) {
+      setError("hsnCodes", { message: "HSN code already added" });
+      return;
+    }
+    setValue("hsnCodes", [...hsnCodes, trimmed], { shouldDirty: true });
+    setHsnInput("");
+    clearErrors("hsnCodes");
+  };
+
+  const handleRemoveHsn = (codeToRemove: string) => {
+    setValue("hsnCodes", hsnCodes.filter((c) => c !== codeToRemove), { shouldDirty: true });
+  };
 
   const unit = useWatch({ control, name: "unit" }) as UnitType | undefined;
   const quantity = useWatch({ control, name: "quantity" });
@@ -102,6 +132,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       const effectiveUnitsPerPack = (item.unit === "box" || item.unit === "tube") ? safeUnitsPerPack : 1;
       const prefillQty = (item.purchasedQty || 0) / effectiveUnitsPerPack;
       const prefillAmount = Number(((item.purchasedQty || 0) * (item.ratePerUnit || 0)).toFixed(2));
+      const rawHsnCodes = item.hsnCodes || [];
 
       reset({
         itemName: item.itemName,
@@ -115,6 +146,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
         unitsPerPack: safeUnitsPerPack,
         lowStockThreshold: item.lowStockThreshold,
         supplier: item.supplier ?? "",
+        hsnCodes: rawHsnCodes,
       });
       return;
     }
@@ -129,6 +161,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       unitsPerPack: 1,
       lowStockThreshold: 10,
       supplier: "",
+      hsnCodes: [],
     });
   }, [isOpen, item, reset]);
 
@@ -169,6 +202,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       unitsPerPack: isPackUnit(data.unit) ? Number(data.unitsPerPack || 1) : 1,
       lowStockThreshold: data.lowStockThreshold,
       supplier: data.supplier?.trim() || undefined,
+      hsnCodes: data.hsnCodes,
     };
 
     if (item) {
@@ -387,6 +421,63 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
             error={errors.supplier?.message}
             {...register("supplier")}
           />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+            HSN Codes (Optional)
+          </label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={hsnInput}
+                onChange={(e) => setHsnInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddHsn();
+                  }
+                }}
+                placeholder="Type and press Enter, e.g. 8471"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]"
+              />
+            </div>
+            <Button
+              type="button"
+              onClick={() => handleAddHsn()}
+              variant="secondary"
+              className="h-11 px-4 border border-slate-200 flex items-center gap-1"
+            >
+              <Plus size={16} /> Add
+            </Button>
+          </div>
+          
+          {errors.hsnCodes?.message && (
+            <p className="text-xs text-rose-600 font-medium">{errors.hsnCodes.message}</p>
+          )}
+
+          {hsnCodes.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
+              {hsnCodes.map((code) => (
+                <Badge
+                  key={code}
+                  variant="neutral"
+                  className="pl-3 pr-2 py-1 font-mono text-xs flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm hover:border-rose-200 transition-colors"
+                >
+                  <span>{code}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveHsn(code)}
+                    className="rounded-full p-0.5 hover:bg-rose-50 hover:text-rose-600 transition-colors focus:outline-none cursor-pointer"
+                    aria-label={`Remove HSN code ${code}`}
+                  >
+                    <X size={12} />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
 
         {(addMutation.isError || patchMutation.isError) && (

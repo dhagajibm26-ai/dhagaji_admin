@@ -174,8 +174,19 @@ async function finishedStockReport(): Promise<Omit<ReportData, "generatedAt" | "
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function workerPaymentReport(): Promise<Omit<ReportData, "generatedAt" | "dateRange">> {
-  const workers = await Worker.find({}).sort({ name: 1 });
+async function workerPaymentReport(workerId?: string | null): Promise<Omit<ReportData, "generatedAt" | "dateRange">> {
+  const query: any = {};
+  let workerName = "";
+
+  if (workerId && workerId !== "all") {
+    query._id = workerId;
+    const worker = await Worker.findById(workerId);
+    if (worker) {
+      workerName = worker.name;
+    }
+  }
+
+  const workers = await Worker.find(query).sort({ name: 1 });
 
   const columns: ReportColumn[] = [
     { key: "name",        label: "Worker",       type: "text" },
@@ -198,7 +209,11 @@ async function workerPaymentReport(): Promise<Omit<ReportData, "generatedAt" | "
     };
   });
 
-  return { title: REPORT_LABELS["worker-payment"], columns, rows, summary: sumCols(columns, rows) };
+  const title = workerName
+    ? `${REPORT_LABELS["worker-payment"]} - ${workerName}`
+    : REPORT_LABELS["worker-payment"];
+
+  return { title, columns, rows, summary: sumCols(columns, rows) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -458,6 +473,8 @@ export async function GET(
     await connectDB();
 
     const { from, to, fromStr, toStr } = parseDateRange(request.url);
+    const { searchParams } = new URL(request.url);
+    const workerId = searchParams.get("workerId");
     const generatedAt = new Date().toLocaleString("en-IN");
     const dateRange   = { from: fromStr, to: toStr };
 
@@ -467,7 +484,7 @@ export async function GET(
       case "sales":           partial = await salesReport(from, to);           break;
       case "raw-material":    partial = await rawMaterialReport();              break;
       case "finished-stock":  partial = await finishedStockReport();            break;
-      case "worker-payment":  partial = await workerPaymentReport();            break;
+      case "worker-payment":  partial = await workerPaymentReport(workerId);    break;
       case "work-orders":     partial = await workOrdersReport(from, to);      break;
       case "profit-loss":     partial = await profitLossReport(from, to);      break;
       case "expenses":        partial = await expensesReport(from, to);        break;

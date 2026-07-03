@@ -45,6 +45,7 @@ export interface IRawMaterial {
   itemName: string;
   category: RawMaterialCategory;
   colorType?: string;
+  hsnCodes?: string[];
   unit: RawMaterialUnit;
   unitsPerPack?: number;
   openingStock: number;
@@ -66,6 +67,7 @@ export const rawMaterialSchema = z.object({
   itemName: z.string().min(1, "Item name required"),
   category: z.string().min(1, "Category required"),
   colorType: z.string().optional(),
+  hsnCodes: z.array(z.string()).optional(),
   unit: z.enum(["gram", "pcs", "tube", "box", "meter"]),
   unitsPerPack: z.number().min(1).default(1),
   openingStock: z.number().min(0).default(0),
@@ -509,6 +511,7 @@ export interface IBillItem {
   sellingPrice: number;
   discount: number;
   lineTotal: number;
+  hsnCodes?: string[];
 }
 
 export interface IBill {
@@ -519,7 +522,7 @@ export interface IBill {
   salesSource: SalesSource;
   items: IBillItem[];
   gstEnabled: boolean;
-  gstRate?: 5 | 12 | 18 | null;
+  gstRate?: number | null;
   gstNumber?: string;
   paymentMethod: PaymentMethod;
   billDate: Date;
@@ -542,6 +545,7 @@ export const billItemSchema = z.object({
   sellingPrice: z.number().min(0),
   discount: z.number().min(0).default(0),
   lineTotal: z.number().min(0),
+  hsnCodes: z.array(z.string()).optional(),
 });
 
 export const billSchema = z.object({
@@ -551,7 +555,7 @@ export const billSchema = z.object({
   items: z.array(billItemSchema).min(1, "At least one item required"),
   gstEnabled: z.boolean().default(false),
   gstRate: z
-    .union([z.literal(5), z.literal(12), z.literal(18)])
+    .number()
     .nullable()
     .optional(),
   gstNumber: z.string().optional(),

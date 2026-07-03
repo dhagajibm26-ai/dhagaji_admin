@@ -25,7 +25,7 @@ interface BillingState {
   paymentMethod: PaymentMethod;
   items: BillDraftItem[];
   gstEnabled: boolean;
-  gstRate: 5 | 12 | 18 | null;
+  gstRate: number | null;
   gstNumber: string;
   discount: number;
   // Actions
@@ -36,7 +36,7 @@ interface BillingState {
   removeItem: (barcodeId: string) => void;
   updateQty: (barcodeId: string, qty: number) => void;
   toggleGST: () => void;
-  setGSTRate: (rate: 5 | 12 | 18) => void;
+  setGSTRate: (rate: number | null) => void;
   setGSTNumber: (n: string) => void;
   setDiscount: (amount: number) => void;
   clearBill: () => void;

@@ -3,6 +3,7 @@ import { useState, useCallback } from "react";
 import type { ReportType } from "@/types/reports";
 import { REPORT_LABELS } from "@/types/reports";
 import type { ReportFilters } from "@/hooks/useReports";
+import { useWorkers } from "@/hooks/useWorkers";
 
 type QuickRange = "today" | "week" | "month" | "custom";
 
@@ -44,6 +45,9 @@ export function ReportFilters({ onGenerate, isLoading }: ReportFiltersProps) {
   const [quick,      setQuick]      = useState<QuickRange>("month");
   const [customFrom, setCustomFrom] = useState(daysAgoStr(30));
   const [customTo,   setCustomTo]   = useState(todayStr());
+  const [workerId,   setWorkerId]   = useState<string>("all");
+
+  const { data: workers = [] } = useWorkers();
 
   const getRange = useCallback((): { from: string; to: string } => {
     switch (quick) {
@@ -56,7 +60,12 @@ export function ReportFilters({ onGenerate, isLoading }: ReportFiltersProps) {
 
   const handleGenerate = () => {
     const { from, to } = getRange();
-    onGenerate({ type: reportType, from, to });
+    onGenerate({
+      type: reportType,
+      from,
+      to,
+      workerId: reportType === "worker-payment" ? workerId : undefined,
+    });
   };
 
   return (
@@ -76,6 +85,25 @@ export function ReportFilters({ onGenerate, isLoading }: ReportFiltersProps) {
           ))}
         </select>
       </div>
+
+      {/* Worker selection */}
+      {reportType === "worker-payment" && (
+        <div className="animate-fade-in">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Select Worker</label>
+          <select
+            value={workerId}
+            onChange={(e) => setWorkerId(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+          >
+            <option value="all">All Workers</option>
+            {workers.map((w) => (
+              <option key={w._id} value={w._id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Quick range */}
       <div>

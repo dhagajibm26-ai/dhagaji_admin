@@ -7,10 +7,15 @@ export interface ReportFilters {
   type: ReportType;
   from: string;  // YYYY-MM-DD
   to:   string;  // YYYY-MM-DD
+  workerId?: string;
 }
 
 async function fetchReport(filters: ReportFilters): Promise<ReportData> {
-  const sp = new URLSearchParams({ from: filters.from, to: filters.to });
+  const params: Record<string, string> = { from: filters.from, to: filters.to };
+  if (filters.workerId) {
+    params.workerId = filters.workerId;
+  }
+  const sp = new URLSearchParams(params);
   const res = await fetch(`/api/reports/${filters.type}?${sp.toString()}`);
   const json = (await res.json()) as ApiResponse<ReportData>;
   if (!res.ok || !json.success) {

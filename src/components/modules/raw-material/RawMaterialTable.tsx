@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import {
   useRawMaterialsPaginated,
   useDeleteRawMaterial,
@@ -154,6 +155,7 @@ function PaginationBtn({
 export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState<RawMaterialPageSize>(20);
+  const [selectedHsnItem, setSelectedHsnItem] = useState<IRawMaterial | null>(null);
 
   const { data, isLoading, isError, error, isFetching } = useRawMaterialsPaginated(page, limit);
   const deleteMutation = useDeleteRawMaterial();
@@ -228,6 +230,7 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
               </th>
               <th className="min-w-[150px] whitespace-nowrap px-4 py-3">Sub Category / Details</th>
               <th className="min-w-[120px] whitespace-nowrap px-4 py-3">Category</th>
+              <th className="min-w-[100px] whitespace-nowrap px-4 py-3">HSN Code</th>
               <th className="min-w-[70px] whitespace-nowrap px-4 py-3">Unit</th>
               <th className="min-w-[110px] whitespace-nowrap px-4 py-3 text-right">Stock</th>
               <th className="min-w-[160px] whitespace-nowrap px-4 py-3 text-right">Total Purchase (₹)</th>
@@ -265,6 +268,34 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3 text-slate-600">{item.category}</td>
+                  
+                  <td className="px-4 py-3 text-slate-600 font-mono text-xs">
+                    <div className="flex items-center gap-1.5">
+                      {item.hsnCodes && item.hsnCodes.length > 0 ? (
+                        item.hsnCodes.length === 1 ? (
+                          <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
+                            {item.hsnCodes[0]}
+                          </Badge>
+                        ) : (
+                          <>
+                            <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
+                              {item.hsnCodes[0]}
+                            </Badge>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedHsnItem(item)}
+                              className="inline-flex items-center rounded-full bg-red-50 hover:bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-[#D32F2F] ring-1 ring-inset ring-[#D32F2F]/20 cursor-pointer transition-colors"
+                              title="View all HSN codes"
+                            >
+                              +{item.hsnCodes.length - 1}
+                            </button>
+                          </>
+                        )
+                      ) : (
+                        "—"
+                      )}
+                    </div>
+                  </td>
 
                   <td className="whitespace-nowrap px-4 py-3 capitalize text-slate-500">{item.unit}</td>
 
@@ -351,6 +382,37 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
           isLoading={isFetching}
         />
       </div>
+
+      {selectedHsnItem && (
+        <Modal
+          isOpen={!!selectedHsnItem}
+          onClose={() => setSelectedHsnItem(null)}
+          title={`HSN Codes for ${selectedHsnItem.itemName}`}
+          size="sm"
+          footer={
+            <Button onClick={() => setSelectedHsnItem(null)}>
+              Close
+            </Button>
+          }
+        >
+          <div className="space-y-3 p-1">
+            <p className="text-sm text-slate-500">
+              This raw material is associated with the following HSN codes:
+            </p>
+            <div className="flex flex-wrap gap-2 rounded-xl bg-slate-50 border border-slate-100 p-3">
+              {selectedHsnItem.hsnCodes?.map((code) => (
+                <Badge
+                  key={code}
+                  variant="neutral"
+                  className="font-mono text-sm px-2.5 py-1 bg-white border border-slate-200 shadow-sm"
+                >
+                  {code}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

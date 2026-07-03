@@ -94,7 +94,14 @@ export function BillPreview({ bill, onClose }: BillPreviewProps) {
             <tbody>
               {bill.items.map((item, i) => (
                 <tr key={i} className="border-b border-gray-100">
-                  <td className="py-1.5 px-1.5">{item.designName}</td>
+                  <td className="py-1.5 px-1.5">
+                    <div>{item.designName}</div>
+                    {item.hsnCodes && item.hsnCodes.length > 0 && (
+                      <div className="text-[10px] text-gray-500 font-mono mt-0.5">
+                        HSN: {item.hsnCodes.join(", ")}
+                      </div>
+                    )}
+                  </td>
                   <td className="py-1.5 px-1.5 text-center">{item.qty}</td>
                   <td className="py-1.5 px-1.5 text-right">{fmt(item.sellingPrice)}</td>
                   <td className="py-1.5 px-1.5 text-right font-medium">

@@ -154,8 +154,8 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
       addToast({ type: "error", message: "Add at least one item" });
       return;
     }
-    if (gstEnabled && !gstRate) {
-      addToast({ type: "error", message: "Select a GST rate" });
+    if (gstEnabled && (gstRate === null || gstRate === undefined || isNaN(gstRate))) {
+      addToast({ type: "error", message: "Enter a valid GST rate" });
       return;
     }
 
@@ -395,42 +395,88 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
           </div>
 
           {/* GST controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={actions.toggleGST}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-colors",
-                gstEnabled
-                  ? "bg-blue-600 border-blue-600 text-white"
-                  : "bg-white border-gray-300 text-gray-600 hover:border-blue-400"
-              )}
-            >
-              GST {gstEnabled ? "ON" : "OFF"}
-            </button>
-            {gstEnabled && (
-              <>
-                {GST_RATES.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => actions.setGSTRate(r)}
-                    className={cn(
-                      "rounded-full px-2.5 py-1 text-xs font-medium border transition-colors",
-                      gstRate === r
-                        ? "bg-blue-100 border-blue-500 text-blue-700"
-                        : "bg-white border-gray-300 text-gray-600 hover:border-blue-400"
-                    )}
-                  >
-                    {r}%
-                  </button>
-                ))}
-                <input
-                  type="text"
-                  placeholder="GSTIN"
-                  value={gstNumber}
-                  onChange={(e) => actions.setGSTNumber(e.target.value)}
-                  className="flex-1 min-w-0 rounded border border-gray-300 px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+          <div className="border-t border-gray-100 pt-2.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-700">Apply GST</span>
+              <button
+                type="button"
+                onClick={actions.toggleGST}
+                className={cn(
+                  "relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:ring-offset-2",
+                  gstEnabled ? "bg-red-600" : "bg-gray-200"
+                )}
+                role="switch"
+                aria-checked={gstEnabled}
+              >
+                <span
+                  className={cn(
+                    "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                    gstEnabled ? "translate-x-5" : "translate-x-0"
+                  )}
                 />
-              </>
+              </button>
+            </div>
+
+            {gstEnabled && (
+              <div className="grid grid-cols-2 gap-3 mt-2 bg-slate-50/50 p-3 rounded-xl border border-slate-200 transition-all duration-200 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                    GST Rate (%)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="0.0"
+                      value={gstRate ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value === "" ? null : Number(e.target.value);
+                        actions.setGSTRate(val);
+                      }}
+                      className="w-full rounded-lg border border-slate-300 bg-white pl-2.5 pr-7 py-2 text-sm text-[#1A1A1A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent transition-shadow"
+                    />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 select-none">
+                      %
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                    GSTIN
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="22AAAAA1111A1Z1"
+                    value={gstNumber}
+                    onChange={(e) => actions.setGSTNumber(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-[#1A1A1A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent uppercase transition-shadow"
+                  />
+                </div>
+
+                {/* Quick select pills */}
+                <div className="col-span-2 flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                    Quick select:
+                  </span>
+                  {[5, 12, 18].map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => actions.setGSTRate(rate)}
+                      className={cn(
+                        "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all duration-150 active:scale-95",
+                        gstRate === rate
+                          ? "bg-red-50 border-red-500 text-red-700 shadow-sm"
+                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                      )}
+                    >
+                      {rate}%
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
