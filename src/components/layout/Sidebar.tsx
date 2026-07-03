@@ -89,21 +89,15 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-5 py-5">
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-black text-xs tracking-wider text-white select-none"
-              style={{ background: "linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)" }}
-            >
-              DC
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-black leading-tight tracking-[0.15em] text-white truncate">
-                DHAGAJI CREATION
-              </p>
-              <p className="text-[9px] text-white/30 leading-tight tracking-wide">
-                Factory Management
-              </p>
-            </div>
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <img
+              src="/logo.png"
+              alt="Dhagaji Creation"
+              className="h-14 w-auto object-contain select-none"
+            />
+            <p className="text-[9px] text-white/30 leading-tight tracking-wide pl-0.5">
+              Factory Management
+            </p>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -192,8 +186,8 @@ export function Sidebar() {
                             isActive
                               ? "bg-[#D32F2F] text-white shadow-lg shadow-red-900/30"
                               : item.highlight
-                              ? "border border-[#D32F2F]/30 text-[#EF9A9A] hover:bg-[#D32F2F] hover:text-white hover:border-transparent"
-                              : "text-white/50 hover:bg-white/8 hover:text-white/90"
+                                ? "border border-[#D32F2F]/30 text-[#EF9A9A] hover:bg-[#D32F2F] hover:text-white hover:border-transparent"
+                                : "text-white/50 hover:bg-white/8 hover:text-white/90"
                           )}
                         >
                           <item.Icon

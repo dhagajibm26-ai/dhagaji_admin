@@ -88,17 +88,14 @@ export default function LoginPage() {
       </div>
 
       <div className="relative w-full max-w-sm animate-fade-in">
-        {/* Brand */}
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
-          <div
-            className="flex h-14 w-14 items-center justify-center rounded-2xl shadow-2xl shadow-red-900/40"
-            style={{ background: "linear-gradient(135deg, #D32F2F 0%, #7f1d1d 100%)" }}
-          >
-            <span className="text-xl font-black text-white tracking-wider select-none">DC</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-black tracking-[0.15em] text-white">DHAGAJI CREATION</h1>
-            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-white/20">
+          <div className="flex flex-col items-center gap-2">
+            <img
+              src="/logo.png"
+              alt="Dhagaji Creation"
+              className="h-20 w-auto object-contain select-none"
+            />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-white/20">
               Factory Management · Himatnagar
             </p>
           </div>

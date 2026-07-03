@@ -913,207 +913,324 @@ function Step3({
   const parentDetails = useWorkOrderParentDetails();
   const { setAllowReturn } = useWorkOrderActions();
 
-  function buildShareText() {
-    const lines = denaItems.map((item) => {
-      if (item.type === "bangle") return `- Bangles ${item.size} ${item.cutType}: ${item.pieces} pcs`;
-      if (item.type === "thread") return `- Thread ${item.threadCode} (${item.threadColour}): ${item.grams} g`;
-      if (item.type === "glue") return `- Glue ${item.itemName}: ${item.units} ${item.unit ?? "units"}`;
-      if (item.type === "cutter") return `- Cutter ${item.itemName}: ${item.units} ${item.unit ?? "units"}`;
-      return `- ${(item as RawMatDenaItem).itemName}: ${(item as RawMatDenaItem).units} ${(item as RawMatDenaItem).unit ?? "units"}`;
-    });
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
 
-    return [
-      `Work Order (${assignmentType === "half" ? "Half Work Assignment" : "Full Work Assignment"})`,
-      `Worker: ${workerName}`,
-      `Date: ${new Date(date).toLocaleDateString("en-IN")}`,
-      `Work Type: ${workType}`,
-      `Rate: Rs ${perPieceRate}`,
-      "Materials Given:",
-      ...lines,
-    ].join("\n");
+  async function handleSendDigitalCopy() {
+    setIsPdfGenerating(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();  // 210 mm
+      const pageH = doc.internal.pageSize.getHeight(); // 297 mm
+
+      // ── 1. Load letterhead template as full-page background ──────────────
+      const bgImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = "/work-order-bg.jpg";
+      });
+      const bgCanvas = document.createElement("canvas");
+      bgCanvas.width = bgImg.naturalWidth;
+      bgCanvas.height = bgImg.naturalHeight;
+      bgCanvas.getContext("2d")!.drawImage(bgImg, 0, 0);
+      const bgDataUrl = bgCanvas.toDataURL("image/jpeg", 0.9);
+
+      // Place template as FULL A4 page background
+      doc.addImage(bgDataUrl, "JPEG", 0, 0, pageW, pageH);
+
+      // Content area: sits between template header (~52 mm) and footer (~22 mm from bottom)
+      // The white zone of the template starts at ~52 mm and ends at ~275 mm
+      const contentTop = 52;   // mm from top — below green header
+      const contentBot = 275;  // mm from top — above green footer bar
+      const marginX = 14;
+      const contentW = pageW - marginX * 2;
+
+      // ── 2. Info grid (2-column card) ──────────────────────────────────────
+      const cardY = contentTop + 6;
+      const rowH  = 10;                    // height per info row
+      const infoRows = Math.ceil(4 / 2);   // 4 fields → 2 rows
+      const cardH = infoRows * rowH + 8;
+      const col1X = marginX + 4;
+      const col2X = pageW / 2 + 6;
+
+      const fields: [string, string][] = [
+        ["Worker Name", workerName],
+        ["Date", new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })],
+        ["Work Type", workType],
+        ["Rate per Piece", `Rs. ${perPieceRate}`],
+      ];
+
+      // Card background
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(marginX, cardY, contentW, cardH, 3, 3, "FD");
+
+      fields.forEach(([label, value], i) => {
+        const cx = i % 2 === 0 ? col1X : col2X;
+        const cy = cardY + 5 + Math.floor(i / 2) * rowH;
+        doc.setTextColor(120, 130, 145);
+        doc.setFontSize(6.5);
+        doc.setFont("helvetica", "bold");
+        doc.text(label.toUpperCase(), cx, cy);
+        doc.setTextColor(20, 30, 48);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(value, cx, cy + 4.5);
+      });
+
+      // ── 3. Materials table — always within single page ───────────────────
+      const tableStartY = cardY + cardH + 6;
+      const tableEndY   = contentBot - 8;           // use space up to near footer
+      const tableH      = tableEndY - tableStartY;  // total px available
+
+      const nItems      = Math.max(1, denaItems.length);
+      const headerH_mm  = 9;                        // fixed header row height
+      const bodyH       = tableH - headerH_mm;
+      // Compute per-row vertical padding so all rows fit; min 1.5mm, max 4mm
+      const vPad = Math.min(4, Math.max(1.5, (bodyH / nItems - 8) / 2));
+      const fontSize = vPad > 2.5 ? 8 : 7;
+
+      const materialRows = denaItems.map((item) => {
+        let desc = "", qty = "";
+        if (item.type === "bangle")       { desc = `Bangle Stock — Size: ${item.size}, Cut: ${item.cutType}`; qty = `${item.pieces} pcs`; }
+        else if (item.type === "thread")  { desc = `Thread — ${item.threadCode} (${item.threadColour})`; qty = `${item.grams} g`; }
+        else if (item.type === "glue")    { desc = `Glue — ${item.itemName}`; qty = `${item.units} ${item.unit ?? "units"}`; }
+        else if (item.type === "cutter")  { desc = `Cutter — ${item.itemName}`; qty = `${item.units} ${item.unit ?? "pcs"}`; }
+        else if (item.type === "rawmat")  { desc = (item as RawMatDenaItem).itemName; qty = `${(item as RawMatDenaItem).units} ${(item as RawMatDenaItem).unit ?? "units"}`; }
+        return [desc, qty];
+      });
+
+      autoTable(doc, {
+        head: [["Material Description", "Quantity"]],
+        body: materialRows,
+        startY: tableStartY,
+        margin: { left: marginX, right: marginX },
+        tableWidth: contentW,
+        theme: "striped",
+        // Disable all page-break behaviour — content MUST stay on this page
+        pageBreak: "avoid",
+        rowPageBreak: "avoid",
+        showHead: "firstPage",
+        headStyles: {
+          fillColor: [30, 70, 32],
+          textColor: [255, 255, 255],
+          fontSize: 8.5,
+          fontStyle: "bold",
+          halign: "left",
+          minCellHeight: headerH_mm,
+          cellPadding: { top: 3, bottom: 3, left: 5, right: 5 },
+        },
+        bodyStyles: {
+          fontSize,
+          textColor: [51, 65, 85],
+          fillColor: [255, 255, 255],
+          cellPadding: { top: vPad, bottom: vPad, left: 5, right: 5 },
+          minCellHeight: 0,
+        },
+        alternateRowStyles: { fillColor: [247, 248, 250] },
+        columnStyles: { 1: { halign: "right", fontStyle: "bold", cellWidth: 35 } },
+        styles: { lineColor: [226, 232, 240], lineWidth: 0.2, overflow: "ellipsize" },
+      });
+
+      // ── 4. Share / download ───────────────────────────────────────────────
+      const fileName = `Work-Order-${workerName.replace(/\s+/g, "-")}-${new Date(date).toISOString().slice(0, 10)}.pdf`;
+      const pdfBlob = doc.output("blob");
+      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
+
+      if (typeof navigator.share === "function" && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `Work Order – ${workerName}`,
+          text: `Dhagaji Creation Work Order for ${workerName} dated ${new Date(date).toLocaleDateString("en-IN")}`,
+          files: [file],
+        });
+      } else {
+        // Desktop: download the PDF, then open WhatsApp Web with a summary message
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        // Open WhatsApp Web after a short delay so download isn't blocked by popup
+        setTimeout(() => {
+          window.open("https://web.whatsapp.com/", "_blank");
+        }, 700);
+      }
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+    } finally {
+      setIsPdfGenerating(false);
+    }
   }
 
   function handlePrintCopies() {
-    const printWindow = window.open("", "_blank", "width=900,height=900");
+    const printWindow = window.open("", "_blank", "width=860,height=900");
     if (!printWindow) return;
-
-    const logoSvg = `
-      <svg width="44" height="44" viewBox="0 0 100 100" style="vertical-align: middle; margin-right: 12px; filter: drop-shadow(0 2px 4px rgba(211,47,47,0.15));">
-        <circle cx="50" cy="50" r="38" stroke="#D32F2F" stroke-width="6" fill="none" stroke-dasharray="12 4" />
-        <circle cx="50" cy="50" r="30" stroke="#FF8A80" stroke-width="1.5" fill="none" />
-        <text x="50" y="59" font-family="'Plus Jakarta Sans', 'Inter', Arial, sans-serif" font-size="26" font-weight="900" fill="#D32F2F" text-anchor="middle">DC</text>
-      </svg>
-    `;
 
     const getMaterialRows = () => {
       return denaItems.map((item) => {
-        let desc = "";
-        let qtyText = "";
-        if (item.type === "bangle") {
-          desc = `Bangle Stock (Size: ${item.size}, Cut: ${item.cutType})`;
-          qtyText = `${item.pieces} pcs`;
-        } else if (item.type === "thread") {
-          desc = `Thread (${item.threadCode} - ${item.threadColour})`;
-          qtyText = `${item.grams} g`;
-        } else if (item.type === "glue") {
-          desc = `Glue (${item.itemName})`;
-          qtyText = `${item.units} ${item.unit ?? "units"}`;
-        } else if (item.type === "cutter") {
-          desc = `Cutter (${item.itemName})`;
-          qtyText = `${item.units} ${item.unit ?? "pcs"}`;
-        } else if (item.type === "rawmat") {
-          desc = `${(item as RawMatDenaItem).itemName}`;
-          qtyText = `${(item as RawMatDenaItem).units} ${(item as RawMatDenaItem).unit ?? "units"}`;
-        }
+        let desc = "", qty = "";
+        if (item.type === "bangle")       { desc = `Bangle Stock — Size: ${item.size}, Cut: ${item.cutType}`; qty = `${item.pieces} pcs`; }
+        else if (item.type === "thread")  { desc = `Thread — ${item.threadCode} (${item.threadColour})`; qty = `${item.grams} g`; }
+        else if (item.type === "glue")    { desc = `Glue — ${item.itemName}`; qty = `${item.units} ${item.unit ?? "units"}`; }
+        else if (item.type === "cutter")  { desc = `Cutter — ${item.itemName}`; qty = `${item.units} ${item.unit ?? "pcs"}`; }
+        else                              { desc = `${(item as RawMatDenaItem).itemName}`; qty = `${(item as RawMatDenaItem).units} ${(item as RawMatDenaItem).unit ?? "units"}`; }
         return `
           <tr>
-            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; color: #334155;">${desc}</td>
-            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #0f172a; font-weight: 600;">${qtyText}</td>
-          </tr>
-        `;
+            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${desc}</td>
+            <td style="padding:9px 14px;border-bottom:1px solid #e2e8f0;color:#1e4620;font-weight:700;font-size:13px;text-align:right;">${qty}</td>
+          </tr>`;
       }).join("");
     };
 
-    const renderCopy = (copyTitle: string) => `
-      <div style="max-width: 800px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); position: relative; overflow: hidden;">
-        <!-- Top decorative bar -->
-        <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: #D32F2F;"></div>
-        
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 18px; margin-bottom: 20px;">
-          <div style="display: flex; align-items: center;">
-            ${logoSvg}
-            <div>
-              <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px;">DHAGAJI CREATION</h1>
-              <p style="margin: 2px 0 0 0; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Factory Management</p>
+    const dateStr = new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+    const renderPage = () => `
+      <div class="page-wrap">
+        <!-- Full letterhead background -->
+        <img src="/work-order-bg.jpg" class="letterhead-bg" alt="" />
+
+        <!-- Content overlay — sits in the white zone of the template -->
+        <div class="content-zone">
+
+          <!-- Info card -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;background:#fff;border:1px solid #dde3ec;border-radius:10px;overflow:hidden;margin-bottom:22px;">
+            <div style="padding:12px 18px;border-right:1px solid #dde3ec;border-bottom:1px solid #dde3ec;">
+              <p style="margin:0 0 3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">Worker Name</p>
+              <p style="margin:0;font-size:15px;font-weight:800;color:#0f172a;">${workerName}</p>
+            </div>
+            <div style="padding:12px 18px;border-bottom:1px solid #dde3ec;">
+              <p style="margin:0 0 3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">Date</p>
+              <p style="margin:0;font-size:15px;font-weight:800;color:#0f172a;">${dateStr}</p>
+            </div>
+            <div style="padding:12px 18px;border-right:1px solid #dde3ec;border-bottom:1px solid #dde3ec;">
+              <p style="margin:0 0 3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">Assignment Type</p>
+              <p style="margin:0;font-size:14px;font-weight:700;color:#334155;">${assignmentType === "half" ? "Half Work Assignment" : "Full Work Assignment"}</p>
+            </div>
+            <div style="padding:12px 18px;border-bottom:1px solid #dde3ec;">
+              <p style="margin:0 0 3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">Work Type</p>
+              <p style="margin:0;font-size:14px;font-weight:700;color:#334155;">${workType}</p>
+            </div>
+            <div style="padding:12px 18px;grid-column:1/-1;">
+              <p style="margin:0 0 3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">Rate per Piece</p>
+              <p style="margin:0;font-size:14px;font-weight:700;color:#1e4620;">Rs. ${perPieceRate}</p>
             </div>
           </div>
-          <div style="text-align: right;">
-            <span style="display: inline-block; padding: 6px 14px; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 9999px; font-size: 11px; font-weight: 700; color: #991b1b; text-transform: uppercase; letter-spacing: 0.8px;">
-              ${copyTitle}
-            </span>
-          </div>
-        </div>
 
-        <!-- Info Grid -->
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-bottom: 24px; background: #f8fafc; padding: 18px; border-radius: 12px; border: 1px solid #f1f5f9;">
-          <div>
-            <p style="margin: 0 0 4px 0; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.8px;">Worker Name</p>
-            <p style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">${workerName}</p>
-          </div>
-          <div>
-            <p style="margin: 0 0 4px 0; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.8px;">Date</p>
-            <p style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">${new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
-          </div>
-          <div>
-            <p style="margin: 0 0 4px 0; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.8px;">Assignment Type</p>
-            <p style="margin: 0; font-size: 14px; font-weight: 600; color: #334155;">${assignmentType === "half" ? "Half Work Assignment" : "Full Work Assignment"}</p>
-          </div>
-          <div>
-            <p style="margin: 0 0 4px 0; font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.8px;">Work Details (Rate)</p>
-            <p style="margin: 0; font-size: 14px; font-weight: 600; color: #334155;">${workType} (₹${perPieceRate} / pc)</p>
-          </div>
-        </div>
-
-        <!-- Materials List -->
-        <div style="margin-bottom: 24px;">
-          <h3 style="margin: 0 0 12px 0; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.8px;">Materials Issued</h3>
-          <table style="width: 100%; border-collapse: collapse; font-size: 13px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
+          <!-- Materials table -->
+          <table style="width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;border:1px solid #dde3ec;">
             <thead>
-              <tr style="background: #f1f5f9;">
-                <th style="padding: 10px 12px; text-align: left; color: #475569; font-weight: 700; border-bottom: 2px solid #cbd5e1;">Material Description</th>
-                <th style="padding: 10px 12px; text-align: right; color: #475569; font-weight: 700; border-bottom: 2px solid #cbd5e1; width: 140px;">Quantity</th>
+              <tr style="background:#1e4620;">
+                <th style="padding:10px 14px;text-align:left;color:#d4af37;font-size:12px;font-weight:700;letter-spacing:0.5px;">Material Description</th>
+                <th style="padding:10px 14px;text-align:right;color:#d4af37;font-size:12px;font-weight:700;width:130px;">Quantity</th>
               </tr>
             </thead>
             <tbody>
               ${getMaterialRows()}
             </tbody>
           </table>
-        </div>
 
-        <!-- Signatures -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 50px; padding-top: 20px; border-top: 1px dashed #e2e8f0;">
-          <div style="text-align: center; width: 160px;">
-            <div style="border-top: 1px solid #94a3b8; margin-top: 35px; padding-top: 6px; font-size: 11px; font-weight: 600; color: #64748b;">Authorized Signatory</div>
-          </div>
-          <div style="text-align: center; width: 160px;">
-            <div style="border-top: 1px solid #94a3b8; margin-top: 35px; padding-top: 6px; font-size: 11px; font-weight: 600; color: #64748b;">Worker's Signature</div>
-          </div>
-        </div>
-      </div>
+        </div><!-- /content-zone -->
+      </div><!-- /page-wrap -->
     `;
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Work Order Copies - Dhagaji Creation</title>
+          <title>Work Order \u2014 Dhagaji Creation</title>
           <link rel="preconnect" href="https://fonts.googleapis.com">
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
           <style>
-            body {
-              font-family: 'Plus Jakarta Sans', 'Inter', Arial, sans-serif;
-              background-color: #f8fafc;
+            *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+            /* Tell the browser: one A4 page, zero margins */
+            @page {
+              size: A4 portrait;
               margin: 0;
-              padding: 24px;
             }
-            .cut-line {
-              margin: 30px 0;
-              border-top: 2px dashed #94a3b8;
+
+            body {
+              font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+              background: #e8ecf0;
+            }
+
+            /*
+             * page-wrap is EXACTLY one A4 page.
+             * overflow: hidden ensures nothing bleeds past the green footer.
+             * The template image fills this box completely.
+             */
+            .page-wrap {
               position: relative;
-              text-align: center;
+              width: 210mm;
+              height: 297mm;          /* exact A4 — never taller */
+              overflow: hidden;       /* clip anything that overflows */
+              background: #fff;
+              /* Screen-only shadow for preview */
+              box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+              margin: 20px auto;
             }
-            .cut-label {
+
+            /* Letterhead fills the entire A4 box */
+            .letterhead-bg {
               position: absolute;
-              top: -10px;
-              left: 50%;
-              transform: translateX(-50%);
-              background: #f8fafc;
-              padding: 0 12px;
-              font-size: 10px;
-              font-weight: 700;
-              color: #64748b;
-              text-transform: uppercase;
-              letter-spacing: 1px;
+              inset: 0;
+              width: 210mm;
+              height: 297mm;
+              display: block;
+              object-fit: fill;
             }
+
+            /*
+             * Content zone sits inside the template's white area.
+             * Template green header  ≈ top 18.5%  of A4 = ~55mm
+             * Template green footer  ≈ bottom 8%  of A4 = ~24mm
+             * Horizontal margin matches PDF (14mm each side).
+             */
+            .content-zone {
+              position: relative;
+              z-index: 2;
+              padding-top: 56mm;
+              padding-bottom: 26mm;
+              padding-left: 14mm;
+              padding-right: 14mm;
+              /* Constrain height so inner content can never push the footer down */
+              height: 297mm;
+            }
+
             @media print {
-              body {
-                background-color: #ffffff;
-                padding: 0;
-              }
-              .cut-label {
-                background: #ffffff;
-              }
-              .page-container {
-                page-break-inside: avoid;
-              }
+              body        { background: #fff; }
+              .page-wrap  { box-shadow: none; margin: 0; }
             }
           </style>
         </head>
         <body>
-          <div class="page-container">
-            ${renderCopy("Office Copy")}
-          </div>
-          <div class="cut-line">
-            <span class="cut-label">✂ Cut Here</span>
-          </div>
-          <div class="page-container">
-            ${renderCopy("Worker Copy")}
-          </div>
+          ${renderPage()}
+          <script>
+            // Ensure the letterhead image is fully loaded before print dialog
+            var img = document.querySelector('.letterhead-bg');
+            function doPrint() { setTimeout(function() { window.print(); }, 300); }
+            if (img && img.complete) {
+              doPrint();
+            } else if (img) {
+              img.addEventListener('load', doPrint);
+              img.addEventListener('error', doPrint);
+            } else {
+              doPrint();
+            }
+          </script>
         </body>
       </html>
     `);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
-  }
-
-  function handleWhatsAppShare() {
-    const text = encodeURIComponent(buildShareText());
-    window.open(`https://wa.me/?text=${text}`, "_blank");
   }
 
   return (
@@ -1214,8 +1331,8 @@ function Step3({
         <Button variant="outline" onClick={handlePrintCopies}>
           Print Office + Worker Copy
         </Button>
-        <Button variant="outline" onClick={handleWhatsAppShare}>
-          Send Digital Copy
+        <Button variant="outline" onClick={handleSendDigitalCopy} isLoading={isPdfGenerating}>
+          {isPdfGenerating ? "Generating PDF…" : "Send Digital Copy (PDF)"}
         </Button>
       </div>
 
