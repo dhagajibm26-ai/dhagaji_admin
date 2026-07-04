@@ -476,6 +476,7 @@ export interface IFinishedProduct {
   readyStock: number;
   totalSold: number;
   barcodeId: string;
+  hsnCodes?: string[];
   // virtuals
   totalCost: number;
   totalRevenue: number;

@@ -1059,7 +1059,7 @@ function Step3({
 
         // Open WhatsApp Web after a short delay so download isn't blocked by popup
         setTimeout(() => {
-          window.open("https://web.whatsapp.com/", "_blank");
+          window.open("https://web.whatsapp.com/send", "_blank");
         }, 700);
       }
     } catch (err) {

@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import type { IBill } from "@/types";
-import { WhatsAppShare } from "./WhatsAppShare";
+import { WhatsAppShare, generateBillPDF } from "./WhatsAppShare";
 import { Button } from "@/components/ui/Button";
 import { Printer } from "lucide-react";
 
@@ -16,11 +17,42 @@ const formatDate = (d: Date | string) =>
 const fmt = (n: number) => `₹${n.toFixed(2)}`;
 
 export function BillPreview({ bill, onClose }: BillPreviewProps) {
-  const handlePrint = () => window.print();
+  const [printLoading, setPrintLoading] = useState(false);
+
+  const handlePrint = async () => {
+    setPrintLoading(true);
+    try {
+      const doc = await generateBillPDF(bill);
+      const pdfBlob = doc.output("blob");
+      const blobUrl = URL.createObjectURL(pdfBlob);
+
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.width = "0px";
+      iframe.style.height = "0px";
+      iframe.style.border = "none";
+      iframe.src = blobUrl;
+
+      document.body.appendChild(iframe);
+
+      iframe.onload = () => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          URL.revokeObjectURL(blobUrl);
+        }, 1000);
+      };
+    } catch (err) {
+      console.error("Print bill failed:", err);
+    } finally {
+      setPrintLoading(false);
+    }
+  };
 
   return (
     <>
-      {/* Print isolation: hides everything except the bill */}
+      {/* Print isolation styles are kept as fallback */}
       <style>{`
         @media print {
           body > * { visibility: hidden; }
@@ -40,11 +72,8 @@ export function BillPreview({ bill, onClose }: BillPreviewProps) {
           className="bg-white border border-gray-200 rounded-lg p-5 text-sm"
         >
           {/* Header */}
-          <div className="text-center mb-4 pb-3 border-b border-dashed border-gray-300">
-            <h1 className="text-lg font-bold text-[#D32F2F] tracking-widest">
-              DHAGAJI CREATION
-            </h1>
-            <p className="text-xs text-gray-500 mt-0.5">Handmade Bangles &amp; Jewellery</p>
+          <div className="flex flex-col items-start justify-center mb-4 pb-3 border-b border-dashed border-gray-300">
+            <img src="/logo.png" className="h-10 w-auto object-contain" alt="Dhagaji Creation" />
           </div>
 
           {/* Bill meta */}
@@ -155,10 +184,14 @@ export function BillPreview({ bill, onClose }: BillPreviewProps) {
         <WhatsAppShare bill={bill} />
 
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={handlePrint}>
-            <Printer size={14} /> Print Bill
+          <Button variant="outline" className="flex-1" onClick={handlePrint} isLoading={printLoading}>
+            {printLoading ? "Preparing Print..." : (
+              <span className="flex items-center gap-2">
+                <Printer size={14} /> Print Bill
+              </span>
+            )}
           </Button>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} disabled={printLoading}>
             Close
           </Button>
         </div>

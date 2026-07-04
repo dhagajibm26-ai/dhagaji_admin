@@ -20,27 +20,59 @@ function cellValue(value: string | number | null, col: ReportColumn): string {
   return String(value);
 }
 
-// ─── PDF ──────────────────────────────────────────────────────────────────────
+// ─── PDF Generation Helper ───────────────────────────────────────────────────
 
-async function exportToPDF(data: ReportData) {
+async function generateReportPDF(data: ReportData) {
   const { default: jsPDF } = await import("jspdf");
   const { default: autoTable } = await import("jspdf-autotable");
 
-  const doc = new jsPDF({ orientation: "landscape" });
-  const W = doc.internal.pageSize.getWidth();
+  // Load background template
+  const bgImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = "/work-order-bg.jpg";
+  });
+  const bgCanvas = document.createElement("canvas");
+  bgCanvas.width = bgImg.naturalWidth;
+  bgCanvas.height = bgImg.naturalHeight;
+  bgCanvas.getContext("2d")!.drawImage(bgImg, 0, 0);
+  const bgDataUrl = bgCanvas.toDataURL("image/jpeg", 0.9);
 
-  // Header
-  doc.setFontSize(16);
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();  // 210 mm
+  const pageH = doc.internal.pageSize.getHeight(); // 297 mm
+
+  // Place template as background on page 1
+  doc.addImage(bgDataUrl, "JPEG", 0, 0, pageW, pageH);
+
+  const contentTop = 52;   // mm from top — below green header
+  const contentBot = 275;  // mm from top — above green footer bar
+  const marginX = 14;
+  const contentW = pageW - marginX * 2;
+
+  let y = contentTop + 4;
+
+  // Title Box
+  doc.setFillColor(30, 70, 32); // Dark green matching template
+  doc.roundedRect(marginX, y, contentW, 18, 2, 2, "F");
+
+  // Title Text
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10.5);
   doc.setFont("helvetica", "bold");
-  doc.text("DHAGAJI CREATION", W / 2, 14, { align: "center" });
+  doc.text(data.title.toUpperCase(), pageW / 2, y + 5.5, { align: "center" });
 
-  doc.setFontSize(12);
+  // Subtitle (Period and generated details)
+  doc.setFontSize(7.5);
   doc.setFont("helvetica", "normal");
-  doc.text(data.title, W / 2, 21, { align: "center" });
+  doc.setTextColor(212, 175, 55); // Gold text
+  doc.text(`Period: ${data.dateRange.from} to ${data.dateRange.to}`, pageW / 2, y + 10.5, { align: "center" });
+  doc.setTextColor(220, 225, 230);
+  doc.text(`Generated: ${data.generatedAt}`, pageW / 2, y + 14.5, { align: "center" });
 
-  doc.setFontSize(9);
-  doc.text(`Period: ${data.dateRange.from} to ${data.dateRange.to}`, W / 2, 27, { align: "center" });
-  doc.text(`Generated: ${data.generatedAt}`, W / 2, 32, { align: "center" });
+  y += 24; // space below header card
 
   // Body rows
   const head = [data.columns.map((c) => c.label)];
@@ -63,23 +95,35 @@ async function exportToPDF(data: ReportData) {
   autoTable(doc, {
     head,
     body,
-    startY: 36,
+    startY: y,
+    margin: { left: marginX, right: marginX, top: contentTop + 4, bottom: pageH - contentBot + 4 },
     theme: "striped",
-    headStyles:  { fillColor: [211, 47, 47], fontSize: 8, fontStyle: "bold" },
-    bodyStyles:  { fontSize: 7 },
-    footStyles:  { fillColor: [26,  26,  26], textColor: 255, fontStyle: "bold" },
+    headStyles: {
+      fillColor: [30, 70, 32],
+      textColor: [255, 255, 255],
+      fontSize: 8,
+      fontStyle: "bold",
+    },
+    bodyStyles: {
+      fontSize: 7.5,
+      textColor: [51, 65, 85],
+    },
+    alternateRowStyles: {
+      fillColor: [247, 248, 250],
+    },
+    styles: {
+      lineColor: [226, 232, 240],
+      lineWidth: 0.2,
+    },
     didDrawPage: (hookData) => {
-      doc.setFontSize(7);
-      doc.text(
-        `Page ${hookData.pageNumber}`,
-        W - 10,
-        doc.internal.pageSize.getHeight() - 8,
-        { align: "right" }
-      );
+      // Draw background template on subsequent pages
+      if (hookData.pageNumber > 1) {
+        doc.addImage(bgDataUrl, "JPEG", 0, 0, pageW, pageH);
+      }
     },
   });
 
-  doc.save(`${data.title}.pdf`);
+  return doc;
 }
 
 // ─── Excel ────────────────────────────────────────────────────────────────────
@@ -121,43 +165,24 @@ async function exportToExcel(data: ReportData) {
   XLSX.writeFile(wb, `${data.title}.xlsx`);
 }
 
-// ─── WhatsApp ─────────────────────────────────────────────────────────────────
-
-function shareOnWhatsApp(data: ReportData) {
-  const summaryLines = Object.entries(data.summary ?? {}).map(([key, val]) => {
-    const col = data.columns.find((c) => c.key === key);
-    const label = col?.label ?? key;
-    const formatted =
-      col?.type === "currency" && typeof val === "number"
-        ? `Rs.${(val as number).toLocaleString("en-IN")}`
-        : String(val);
-    return `• ${label}: ${formatted}`;
-  });
-
-  const text = [
-    `*DHAGAJI CREATION*`,
-    `*${data.title}*`,
-    `Period: ${data.dateRange.from} to ${data.dateRange.to}`,
-    `Records: ${data.rows.length}`,
-    summaryLines.length ? `\n*Summary*\n${summaryLines.join("\n")}` : "",
-    `\nGenerated: ${data.generatedAt}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ExportButtons({ data }: ExportButtonsProps) {
   const [pdfLoading,   setPdfLoading]   = useState(false);
   const [xlsxLoading,  setXlsxLoading]  = useState(false);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [waLoading,    setWaLoading]    = useState(false);
 
   const handlePDF = async () => {
     setPdfLoading(true);
-    try { await exportToPDF(data); }
-    finally { setPdfLoading(false); }
+    try {
+      const doc = await generateReportPDF(data);
+      doc.save(`${data.title}.pdf`);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const handleExcel = async () => {
@@ -166,32 +191,92 @@ export function ExportButtons({ data }: ExportButtonsProps) {
     finally { setXlsxLoading(false); }
   };
 
+  const handlePrint = async () => {
+    setPrintLoading(true);
+    try {
+      const doc = await generateReportPDF(data);
+      const pdfBlob = doc.output("blob");
+      const blobUrl = URL.createObjectURL(pdfBlob);
+
+      // Create a hidden iframe to send print instruction directly to the browser
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.width = "0px";
+      iframe.style.height = "0px";
+      iframe.style.border = "none";
+      iframe.src = blobUrl;
+
+      document.body.appendChild(iframe);
+
+      iframe.onload = () => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          URL.revokeObjectURL(blobUrl);
+        }, 1000);
+      };
+    } catch (err) {
+      console.error("Print failed:", err);
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
+  const handleWhatsApp = async () => {
+    setWaLoading(true);
+    try {
+      const doc = await generateReportPDF(data);
+      const fileName = `${data.title.replace(/\s+/g, "-")}.pdf`;
+      const pdfBlob = doc.output("blob");
+
+      // Download the PDF file first
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+
+      // Redirect to WhatsApp Web after download triggers
+      setTimeout(() => {
+        window.open("https://web.whatsapp.com/send", "_blank");
+      }, 700);
+    } catch (err) {
+      console.error("WhatsApp share failed:", err);
+    } finally {
+      setWaLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-wrap gap-2 print:hidden">
       <ExportBtn
         onClick={handlePDF}
-        disabled={pdfLoading}
+        disabled={pdfLoading || xlsxLoading || printLoading || waLoading}
         icon={<FileText size={13} />}
         label={pdfLoading ? "Exporting…" : "Export PDF"}
         className="bg-[#D32F2F] hover:bg-[#B71C1C] text-white"
       />
       <ExportBtn
         onClick={handleExcel}
-        disabled={xlsxLoading}
+        disabled={pdfLoading || xlsxLoading || printLoading || waLoading}
         icon={<BarChart3 size={13} />}
         label={xlsxLoading ? "Exporting…" : "Export Excel"}
         className="bg-green-600 hover:bg-green-700 text-white"
       />
       <ExportBtn
-        onClick={() => window.print()}
+        onClick={handlePrint}
+        disabled={pdfLoading || xlsxLoading || printLoading || waLoading}
         icon={<Printer size={13} />}
-        label="Print"
+        label={printLoading ? "Preparing…" : "Print"}
         className="bg-gray-700 hover:bg-gray-800 text-white"
       />
       <ExportBtn
-        onClick={() => shareOnWhatsApp(data)}
+        onClick={handleWhatsApp}
+        disabled={pdfLoading || xlsxLoading || printLoading || waLoading}
         icon={<MessageCircle size={13} />}
-        label="WhatsApp"
+        label={waLoading ? "Preparing…" : "WhatsApp"}
         className="bg-[#25D366] hover:bg-[#1DA851] text-white"
       />
     </div>

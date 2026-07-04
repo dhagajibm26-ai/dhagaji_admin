@@ -27,6 +27,7 @@ export interface IFinishedProductDocument extends Document {
   readyStock: number;
   totalSold: number;
   barcodeId: string;
+  hsnCodes?: string[];
   // virtuals
   totalCost: number;
   totalRevenue: number;

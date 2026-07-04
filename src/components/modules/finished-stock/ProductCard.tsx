@@ -33,9 +33,8 @@ export function ProductCard({
 
   return (
     <div
-      className={`relative rounded-xl border bg-white shadow-sm flex flex-col gap-3 p-4 transition-colors ${
-        isSelected ? "border-[#D32F2F] ring-1 ring-[#D32F2F]" : "border-gray-200"
-      }`}
+      className={`relative rounded-xl border bg-white shadow-sm flex flex-col gap-3 p-4 transition-colors ${isSelected ? "border-[#D32F2F] ring-1 ring-[#D32F2F]" : "border-gray-200"
+        }`}
     >
       {/* Select checkbox (bulk print) */}
       {onSelect && (
@@ -63,6 +62,11 @@ export function ProductCard({
         <p className="text-xs text-gray-500 mt-0.5">
           Code: <span className="font-medium text-[#1A1A1A]">{product.designCode}</span>
           {" · "}Size: <span className="font-medium text-[#1A1A1A]">{product.size}</span>
+          {product.hsnCodes && product.hsnCodes.length > 0 && (
+            <>
+              {" · "}HSN: <span className="font-medium text-[#1A1A1A]">{product.hsnCodes.join(", ")}</span>
+            </>
+          )}
         </p>
       </div>
 

@@ -5,6 +5,9 @@ import { FinishedProduct } from "@/models/FinishedProduct";
 import { finishedProductSchema } from "@/types";
 import type { ApiResponse } from "@/types";
 
+import { WorkOrder } from "@/models/WorkOrder";
+import { RawMaterial } from "@/models/RawMaterial";
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -32,8 +35,32 @@ export async function PATCH(
     if (!item) {
       return NextResponse.json<ApiResponse>({ success: false, error: "Product not found" }, { status: 404 });
     }
-    return NextResponse.json<ApiResponse>({ success: true, data: item.toJSON() });
-  } catch {
+
+    // Resolve HSN codes dynamically from the work orders that produced this finished product
+    const workOrders = await WorkOrder.find({ finishedProductId: id })
+      .select("rawMaterialsGiven rawMaterialsReturned");
+    const rawMaterialIds = workOrders.flatMap((wo) => [
+      ...(wo.rawMaterialsGiven || []).map((rm) => rm.rawMaterialId.toString()),
+      ...(wo.rawMaterialsReturned || []).map((rm) => rm.rawMaterialId.toString()),
+    ]);
+    const uniqueRmIds = Array.from(new Set(rawMaterialIds));
+    const rawMaterials = await RawMaterial.find({ _id: { $in: uniqueRmIds } })
+      .select("hsnCodes hsnCode");
+    const hsnSet = new Set<string>();
+    rawMaterials.forEach((rm) => {
+      if (rm.hsnCodes && rm.hsnCodes.length > 0) {
+        rm.hsnCodes.forEach((c) => { if (c) hsnSet.add(c); });
+      } else if (rm.hsnCode) {
+        hsnSet.add(rm.hsnCode);
+      }
+    });
+
+    const json = item.toJSON();
+    json.hsnCodes = Array.from(hsnSet);
+
+    return NextResponse.json<ApiResponse>({ success: true, data: json });
+  } catch (err) {
+    console.error("PATCH finished product API error:", err);
     return NextResponse.json<ApiResponse>({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
