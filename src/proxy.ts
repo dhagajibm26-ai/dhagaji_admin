@@ -16,7 +16,7 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const session = req.auth;
 
-  // Forward user identity as request headers so API route handlers
+  // Forward users identity as request headers so API route handlers
   // can read the role without calling auth() themselves.
   const requestHeaders = new Headers(req.headers);
   if (session?.user) {
