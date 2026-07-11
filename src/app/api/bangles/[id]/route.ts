@@ -84,6 +84,7 @@ export async function PATCH(
     if (cutType !== undefined) update.$set.cutType = cutType;
     if (quantityAdd !== undefined) update.$set.quantityAdd = quantityAdd;
     if (netUsed !== undefined) update.$set.netUsed = netUsed;
+    if (totalPurchaseAmount !== undefined) update.$set.totalPurchaseAmount = totalPurchaseAmount;
 
     if (addNetUsed !== undefined && addNetUsed > 0) {
       update.$inc = { ...(update.$inc ?? {}), netUsed: addNetUsed };
@@ -123,11 +124,18 @@ export async function PATCH(
       const entry = buildDbPurchaseEntry(pieces, amount);
       
       update.$set.purchaseHistory = [entry];
+      update.$set.totalPurchaseAmount = amount;
       if (pricePerPiece !== undefined) {
         update.$set.pricePerPiece = pricePerPiece;
       }
     } else if (pricePerPiece !== undefined && addQuantity === undefined) {
       update.$set.pricePerPiece = pricePerPiece;
+      if (totalPurchaseAmount === undefined) {
+        const effectiveCut = cutType ?? existing.cutType;
+        const peta = PETA_MAP[effectiveCut];
+        const pieces = existing.quantityAdd * peta;
+        update.$set.totalPurchaseAmount = Number((pieces * pricePerPiece).toFixed(2));
+      }
     }
 
     if (Object.keys(update.$set).length === 0) delete update.$set;

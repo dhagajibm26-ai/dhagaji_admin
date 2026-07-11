@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,6 +31,9 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
   const { data: stockItems = [] } = useBanglesStock();
   const { data: sizes = [], isLoading: isSizesLoading } = useBangleSizes();
   const isEdit = !!item;
+
+  const [totalAmountInput, setTotalAmountInput] = useState<string>("");
+  const [totalAmountError, setTotalAmountError] = useState<string>("");
 
   const {
     register,
@@ -80,10 +83,19 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
   }, [quantityAdd, peta]);
 
   const addAmount = useMemo(() => {
-    const price = Number(pricePerPiece ?? 0);
-    if (!Number.isFinite(price) || price <= 0) return 0;
-    return addPieces * price;
-  }, [addPieces, pricePerPiece]);
+    return Number(totalAmountInput || 0);
+  }, [totalAmountInput]);
+
+  const [isTotalFocused, setIsTotalFocused] = useState(false);
+  const pricePerPieceVal = useWatch({ control, name: "pricePerPiece" });
+
+  useEffect(() => {
+    if (isTotalFocused) return;
+    if (addPieces > 0 && pricePerPieceVal >= 0) {
+      const calculatedTotal = Number((pricePerPieceVal * addPieces).toFixed(2));
+      setTotalAmountInput(calculatedTotal.toString());
+    }
+  }, [addPieces, pricePerPieceVal, isTotalFocused]);
 
   const projectedAmount = previousAmount + addAmount;
 
@@ -116,6 +128,11 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
     if (!isOpen) return;
     
     if (item) {
+      const itemPeta = PETA_MAP[item.cutType];
+      const pieces = item.quantityAdd * itemPeta;
+      const initialTotal = (pieces * item.pricePerPiece).toFixed(2);
+      setTotalAmountInput(initialTotal);
+      setTotalAmountError("");
       reset({
         size: item.size,
         cutType: item.cutType,
@@ -123,6 +140,8 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
         pricePerPiece: item.pricePerPiece,
       });
     } else {
+      setTotalAmountInput("");
+      setTotalAmountError("");
       reset({
         size: "",
         cutType: "C1",
@@ -144,6 +163,12 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
       return;
     }
 
+    const totalAmt = Number(totalAmountInput || 0);
+    if (totalAmt <= 0) {
+      setTotalAmountError("Total purchase amount must be more than 0");
+      return;
+    }
+
     if (item) {
       patchMutation.mutate(
         {
@@ -152,12 +177,18 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
           cutType: data.cutType,
           quantityAdd: data.quantityAdd,
           pricePerPiece: Number(data.pricePerPiece || 0),
-          totalPurchaseAmount: addAmount,
+          totalPurchaseAmount: totalAmt,
         },
         { onSuccess: () => onClose() }
       );
     } else {
-      addMutation.mutate(data, { onSuccess: () => onClose() });
+      addMutation.mutate(
+        {
+          ...data,
+          totalPurchaseAmount: totalAmt,
+        },
+        { onSuccess: () => onClose() }
+      );
     }
   };
 
@@ -236,6 +267,33 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
             {...register("quantityAdd", { valueAsNumber: true })}
           />
           <Input
+            label="Total Purchase Amount (₹)"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            required={!isEdit}
+            error={totalAmountError}
+            value={totalAmountInput}
+            onFocus={() => setIsTotalFocused(true)}
+            onBlur={() => setIsTotalFocused(false)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setTotalAmountInput(val);
+              if (Number(val) > 0) {
+                setTotalAmountError("");
+              }
+              const numVal = Number(val || 0);
+              if (addPieces > 0) {
+                const calculatedPrice = Number((numVal / addPieces).toFixed(2));
+                setValue("pricePerPiece", calculatedPrice, { shouldValidate: true });
+              }
+            }}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
             label="Price per Piece (₹)"
             type="number"
             min="0"
@@ -243,7 +301,16 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
             placeholder="0.00"
             required={!isEdit}
             error={errors.pricePerPiece?.message}
-            {...register("pricePerPiece", { valueAsNumber: true })}
+            {...register("pricePerPiece", {
+              valueAsNumber: true,
+              onChange: (e) => {
+                const val = Number(e.target.value || 0);
+                if (addPieces > 0) {
+                  const calculatedTotal = Number((val * addPieces).toFixed(2));
+                  setTotalAmountInput(calculatedTotal.toString());
+                }
+              }
+            })}
           />
         </div>
 

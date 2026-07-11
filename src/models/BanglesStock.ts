@@ -25,6 +25,7 @@ export interface IBanglesStockDocument extends Document {
   cutType: CutType;
   quantityAdd: number; // number of cuts added
   pricePerPiece: number;
+  totalPurchaseAmount?: number;
   netUsed: number;     // pieces deducted when given to worker
   purchaseHistory?: Array<{
     quantity: number;
@@ -54,6 +55,7 @@ const BanglesStockSchema = new Schema<IBanglesStockDocument>(
     },
     quantityAdd: { type: Number, required: true, min: 0, default: 0 },
     pricePerPiece: { type: Number, required: true, min: 0 },
+    totalPurchaseAmount: { type: Number, default: 0 },
     netUsed: { type: Number, default: 0, min: 0 },
     purchaseHistory: { type: [PurchaseEntrySchema], default: [] },
     isDeleted: { type: Boolean, default: false },

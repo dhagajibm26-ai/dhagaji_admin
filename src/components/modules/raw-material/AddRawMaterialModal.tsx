@@ -12,18 +12,16 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useAddRawMaterial, usePatchRawMaterial } from "@/hooks/useRawMaterial";
 import { useMaterialCategories } from "@/hooks/useMaterialCategories";
+import { useRawMaterialUnits, useCreateRawMaterialUnit, useDeleteRawMaterialUnit } from "@/hooks/useRawMaterialUnits";
 import { PurchaseHistoryPanel } from "@/components/ui/PurchaseHistoryPanel";
 import { formatGramRate, formatKgRateFromGramRate, resolvePurchaseHistory } from "@/lib/purchaseHistory";
 import type { IRawMaterial } from "@/types";
-
-const UNITS = ["gram", "tube", "box", "meter"] as const;
-type UnitType = (typeof UNITS)[number];
 
 const formSchema = z.object({
   itemName: z.string().min(1, "Item name required"),
   colorType: z.string().optional(),
   category: z.string().min(1, "Category required"),
-  unit: z.enum(UNITS),
+  unit: z.string().min(1, "Unit required"),
   quantity: z.number().min(0),
   totalAmount: z.number().min(0, "Amount must be 0 or more"),
   unitsPerPack: z.number().min(1, "Must be 1 or more").default(1),
@@ -50,6 +48,8 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
   const addMutation = useAddRawMaterial();
   const patchMutation = usePatchRawMaterial();
   const { data: categories = [] } = useMaterialCategories();
+  const { data: units = [] } = useRawMaterialUnits();
+  const [isManagingUnits, setIsManagingUnits] = useState(false);
   const isEdit = !!item;
 
   const {
@@ -104,7 +104,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     setValue("hsnCodes", hsnCodes.filter((c) => c !== codeToRemove), { shouldDirty: true });
   };
 
-  const unit = useWatch({ control, name: "unit" }) as UnitType | undefined;
+  const unit = useWatch({ control, name: "unit" }) as string | undefined;
   const quantity = useWatch({ control, name: "quantity" });
   const totalAmount = useWatch({ control, name: "totalAmount" });
   const unitsPerPack = useWatch({ control, name: "unitsPerPack" });
@@ -138,9 +138,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
         itemName: item.itemName,
         colorType: item.colorType ?? "",
         category: item.category,
-        unit: item.unit === "gram" || item.unit === "box" || item.unit === "tube" || item.unit === "meter"
-          ? item.unit
-          : "gram",
+        unit: item.unit || "gram",
         quantity: prefillQty,
         totalAmount: prefillAmount,
         unitsPerPack: safeUnitsPerPack,
@@ -236,7 +234,8 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
   const isMutating = isSubmitting || addMutation.isPending || patchMutation.isPending;
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={isEdit ? "Edit Raw Material" : "Add Raw Material"}
@@ -281,14 +280,28 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
             ))}
           </Select>
 
-          <Select label="Unit" required error={errors.unit?.message} {...register("unit")}>
-            <option value="">Select unit…</option>
-            {UNITS.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </Select>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="unit-select" className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+                Unit <span className="text-[#D32F2F] ml-0.5">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsManagingUnits(true)}
+                className="text-[11px] font-bold uppercase tracking-wider text-rose-600 hover:text-rose-800 transition-colors focus:outline-none cursor-pointer"
+              >
+                Manage
+              </button>
+            </div>
+            <Select id="unit-select" error={errors.unit?.message} {...register("unit")}>
+              <option value="">Select unit…</option>
+              {units.filter((u) => u.isActive).map((u) => (
+                <option key={u._id} value={u.name}>
+                  {u.name}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
 
         {categoryOptions.length === 0 && (
@@ -486,6 +499,83 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
           </p>
         )}
       </form>
+    </Modal>
+
+    <ManageUnitsModal isOpen={isManagingUnits} onClose={() => setIsManagingUnits(false)} />
+  </>
+);
+}
+
+interface ManageUnitsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function ManageUnitsModal({ isOpen, onClose }: ManageUnitsModalProps) {
+  const { data: units = [], isLoading } = useRawMaterialUnits();
+  const createMutation = useCreateRawMaterialUnit();
+  const deleteMutation = useDeleteRawMaterialUnit();
+  const [newUnit, setNewUnit] = useState("");
+
+  const handleAdd = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const name = newUnit.trim();
+    if (!name) return;
+    createMutation.mutate({ name, isActive: true }, {
+      onSuccess: () => setNewUnit(""),
+    });
+  };
+
+  const isPending = createMutation.isPending || deleteMutation.isPending;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Manage Units" size="sm">
+      <div className="space-y-4">
+        <form onSubmit={handleAdd} className="flex gap-2 items-end">
+          <div className="flex-1">
+            <Input
+              label="New Unit"
+              placeholder="e.g. roll, pack"
+              value={newUnit}
+              onChange={(e) => setNewUnit(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <Button type="submit" isLoading={createMutation.isPending} disabled={!newUnit.trim()}>
+            Add
+          </Button>
+        </form>
+
+        <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+          {isLoading ? (
+            <p className="p-4 text-center text-sm text-slate-400">Loading units...</p>
+          ) : units.length === 0 ? (
+            <p className="p-4 text-center text-sm text-slate-400">No units defined yet.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {units.map((u) => (
+                <li key={u._id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                  <span className="font-medium text-slate-700">{u.name}</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-600 hover:bg-red-50 hover:text-red-800 h-8 px-2"
+                    isLoading={deleteMutation.isPending && deleteMutation.variables === u._id}
+                    disabled={isPending}
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to delete unit "${u.name}"?`)) {
+                        deleteMutation.mutate(u._id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </Modal>
   );
 }

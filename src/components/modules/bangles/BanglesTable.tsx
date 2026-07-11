@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { usePatchBangles, useDeleteBangles } from "@/hooks/useBangles";
 import { formatPieceRate } from "@/lib/purchaseHistory";
 import { useIsOwner } from "@/stores/useAuthStore";
+import { formatDateTime } from "@/lib/utils";
 import type { IBanglesStock } from "@/types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -115,6 +116,7 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <th className="px-4 py-3">Date & Time</th>
             <th className="px-4 py-3">Size</th>
             <th className="px-4 py-3">Cut Type</th>
             <th className="px-4 py-3 text-center">Peta</th>
@@ -140,6 +142,11 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
                 key={item._id}
                 className={isLow ? "bg-red-50 hover:bg-red-100" : "hover:bg-gray-50"}
               >
+                {/* Date & Time */}
+                <td className="whitespace-nowrap px-4 py-3 text-slate-500 tabular-nums">
+                  {formatDateTime(item.createdAt)}
+                </td>
+
                 {/* Size */}
                 <td className="whitespace-nowrap px-4 py-3 font-medium text-[#1A1A1A]">
                   {item.size}

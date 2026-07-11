@@ -12,6 +12,7 @@ import {
 } from "@/hooks/useThreads";
 import { useIsOwner } from "@/stores/useAuthStore";
 import { formatGramRate, formatKgRateFromGramRate } from "@/lib/purchaseHistory";
+import { formatDateTime } from "@/lib/utils";
 import type { IThreadsStock } from "@/types";
 
 function getStatus(item: IThreadsStock): "ok" | "out" {
@@ -213,6 +214,7 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
               <th className="sticky left-0 z-10 min-w-[110px] bg-[#D32F2F] px-4 py-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]">
                 Thread Code
               </th>
+              <th className="min-w-[160px] whitespace-nowrap px-4 py-3">Date & Time</th>
               <th className="min-w-[130px] whitespace-nowrap px-4 py-3">Thread Colour</th>
               <th className="min-w-[150px] whitespace-nowrap px-4 py-3">Company Name</th>
               <th className="min-w-[110px] whitespace-nowrap px-4 py-3 text-right">Stock (gram)</th>
@@ -242,6 +244,10 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
                     className={`sticky left-0 z-10 whitespace-nowrap px-4 py-3 font-semibold text-[#1A1A1A] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)] ${rowBg}`}
                   >
                     {item.threadCode}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-500 font-medium tabular-nums">
+                    {formatDateTime(item.createdAt)}
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3">

@@ -7,6 +7,8 @@ import { FinishedProduct } from "@/models/FinishedProduct";
 import { WorkOrder } from "@/models/WorkOrder";
 import { Worker } from "@/models/Worker";
 import { Expense } from "@/models/Expense";
+import { BanglesStock } from "@/models/BanglesStock";
+import { ThreadsStock } from "@/models/ThreadsStock";
 import type { IFinishedProductDocument } from "@/models/FinishedProduct";
 import type { IWorkerDocument } from "@/models/Worker";
 import type { ApiResponse } from "@/types";
@@ -441,11 +443,91 @@ async function inventoryReport(): Promise<Omit<ReportData, "generatedAt" | "date
   return { title: REPORT_LABELS.inventory, columns, rows, summary: sumCols(columns, rows) };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function banglesStockReport(): Promise<Omit<ReportData, "generatedAt" | "dateRange">> {
+  const PETA_MAP = { C1: 12, C2: 24, C4: 48, C6: 72 } as const;
+  const docs = await BanglesStock.find({ isDeleted: { $ne: true } }).sort({ size: 1, cutType: 1 });
+
+  const columns: ReportColumn[] = [
+    { key: "size",                label: "Size",               type: "text" },
+    { key: "cutType",             label: "Cut Type",           type: "text" },
+    { key: "peta",                label: "Peta",               type: "number",   align: "center" },
+    { key: "quantityAdd",         label: "Qty Added (sets)",   type: "number",   align: "right", isSummable: true },
+    { key: "totalPieces",         label: "Total Pieces",       type: "number",   align: "right", isSummable: true },
+    { key: "pricePerPiece",       label: "Price/Pc (₹)",       type: "currency", align: "right" },
+    { key: "totalPurchaseAmount", label: "Total Purchase (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "netUsed",             label: "Net Used",           type: "number",   align: "right", isSummable: true },
+    { key: "closingStock",        label: "Closing Pieces",     type: "number",   align: "right", isSummable: true },
+    { key: "totalValue",          label: "Current Value (₹)",  type: "currency", align: "right", isSummable: true },
+    { key: "status",              label: "Status",             type: "badge",    align: "center" },
+  ];
+
+  const rows: ReportRow[] = docs.map((b) => {
+    const peta = PETA_MAP[b.cutType];
+    const totalPieces = b.quantityAdd * peta;
+    const closingStock = totalPieces - b.netUsed;
+    return {
+      size:                b.size,
+      cutType:             b.cutType,
+      peta,
+      quantityAdd:         b.quantityAdd,
+      totalPieces,
+      pricePerPiece:       b.pricePerPiece,
+      totalPurchaseAmount: b.totalPurchaseAmount ?? (totalPieces * b.pricePerPiece),
+      netUsed:             b.netUsed,
+      closingStock,
+      totalValue:          closingStock * b.pricePerPiece,
+      status:              b.status,
+    };
+  });
+
+  return { title: REPORT_LABELS["bangles-stock"], columns, rows, summary: sumCols(columns, rows) };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function threadsStockReport(): Promise<Omit<ReportData, "generatedAt" | "dateRange">> {
+  const docs = await ThreadsStock.find({ isDeleted: { $ne: true } }).sort({ threadCode: 1 });
+
+  const columns: ReportColumn[] = [
+    { key: "code",    label: "Thread Code",     type: "text" },
+    { key: "colour",  label: "Thread Colour",   type: "text" },
+    { key: "company", label: "Company",         type: "text" },
+    { key: "opening", label: "Opening (g)",     type: "number",   align: "right" },
+    { key: "added",   label: "Added (g)",       type: "number",   align: "right", isSummable: true },
+    { key: "used",    label: "Used (g)",        type: "number",   align: "right", isSummable: true },
+    { key: "closing", label: "Closing (g)",     type: "number",   align: "right", isSummable: true },
+    { key: "rate",    label: "Rate/g (₹)",      type: "currency", align: "right" },
+    { key: "value",   label: "Stock Value (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "status",  label: "Status",          type: "badge",    align: "center" },
+  ];
+
+  const rows: ReportRow[] = docs.map((t) => {
+    const closing = t.openingStock + t.stockAdd - t.netUsed;
+    return {
+      code:    t.threadCode,
+      colour:  t.threadColour,
+      company: t.threadCompanyName,
+      opening: t.openingStock,
+      added:   t.stockAdd,
+      used:    t.netUsed,
+      closing,
+      rate:    t.costPerUnit,
+      value:   closing * t.costPerUnit,
+      status:  closing <= 0 ? "Out of Stock" : "OK",
+    };
+  });
+
+  return { title: REPORT_LABELS["threads-stock"], columns, rows, summary: sumCols(columns, rows) };
+}
+
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 const VALID_TYPES: ReportType[] = [
   "sales", "raw-material", "finished-stock", "worker-payment",
   "work-orders", "profit-loss", "expenses", "customers", "inventory",
+  "bangles-stock", "threads-stock",
 ];
 
 export async function GET(
@@ -490,6 +572,8 @@ export async function GET(
       case "expenses":        partial = await expensesReport(from, to);        break;
       case "customers":       partial = await customersReport(from, to);       break;
       case "inventory":       partial = await inventoryReport();               break;
+      case "bangles-stock":   partial = await banglesStockReport();            break;
+      case "threads-stock":   partial = await threadsStockReport();            break;
     }
 
     const data: ReportData = { ...partial, generatedAt, dateRange };

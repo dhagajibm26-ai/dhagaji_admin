@@ -13,14 +13,14 @@ export function weightedRate(
 ): number {
   const totalQty = currentQty + addQty;
   if (totalQty <= 0) return addRate;
-  return Number(((currentQty * currentRate + addQty * addRate) / totalQty).toFixed(4));
+  return Number(((currentQty * currentRate + addQty * addRate) / totalQty).toFixed(2));
 }
 
 export function buildPurchaseEntry(
   quantity: number,
   totalAmount: number
 ): PurchaseEntry {
-  const ratePerUnit = quantity > 0 ? Number((totalAmount / quantity).toFixed(4)) : 0;
+  const ratePerUnit = quantity > 0 ? Number((totalAmount / quantity).toFixed(2)) : 0;
   return {
     quantity,
     totalAmount: Number(totalAmount.toFixed(2)),
@@ -45,7 +45,7 @@ export function formatGramRate(rate: number): string {
 }
 
 export function formatPieceRate(rate: number): string {
-  return `₹${rate.toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}/pc`;
+  return `₹${rate.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/pc`;
 }
 
 export function formatKgRateFromGramRate(ratePerGram: number): string {

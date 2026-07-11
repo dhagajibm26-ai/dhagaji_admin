@@ -71,7 +71,7 @@ export interface PatchRawMaterialPayload {
   itemName?: string;
   category?: string;
   colorType?: string;
-  unit?: "gram" | "pcs" | "tube" | "box" | "meter";
+  unit?: string;
   unitsPerPack?: number;
   openingStock?: number;
   purchasedQty?: number;

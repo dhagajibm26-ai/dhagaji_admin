@@ -12,7 +12,7 @@ const PurchaseEntrySchema = new Schema(
 
 export type RawMaterialCategory = string;
 
-export type RawMaterialUnit = "gram" | "pcs" | "tube" | "box" | "meter";
+export type RawMaterialUnit = string;
 
 export interface IRawMaterialDocument extends Document {
   itemName: string;
@@ -57,8 +57,8 @@ const RawMaterialSchema = new Schema<IRawMaterialDocument>(
     hsnCodes: { type: [String], default: [] },
     unit: {
       type: String,
-      enum: ["gram", "pcs", "tube", "box", "meter"],
       required: true,
+      trim: true,
     },
     unitsPerPack: { type: Number, default: 1, min: 1 },
     openingStock: { type: Number, required: true, default: 0, min: 0 },

@@ -9,7 +9,9 @@ export type ReportType =
   | "profit-loss"
   | "expenses"
   | "customers"
-  | "inventory";
+  | "inventory"
+  | "bangles-stock"
+  | "threads-stock";
 
 export interface ReportColumn {
   key: string;
@@ -46,4 +48,6 @@ export const REPORT_LABELS: Record<ReportType, string> = {
   "expenses":       "Expense Report",
   "customers":      "Customer Billing History",
   "inventory":      "Inventory Value Report",
+  "bangles-stock":  "Bangles Stock Report",
+  "threads-stock":  "Threads Stock Report",
 };

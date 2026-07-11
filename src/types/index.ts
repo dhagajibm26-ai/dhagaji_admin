@@ -38,7 +38,7 @@ export interface IUser {
 // ─── Raw Material ─────────────────────────────────────────────────────────────
 export type RawMaterialCategory = string;
 
-export type RawMaterialUnit = "gram" | "pcs" | "tube" | "box" | "meter";
+export type RawMaterialUnit = string;
 
 export interface IRawMaterial {
   _id: string;
@@ -68,7 +68,7 @@ export const rawMaterialSchema = z.object({
   category: z.string().min(1, "Category required"),
   colorType: z.string().optional(),
   hsnCodes: z.array(z.string()).optional(),
-  unit: z.enum(["gram", "pcs", "tube", "box", "meter"]),
+  unit: z.string().min(1, "Unit required"),
   unitsPerPack: z.number().min(1).default(1),
   openingStock: z.number().min(0).default(0),
   purchasedQty: z.number().min(0).default(0),
@@ -90,6 +90,7 @@ export interface IBanglesStock {
   cutType: CutType;
   quantityAdd: number;
   pricePerPiece: number;
+  totalPurchaseAmount?: number;
   netUsed: number;
   purchaseHistory?: IPurchaseEntry[];
   // virtuals
@@ -108,6 +109,7 @@ export const banglesStockSchema = z.object({
   cutType: z.enum(["C1", "C2", "C4", "C6"]),
   quantityAdd: z.number().min(0, "Quantity must be 0 or more"),
   pricePerPiece: z.number().min(0, "Price must be 0 or more"),
+  totalPurchaseAmount: z.number().min(0, "Total purchase amount must be 0 or more").optional(),
   netUsed: z.number().min(0).default(0),
   purchaseHistory: z.array(purchaseEntrySchema).optional(),
 });
@@ -237,6 +239,20 @@ export const rawMaterialCategorySchema = z.object({
   isActive: z.boolean().default(true),
 });
 export type RawMaterialCategoryInput = z.infer<typeof rawMaterialCategorySchema>;
+
+export interface IRawMaterialUnit {
+  _id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const rawMaterialUnitSchema = z.object({
+  name: z.string().min(1, "Unit name required"),
+  isActive: z.boolean().default(true),
+});
+export type RawMaterialUnitInput = z.infer<typeof rawMaterialUnitSchema>;
 
 // ─── Work Order schemas ───────────────────────────────────────────────────────
 

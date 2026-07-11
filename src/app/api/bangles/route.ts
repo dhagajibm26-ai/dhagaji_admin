@@ -37,15 +37,16 @@ export async function POST(request: Request) {
       );
     }
     await connectDB();
-    const { quantityAdd, cutType, pricePerPiece, ...rest } = parsed.data;
+    const { quantityAdd, cutType, pricePerPiece, totalPurchaseAmount, ...rest } = parsed.data;
     const pieces = quantityAdd * PETA_MAP[cutType];
-    const totalAmount = Number((pieces * pricePerPiece).toFixed(2));
+    const finalAmount = totalPurchaseAmount ?? Number((pieces * pricePerPiece).toFixed(2));
     const item = await BanglesStock.create({
       ...rest,
       cutType,
       quantityAdd,
       pricePerPiece,
-      purchaseHistory: pieces > 0 ? [buildDbPurchaseEntry(pieces, totalAmount)] : [],
+      totalPurchaseAmount: finalAmount,
+      purchaseHistory: pieces > 0 ? [buildDbPurchaseEntry(pieces, finalAmount)] : [],
     });
     return NextResponse.json<ApiResponse>({ success: true, data: item.toJSON() }, { status: 201 });
   } catch {

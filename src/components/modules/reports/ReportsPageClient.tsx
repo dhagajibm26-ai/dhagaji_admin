@@ -73,7 +73,7 @@ export function ReportsPageClient() {
         <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-12 text-center">
           <BarChart3 size={40} className="text-slate-300 mb-3" />
           <p className="font-bold text-slate-600">Select a report type and click &ldquo;Generate Report&rdquo;</p>
-          <p className="text-sm text-slate-400 mt-1">9 report types — Sales, Stock, Workers, P&amp;L, and more</p>
+          <p className="text-sm text-slate-400 mt-1">11 report types — Sales, Stock, Workers, P&amp;L, and more</p>
         </div>
       )}
     </div>
