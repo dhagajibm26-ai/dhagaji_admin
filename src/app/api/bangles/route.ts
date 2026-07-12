@@ -15,7 +15,7 @@ export async function GET() {
       return NextResponse.json<ApiResponse>({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     await connectDB();
-    const docs = await BanglesStock.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 });
+    const docs = await BanglesStock.find({ isDeleted: { $ne: true } }).sort({ updatedAt: -1 });
     return NextResponse.json<ApiResponse>({ success: true, data: docs.map((d) => d.toJSON()) });
   } catch {
     return NextResponse.json<ApiResponse>({ success: false, error: "Internal server error" }, { status: 500 });

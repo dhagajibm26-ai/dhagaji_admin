@@ -11,6 +11,7 @@ const patchSchema = z
   .object({
     threadCode: z.string().min(1).optional(),
     threadColour: z.string().min(1).optional(),
+    threadColourHex: z.string().optional(),
     threadCompanyName: z.string().min(1).optional(),
     weightPerUnit: z.number().min(0).optional(),
     openingStock: z.number().min(0).optional(),
@@ -25,6 +26,7 @@ const patchSchema = z
     (d) =>
       d.threadCode !== undefined ||
       d.threadColour !== undefined ||
+      d.threadColourHex !== undefined ||
       d.threadCompanyName !== undefined ||
       d.weightPerUnit !== undefined ||
       d.openingStock !== undefined ||
@@ -73,6 +75,7 @@ export async function PATCH(
     const {
       threadCode,
       threadColour,
+      threadColourHex,
       threadCompanyName,
       weightPerUnit,
       openingStock,
@@ -89,6 +92,7 @@ export async function PATCH(
 
     if (threadCode !== undefined) update.$set.threadCode = threadCode;
     if (threadColour !== undefined) update.$set.threadColour = threadColour;
+    if (threadColourHex !== undefined) update.$set.threadColourHex = threadColourHex;
     if (threadCompanyName !== undefined) update.$set.threadCompanyName = threadCompanyName;
     if (weightPerUnit !== undefined) update.$set.weightPerUnit = weightPerUnit;
     if (openingStock !== undefined) update.$set.openingStock = openingStock;

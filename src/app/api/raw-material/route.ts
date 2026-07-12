@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const filter = { isDeleted: { $ne: true } };
 
     if (fetchAll) {
-      const docs = await RawMaterial.find(filter).sort({ createdAt: -1 });
+      const docs = await RawMaterial.find(filter).sort({ updatedAt: -1 });
       const items = docs.map((d) => d.toJSON());
       return NextResponse.json<ApiResponse>({ success: true, data: items });
     }
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const safePage = Math.min(page, totalPages);
 
     const docs = await RawMaterial.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .skip((safePage - 1) * limit)
       .limit(limit);
 

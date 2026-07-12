@@ -16,6 +16,7 @@ const BREADCRUMBS: Record<string, { label: string; Icon: React.ElementType }> = 
   "/raw-material":  { label: "Raw Material",  Icon: Package },
   "/material-categories": { label: "Material Categories", Icon: Shapes },
   "/bangle-sizes": { label: "Bangle Sizes", Icon: Ruler },
+  "/sku-categories": { label: "SKU Categories", Icon: Shapes },
   "/bangles":       { label: "Bangles",       Icon: Circle },
   "/threads":       { label: "Threads",       Icon: Layers },
   "/workers":       { label: "Workers",       Icon: HardHat },

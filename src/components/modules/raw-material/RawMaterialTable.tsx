@@ -13,7 +13,7 @@ import {
 } from "@/hooks/useRawMaterial";
 import { useIsOwner } from "@/stores/useAuthStore";
 import { formatGramRate, formatKgRateFromGramRate } from "@/lib/purchaseHistory";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateDMY } from "@/lib/utils";
 import type { IRawMaterial } from "@/types";
 
 function getStatus(item: IRawMaterial): "ok" | "low" | "out" {
@@ -229,7 +229,7 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
               <th className="sticky left-0 z-10 min-w-[140px] bg-[#D32F2F] px-4 py-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]">
                 Item Name
               </th>
-              <th className="min-w-[160px] whitespace-nowrap px-4 py-3">Date & Time</th>
+              <th className="min-w-[120px] whitespace-nowrap px-4 py-3">Date</th>
               <th className="min-w-[150px] whitespace-nowrap px-4 py-3">Sub Category / Details</th>
               <th className="min-w-[120px] whitespace-nowrap px-4 py-3">Category</th>
               <th className="min-w-[100px] whitespace-nowrap px-4 py-3">HSN Code</th>
@@ -266,7 +266,7 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3 text-slate-500 font-medium tabular-nums">
-                    {formatDateTime(item.createdAt)}
+                    {formatDateDMY(item.updatedAt)}
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3 text-slate-600">

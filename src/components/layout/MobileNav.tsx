@@ -35,6 +35,7 @@ const MORE_ITEMS = [
   { href: "/threads", label: "Threads", Icon: Layers },
   { href: "/material-categories", label: "Material Categories", Icon: Shapes, ownerOnly: true },
   { href: "/bangle-sizes", label: "Bangle Sizes", Icon: Ruler, ownerOnly: true },
+  { href: "/sku-categories", label: "SKU Categories", Icon: Shapes, ownerOnly: true },
 ];
 
 export function MobileNav() {

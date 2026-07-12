@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     const filter = buildFilter(search);
 
     if (fetchAll) {
-      const docs = await ThreadsStock.find(filter).sort({ createdAt: -1 });
+      const docs = await ThreadsStock.find(filter).sort({ updatedAt: -1 });
       return NextResponse.json<ApiResponse>({ success: true, data: docs.map((d) => d.toJSON()) });
     }
 
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     const safePage = Math.min(page, totalPages);
 
     const docs = await ThreadsStock.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .skip((safePage - 1) * limit)
       .limit(limit);
 

@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import type { CutType, WorkOrderCreateInput, IWorkOrder } from "@/types";
+import { formatDateDMY } from "@/lib/utils";
 
 interface CreateWorkOrderFormProps {
   isOpen: boolean;
@@ -174,7 +175,7 @@ function HalfWorkParentSelector({ locked }: { locked: boolean }) {
         )}
         {eligibleParents.map((o) => (
           <option key={o._id} value={o._id}>
-            {o.workType} · {getWorkerName(o)} · {new Date(o.date).toLocaleDateString("en-IN")}
+            {o.workType} · {getWorkerName(o)} · {formatDateDMY(o.date)}
           </option>
         ))}
       </Select>
@@ -1256,7 +1257,7 @@ function Step3({
         </div>
         <div className="flex justify-between">
           <span className="text-slate-500">Date</span>
-          <span className="font-medium">{new Date(date).toLocaleDateString("en-IN")}</span>
+          <span className="font-medium">{formatDateDMY(date)}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-slate-500">Work Type</span>

@@ -18,7 +18,7 @@ import { CreateWorkOrderForm } from "./CreateWorkOrderForm";
 import { ReturnMaterialForm } from "./ReturnMaterialForm";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { cn } from "@/lib/utils";
+import { cn, formatDateDMY } from "@/lib/utils";
 import type { IWorkOrder, IWorker } from "@/types";
 
 function getWorkerName(order: IWorkOrder): string {
@@ -390,8 +390,8 @@ export function WorkOrderFlowPageClient() {
                           order.assignmentType === "half" ? "border-l-4 border-l-amber-400" : ""
                         )}
                       >
-                        <td className="px-4 py-3 whitespace-nowrap text-slate-600">
-                          {new Date(order.date).toLocaleDateString("en-IN")}
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-500 tabular-nums">
+                          {formatDateDMY(order.date)}
                         </td>
                         <td className="px-4 py-3 font-semibold text-slate-800">
                           {(() => {

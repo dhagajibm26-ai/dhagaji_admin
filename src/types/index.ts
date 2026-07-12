@@ -134,6 +134,7 @@ export interface IThreadsStock {
   _id: string;
   threadCode: string;
   threadColour: string;
+  threadColourHex?: string;
   threadCompanyName: string;
   weightPerUnit: number;
   stockAdd: number;
@@ -151,6 +152,7 @@ export interface IThreadsStock {
 export const threadsStockSchema = z.object({
   threadCode: z.string().min(1, "Thread code required"),
   threadColour: z.string().min(1, "Colour required"),
+  threadColourHex: z.string().optional(),
   threadCompanyName: z.string().min(1, "Company name required"),
   weightPerUnit: z.number().min(0).default(0),
   stockAdd: z.number().min(0).default(0),
@@ -601,6 +603,26 @@ export interface IExpense {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ─── SKU Category ─────────────────────────────────────────────────────────────
+export interface ISkuCategory {
+  _id: string;
+  name: string;
+  parentId?: string | { _id: string; name: string } | null;
+  isSizeFieldEnabled: boolean;
+  isActive: boolean;
+  isDeleted?: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const skuCategorySchema = z.object({
+  name: z.string().min(1, "Category name required"),
+  parentId: z.string().nullable().optional(),
+  isSizeFieldEnabled: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+});
+export type SkuCategoryInput = z.infer<typeof skuCategorySchema>;
 
 // ─── API Response ─────────────────────────────────────────────────────────────
 export interface ApiResponse<T = unknown> {

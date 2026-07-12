@@ -13,6 +13,7 @@ const PurchaseEntrySchema = new Schema(
 export interface IThreadsStockDocument extends Document {
   threadCode: string;
   threadColour: string;
+  threadColourHex?: string;
   threadCompanyName: string;
   weightPerUnit: number;   // grams per unit
   stockAdd: number;        // new stock added (grams)
@@ -37,6 +38,7 @@ const ThreadsStockSchema = new Schema<IThreadsStockDocument>(
   {
     threadCode: { type: String, required: true, trim: true },
     threadColour: { type: String, required: true, trim: true },
+    threadColourHex: { type: String, default: "#000000", trim: true },
     threadCompanyName: { type: String, required: true, trim: true },
     weightPerUnit: { type: Number, default: 0, min: 0 },
     stockAdd: { type: Number, default: 0, min: 0 },
@@ -68,6 +70,10 @@ ThreadsStockSchema.virtual("totalValue").get(function (
 // Non-unique index for fast lookups by code and colour
 ThreadsStockSchema.index({ threadCode: 1 });
 ThreadsStockSchema.index({ threadColour: 1 });
+
+if (process.env.NODE_ENV === "development" && mongoose.models.ThreadsStock) {
+  delete mongoose.models.ThreadsStock;
+}
 
 export const ThreadsStock: Model<IThreadsStockDocument> =
   mongoose.models.ThreadsStock ??

@@ -45,3 +45,8 @@ export function generateInvoiceNumber(): string {
   const random = Math.floor(Math.random() * 90000) + 10000;
   return `${prefix}${year}${random}`;
 }
+
+export function formatDateDMY(date: Date | string): string {
+  const d = new Date(date);
+  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+}

@@ -106,6 +106,10 @@ BanglesStockSchema.virtual("status").get(function (
 
 BanglesStockSchema.index({ size: 1, cutType: 1 });
 
+if (process.env.NODE_ENV === "development" && mongoose.models.BanglesStock) {
+  delete mongoose.models.BanglesStock;
+}
+
 export const BanglesStock: Model<IBanglesStockDocument> =
   mongoose.models.BanglesStock ??
   mongoose.model<IBanglesStockDocument>("BanglesStock", BanglesStockSchema);

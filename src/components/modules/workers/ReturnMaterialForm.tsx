@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWorkOrders, useReturnWorkOrder } from "@/hooks/useWorkOrders";
 import { useFinishedStock } from "@/hooks/useFinishedStock";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { FINISHED_PRODUCT_CATEGORIES, type CutType, type IWorkOrder } from "@/types";
+import { type CutType, type IWorkOrder } from "@/types";
+import { formatDateDMY } from "@/lib/utils";
+import { useSkuCategories } from "@/hooks/useSkuCategories";
 
 interface ReturnMaterialFormProps {
   isOpen: boolean;
@@ -35,7 +37,7 @@ const empty: ReturnState = {
   workOrderId: "",
   finishedMode: "new",
   finishedProductId: "",
-  newCategory: "Bangle",
+  newCategory: "",
   newDesignName: "",
   newSize: "",
   threadsReturned: 0,
@@ -244,6 +246,41 @@ export function ReturnMaterialForm({
 
   const returnMutation = useReturnWorkOrder();
   const { data: finishedProducts = [] } = useFinishedStock();
+  const { data: skuCategories = [] } = useSkuCategories();
+
+  const activeSkuCategories = useMemo(() => {
+    return skuCategories.filter((c) => c.isActive);
+  }, [skuCategories]);
+
+  // Find selected category object
+  const selectedCategoryObj = useMemo(() => {
+    return activeSkuCategories.find((c) => c.name === state.newCategory);
+  }, [activeSkuCategories, state.newCategory]);
+
+  const isSizeEnabled = selectedCategoryObj ? selectedCategoryObj.isSizeFieldEnabled : false;
+
+  // Set default category when modal opens or activeSkuCategories loads
+  useEffect(() => {
+    if (isOpen && activeSkuCategories.length > 0 && !state.newCategory) {
+      setState((s) => ({ ...s, newCategory: activeSkuCategories[0].name }));
+    }
+  }, [isOpen, activeSkuCategories, state.newCategory]);
+
+  // Handle auto-update of newSize when size is disabled
+  useEffect(() => {
+    if (state.newCategory) {
+      if (!isSizeEnabled) {
+        setState((s) => ({ ...s, newSize: "—" }));
+      } else {
+        setState((s) => {
+          if (s.newSize === "—") {
+            return { ...s, newSize: "" };
+          }
+          return s;
+        });
+      }
+    }
+  }, [isSizeEnabled, state.newCategory]);
 
   const { data: allOrders = [] } = useWorkOrders(
     workerId ? { workerId, status: "Open" } : { status: "Open" }
@@ -465,7 +502,7 @@ export function ReturnMaterialForm({
             const isHalfFinal = o.assignmentType === "half" && o.allowReturn === true;
             return (
               <option key={o._id} value={o._id}>
-                {new Date(o.date).toLocaleDateString("en-IN")} — {o.workType}
+                {formatDateDMY(o.date)} — {o.workType}
                 {workerName ? ` (${workerName})` : ""}
                 {isHalfFinal ? " ⬡ Final Half" : ""}
               </option>
@@ -582,19 +619,21 @@ export function ReturnMaterialForm({
               {state.finishedMode === "new" && (
                 <div className="grid grid-cols-2 gap-3">
                   <Select
-                    label="Category"
+                    label="SKU"
                     value={state.newCategory}
                     onChange={(e) => setState((s) => ({ ...s, newCategory: e.target.value }))}
                   >
-                    {FINISHED_PRODUCT_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                    <option value="">Select SKU Category...</option>
+                    {activeSkuCategories.map((c) => (
+                      <option key={c._id} value={c.name}>{c.name}</option>
                     ))}
                   </Select>
                   <Input
                     label="Size"
-                    placeholder="e.g. 2.4"
+                    placeholder={isSizeEnabled ? "e.g. 2.4" : "Disabled for this category"}
                     value={state.newSize}
                     onChange={(e) => setState((s) => ({ ...s, newSize: e.target.value }))}
+                    disabled={!isSizeEnabled}
                   />
                   <div className="col-span-2">
                     <Input

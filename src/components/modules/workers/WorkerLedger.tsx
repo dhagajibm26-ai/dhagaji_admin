@@ -5,6 +5,7 @@ import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { PaymentModal } from "./PaymentModal";
+import { formatDateDMY } from "@/lib/utils";
 import type { IWorkOrder } from "@/types";
 
 interface WorkerLedgerProps {
@@ -94,8 +95,8 @@ export function WorkerLedger({ workerId, workerName }: WorkerLedgerProps) {
 
               return (
                 <tr key={o._id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="px-4 py-3 whitespace-nowrap text-slate-600">
-                    {new Date(o.date).toLocaleDateString("en-IN")}
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-500 tabular-nums">
+                    {formatDateDMY(o.date)}
                   </td>
                   <td className="px-4 py-3 text-slate-700">{o.workType}</td>
                   <td className="px-4 py-3 text-center font-semibold text-green-700">

@@ -15,6 +15,7 @@ import type { IThreadsStock } from "@/types";
 const threadFormSchema = z.object({
   threadCode: z.string().min(1, "Thread code required"),
   threadColour: z.string().min(1, "Colour required"),
+  threadColourHex: z.string().default("#000000"),
   threadCompanyName: z.string().min(1, "Company name required"),
   addStockGrams: z.number().min(0),
   totalPurchaseAmount: z.number().min(0, "Amount must be 0 or more"),
@@ -49,6 +50,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
     defaultValues: {
       threadCode: "",
       threadColour: "",
+      threadColourHex: "#000000",
       threadCompanyName: "",
       addStockGrams: 0,
       totalPurchaseAmount: 0,
@@ -57,6 +59,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
 
   const addStockGrams = useWatch({ control, name: "addStockGrams" });
   const totalPurchaseAmount = useWatch({ control, name: "totalPurchaseAmount" });
+  const threadColourHex = useWatch({ control, name: "threadColourHex" });
 
   const grams = Number(addStockGrams || 0);
   const amount = Number(totalPurchaseAmount || 0);
@@ -83,6 +86,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
       reset({
         threadCode: item.threadCode,
         threadColour: item.threadColour,
+        threadColourHex: item.threadColourHex || "#000000",
         threadCompanyName: item.threadCompanyName,
         addStockGrams: item.stockAdd,
         totalPurchaseAmount: prefillAmount,
@@ -93,6 +97,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
     reset({
       threadCode: "",
       threadColour: "",
+      threadColourHex: "#000000",
       threadCompanyName: "",
       addStockGrams: 0,
       totalPurchaseAmount: 0,
@@ -111,6 +116,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
           id: item._id,
           threadCode: data.threadCode.trim(),
           threadColour: data.threadColour.trim(),
+          threadColourHex: data.threadColourHex,
           threadCompanyName: data.threadCompanyName.trim(),
           stockAdd: data.addStockGrams,
           totalPurchaseAmount: amount,
@@ -125,6 +131,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
       {
         threadCode: data.threadCode.trim(),
         threadColour: data.threadColour.trim(),
+        threadColourHex: data.threadColourHex,
         threadCompanyName: data.threadCompanyName.trim(),
         weightPerUnit: 0,
         openingStock: 0,
@@ -165,14 +172,34 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
             error={errors.threadCode?.message}
             {...register("threadCode")}
           />
-          <Input
-            label="Thread Colour"
-            placeholder="e.g. Red"
-            required
-            autoComplete="off"
-            error={errors.threadColour?.message}
-            {...register("threadColour")}
-          />
+          <div className="flex gap-2 items-end">
+            <div className="flex-grow">
+              <Input
+                label="Thread Colour"
+                placeholder="e.g. Red"
+                required
+                autoComplete="off"
+                error={errors.threadColour?.message}
+                {...register("threadColour")}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+                Picker
+              </label>
+              <div className="relative flex items-center justify-center h-11 w-11 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-[#D32F2F]/30 focus-within:border-[#D32F2F]">
+                <input
+                  type="color"
+                  className="absolute inset-0 h-full w-full cursor-pointer border-0 p-0 opacity-0"
+                  {...register("threadColourHex")}
+                />
+                <div
+                  className="h-6 w-6 rounded-full border border-slate-200 shadow-inner"
+                  style={{ backgroundColor: threadColourHex || "#000000" }}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <Input

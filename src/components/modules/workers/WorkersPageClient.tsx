@@ -23,6 +23,7 @@ import { ReturnMaterialForm } from "./ReturnMaterialForm";
 import { WorkerLedger } from "./WorkerLedger";
 import { SalarySummary } from "./SalarySummary";
 import { Button } from "@/components/ui/Button";
+import { formatDateDMY } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import type { IWorker } from "@/types";
@@ -246,7 +247,7 @@ export function WorkersPageClient() {
                     return (
                       <tr key={o._id} className="hover:bg-amber-50/40 transition-colors">
                         <td className="px-4 py-3 whitespace-nowrap text-slate-600">
-                          {new Date(o.date).toLocaleDateString("en-IN")}
+                          {formatDateDMY(o.date)}
                         </td>
                         <td className="px-4 py-3 text-slate-800 font-semibold">
                           {workerObj?.name ?? "—"}

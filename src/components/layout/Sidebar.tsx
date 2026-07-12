@@ -46,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/reports", label: "Reports", Icon: BarChart3, ownerOnly: true, section: "Analytics" },
   { href: "/material-categories", label: "Material Categories", Icon: Shapes, ownerOnly: true, section: "Setup" },
   { href: "/bangle-sizes", label: "Bangle Sizes", Icon: Ruler, ownerOnly: true, section: "Setup" },
+  { href: "/sku-categories", label: "SKU Categories", Icon: Shapes, ownerOnly: true, section: "Setup" },
 ];
 
 export function Sidebar() {

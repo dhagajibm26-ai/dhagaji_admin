@@ -12,7 +12,7 @@ import {
 } from "@/hooks/useThreads";
 import { useIsOwner } from "@/stores/useAuthStore";
 import { formatGramRate, formatKgRateFromGramRate } from "@/lib/purchaseHistory";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateDMY } from "@/lib/utils";
 import type { IThreadsStock } from "@/types";
 
 function getStatus(item: IThreadsStock): "ok" | "out" {
@@ -214,7 +214,7 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
               <th className="sticky left-0 z-10 min-w-[110px] bg-[#D32F2F] px-4 py-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]">
                 Thread Code
               </th>
-              <th className="min-w-[160px] whitespace-nowrap px-4 py-3">Date & Time</th>
+              <th className="min-w-[120px] whitespace-nowrap px-4 py-3">Date</th>
               <th className="min-w-[130px] whitespace-nowrap px-4 py-3">Thread Colour</th>
               <th className="min-w-[150px] whitespace-nowrap px-4 py-3">Company Name</th>
               <th className="min-w-[110px] whitespace-nowrap px-4 py-3 text-right">Stock (gram)</th>
@@ -247,14 +247,14 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3 text-slate-500 font-medium tabular-nums">
-                    {formatDateTime(item.createdAt)}
+                    {formatDateDMY(item.updatedAt)}
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div
                         className="h-3 w-3 shrink-0 rounded-full border border-slate-300"
-                        style={{ backgroundColor: item.threadColour.toLowerCase() }}
+                        style={{ backgroundColor: item.threadColourHex || "#000000" }}
                         aria-hidden
                       />
                       <span className="text-slate-700">{item.threadColour}</span>

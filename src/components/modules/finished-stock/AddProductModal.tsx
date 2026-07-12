@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Lock } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,14 +13,15 @@ import {
   useCreateFinishedProduct,
   useUpdateFinishedProduct,
 } from "@/hooks/useFinishedStock";
-import { FINISHED_PRODUCT_CATEGORIES, type IFinishedProduct } from "@/types";
+import { useSkuCategories } from "@/hooks/useSkuCategories";
+import type { IFinishedProduct } from "@/types";
 
 // ─── Local form schema ────────────────────────────────────────────────────────
 
 const schema = z.object({
   designName: z.string().min(1, "Design name required"),
   designCode: z.string().min(1, "Design code required"),
-  category: z.string().min(1, "Category required").default("Bangle"),
+  category: z.string().min(1, "SKU Category required").default(""),
   size: z.string().min(1, "Size required"),
   makingCostPerPc: z
     .number({ error: "Making cost required" })
@@ -58,6 +59,11 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
   const update = useUpdateFinishedProduct();
   const isPending = create.isPending || update.isPending;
 
+  const { data: skuCategories = [] } = useSkuCategories();
+  const activeSkuCategories = useMemo(() => {
+    return skuCategories.filter((c) => c.isActive);
+  }, [skuCategories]);
+
   const {
     register,
     handleSubmit,
@@ -74,7 +80,7 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
       ? {
         designName: product.designName,
         designCode: product.designCode,
-        category: product.category ?? "Bangle",
+        category: product.category ?? "",
         size: product.size,
         makingCostPerPc: product.makingCostPerPc,
         otherCostPerPc: product.otherCostPerPc,
@@ -87,7 +93,7 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
       : {
         designName: "",
         designCode: "",
-        category: "Bangle",
+        category: "",
         size: "",
         makingCostPerPc: 0,
         otherCostPerPc: 0,
@@ -107,6 +113,42 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
   const suggestedMRP = totalCost * 4;
   const suggestedSelling = totalCost * 3;
   const suggestedWholesale = totalCost * 2.5;
+
+  const selectedCategoryName = useWatch({ control, name: "category" });
+  
+  const selectedCategoryObj = useMemo(() => {
+    return activeSkuCategories.find((c) => c.name === selectedCategoryName);
+  }, [activeSkuCategories, selectedCategoryName]);
+
+  const isSizeEnabled = selectedCategoryObj ? selectedCategoryObj.isSizeFieldEnabled : false;
+
+  // Automatically select first category if not set on creation
+  useEffect(() => {
+    if (isOpen && activeSkuCategories.length > 0) {
+      const currentCategory = control._formValues.category;
+      if (!currentCategory && !isEdit) {
+        setValue("category", activeSkuCategories[0].name);
+      }
+    }
+  }, [isOpen, activeSkuCategories, isEdit, setValue, control]);
+
+  // Adjust size value according to selected category's toggle setting
+  useEffect(() => {
+    if (selectedCategoryName) {
+      if (!isSizeEnabled) {
+        setValue("size", "—");
+      } else {
+        if (product && product.category === selectedCategoryName) {
+          setValue("size", product.size);
+        } else {
+          const currentSize = control._formValues.size;
+          if (currentSize === "—") {
+            setValue("size", "");
+          }
+        }
+      }
+    }
+  }, [isSizeEnabled, selectedCategoryName, setValue, product, control]);
 
   // Reset override fields when checkbox is unchecked
   useEffect(() => {
@@ -197,13 +239,14 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
           </div>
           <div>
             <Select
-              label="Category"
+              label="SKU"
               error={errors.category?.message}
               {...register("category")}
             >
-              {FINISHED_PRODUCT_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              <option value="">Select SKU Category...</option>
+              {activeSkuCategories.map((c) => (
+                <option key={c._id} value={c.name}>
+                  {c.name}
                 </option>
               ))}
             </Select>
@@ -212,9 +255,10 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
             <Input
               label="Size"
               required
-              placeholder="e.g. 2.4, S/M/L"
+              placeholder={isSizeEnabled ? "e.g. 2.4, S/M/L" : "Disabled for this category"}
               error={errors.size?.message}
               autoComplete="off"
+              disabled={!isSizeEnabled}
               {...register("size")}
             />
           </div>

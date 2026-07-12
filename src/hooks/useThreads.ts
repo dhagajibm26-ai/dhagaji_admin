@@ -77,6 +77,7 @@ export interface PatchThreadsPayload {
   id: string;
   threadCode?: string;
   threadColour?: string;
+  threadColourHex?: string;
   threadCompanyName?: string;
   weightPerUnit?: number;
   openingStock?: number;
