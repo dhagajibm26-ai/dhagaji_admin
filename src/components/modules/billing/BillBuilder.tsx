@@ -7,13 +7,16 @@ import { useUIStore } from "@/stores/useUIStore";
 import {
   useBillingStore,
   useBillItems,
+  useCustomerId,
   useCustomerName,
   useCustomerPhone,
+  useCustomerAddress,
   useSalesSource,
   usePaymentMethod,
   useGSTEnabled,
   useGSTRate,
   useGSTNumber,
+  useAppliedCoupon,
   useBillDiscount,
   useSubtotal,
   useTaxAmount,
@@ -21,6 +24,8 @@ import {
   useBillingActions,
 } from "@/stores/useBillingStore";
 import { useCreateBill } from "@/hooks/useBilling";
+import { useCustomers } from "@/hooks/useCustomers";
+import { useCoupons } from "@/hooks/useCoupons";
 import { Button } from "@/components/ui/Button";
 import type { IFinishedProduct, SalesSource, PaymentMethod, BillInput } from "@/types";
 import { cn } from "@/lib/utils";
@@ -62,28 +67,67 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isCustomCustomer, setIsCustomCustomer] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // ─── Store values ──────────────────────────────────────────────────────────
+  const customerId = useCustomerId();
   const customerName = useCustomerName();
   const customerPhone = useCustomerPhone();
+  const customerAddress = useCustomerAddress();
   const salesSource = useSalesSource();
   const paymentMethod = usePaymentMethod();
   const items = useBillItems();
   const gstEnabled = useGSTEnabled();
   const gstRate = useGSTRate();
   const gstNumber = useGSTNumber();
+  const appliedCoupon = useAppliedCoupon();
   const discount = useBillDiscount();
   const subtotal = useSubtotal();
   const taxAmount = useTaxAmount();
   const grandTotal = useGrandTotal();
   const actions = useBillingActions();
 
+  // ─── Searchable customer state ────────────────────────────────────────────
+  const { data: customers = [] } = useCustomers();
+  const [custSearch, setCustSearch] = useState("");
+  const [custDropdownOpen, setCustDropdownOpen] = useState(false);
+  const custDropdownRef = useRef<HTMLDivElement>(null);
+
+  // ─── Coupons query state ──────────────────────────────────────────────────
+  const { data: coupons = [] } = useCoupons();
+  const [couponInputText, setCouponInputText] = useState("");
+
   // ─── TanStack Query / mutations ────────────────────────────────────────────
   const { data: allProducts = [] } = useFinishedStock();
   const { mutateAsync: createBill, isPending } = useCreateBill();
   const addToast = useUIStore((s) => s.addToast);
+
+  // Filter customers based on search term
+  const filteredCustomers = useMemo(() => {
+    const q = custSearch.trim().toLowerCase();
+    if (!q) return customers.slice(0, 10);
+    return customers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.mobileNumbers.some((num) => num.includes(q))
+    );
+  }, [customers, custSearch]);
+
+  // Click outside to close customer dropdown
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        custDropdownRef.current &&
+        !custDropdownRef.current.contains(e.target as Node)
+      ) {
+        setCustDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // ─── Product search (instant — filters cached data) ───────────────────────
   const filtered = useMemo(() => {
@@ -145,8 +189,76 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
     [actions, addToast]
   );
 
+  const handleApplyCoupon = useCallback(() => {
+    const code = couponInputText.trim().toUpperCase();
+    if (!code) {
+      addToast({ type: "error", message: "Enter a coupon code" });
+      return;
+    }
+
+    const coupon = coupons.find((c) => c.code === code);
+    if (!coupon) {
+      addToast({ type: "error", message: "Coupon code not found" });
+      return;
+    }
+
+    if (!coupon.isActive) {
+      addToast({ type: "error", message: "This coupon is inactive" });
+      return;
+    }
+
+    // Check expiry
+    if (!coupon.neverExpires) {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const start = coupon.startDate ? new Date(coupon.startDate) : null;
+      const end = coupon.endDate ? new Date(coupon.endDate) : null;
+
+      if (start && end) {
+        const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+        if (today < startDateOnly || today > endDateOnly) {
+          addToast({ type: "error", message: "This coupon has expired or is not active yet" });
+          return;
+        }
+      }
+    }
+
+    // Check customer assignment
+    if (coupon.assignedType === "customer") {
+      const allowedCustomerIds = Array.isArray(coupon.customerIds)
+        ? coupon.customerIds.map((cust: any) =>
+            typeof cust === "object" && cust !== null ? cust._id : cust
+          )
+        : [];
+
+      if (!customerId) {
+        addToast({ type: "error", message: "Please select a customer first to apply this coupon" });
+        return;
+      }
+
+      if (!allowedCustomerIds.includes(customerId)) {
+        addToast({ type: "error", message: "This coupon is not valid for the selected customer" });
+        return;
+      }
+    }
+
+    // Apply Coupon
+    actions.setAppliedCoupon({
+      code: coupon.code,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+    });
+    addToast({ type: "success", message: `Coupon "${coupon.code}" applied!` });
+  }, [couponInputText, coupons, customerId, actions, addToast]);
+
   const handleSave = useCallback(async () => {
-    if (!customerName.trim()) {
+    if (!isCustomCustomer && !customerId) {
+      addToast({ type: "error", message: "Customer selection is required" });
+      return;
+    }
+    if (isCustomCustomer && !customerName.trim()) {
       addToast({ type: "error", message: "Customer name is required" });
       return;
     }
@@ -162,6 +274,7 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
     const payload: BillInput = {
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim() || undefined,
+      customerAddress: customerAddress.trim() || undefined,
       salesSource,
       paymentMethod,
       gstEnabled,
@@ -184,13 +297,18 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
     try {
       const bill = await createBill(payload);
       actions.clearBill();
+      setIsCustomCustomer(false);
+      setCouponInputText("");
       onBillSaved(bill);
     } catch {
       // error handled by mutation onError
     }
   }, [
+    customerId,
+    isCustomCustomer,
     customerName,
     customerPhone,
+    customerAddress,
     salesSource,
     paymentMethod,
     gstEnabled,
@@ -209,22 +327,126 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
     <div className="flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden">
       {/* ── Section 1: Customer + Source ─────────────────────────────────── */}
       <div className="px-4 pt-4 pb-3 border-b border-gray-100 space-y-3">
-        {/* Customer inputs */}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Customer name *"
-            value={customerName}
-            onChange={(e) => actions.setCustomer(e.target.value, customerPhone)}
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
-          />
-          <input
-            type="tel"
-            placeholder="Phone"
-            value={customerPhone}
-            onChange={(e) => actions.setCustomer(customerName, e.target.value)}
-            className="w-36 rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
-          />
+        {/* Customer Search / Selected Customer / Custom Customer Inputs */}
+        <div className="relative" ref={custDropdownRef}>
+          {isCustomCustomer ? (
+            <div className="space-y-2.5 p-3 rounded-lg border border-slate-200 bg-slate-50/50">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#D32F2F] tracking-wide uppercase">Custom / One-Time Customer</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomCustomer(false);
+                    actions.setCustomer(null, "", "", "");
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-800 hover:underline cursor-pointer font-bold"
+                >
+                  Select from Directory
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Customer Name *"
+                  value={customerName}
+                  onChange={(e) => actions.setCustomer(null, e.target.value, customerPhone, customerAddress)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+                />
+                <input
+                  type="tel"
+                  placeholder="Phone Number"
+                  value={customerPhone}
+                  onChange={(e) => actions.setCustomer(null, customerName, e.target.value, customerAddress)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Address"
+                value={customerAddress}
+                onChange={(e) => actions.setCustomer(null, customerName, customerPhone, e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+              />
+            </div>
+          ) : customerId ? (
+            <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50/50 px-3 py-2 text-sm">
+              <div className="flex flex-col">
+                <span className="font-bold text-slate-800">{customerName}</span>
+                <span className="text-xs text-slate-500">
+                  {customerPhone ? `Mobile: ${customerPhone}` : "No phone number"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  actions.setCustomer(null, "", "", "");
+                  if (appliedCoupon) {
+                    actions.setAppliedCoupon(null);
+                    setCouponInputText("");
+                    addToast({ type: "warning", message: "Coupon removed because customer changed" });
+                  }
+                }}
+                className="text-xs font-semibold text-[#D32F2F] hover:underline cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search & select customer... *"
+                  value={custSearch}
+                  onFocus={() => setCustDropdownOpen(true)}
+                  onChange={(e) => {
+                    setCustSearch(e.target.value);
+                    setCustDropdownOpen(true);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+                />
+                {custDropdownOpen && (
+                  <div className="absolute z-10 left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg py-1">
+                    {filteredCustomers.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500 italic">
+                        No customers found
+                      </div>
+                    ) : (
+                      filteredCustomers.map((c) => (
+                        <button
+                          key={c._id}
+                          type="button"
+                          onClick={() => {
+                            actions.setCustomer(c._id, c.name, c.mobileNumbers[0] || "", c.address || "");
+                            setCustSearch("");
+                            setCustDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex flex-col cursor-pointer"
+                        >
+                          <span className="font-semibold text-slate-800">{c.name}</span>
+                          <span className="text-xs text-slate-400">
+                            {c.mobileNumbers.join(", ")}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomCustomer(true);
+                    actions.setCustomer(null, "", "", "");
+                  }}
+                  className="text-xs text-[#D32F2F] hover:text-[#B71C1C] font-black underline cursor-pointer"
+                >
+                  + Use Custom / One-Time Customer
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sales source selector */}
@@ -420,6 +642,48 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
                 placeholder="0"
                 className="w-20 text-right rounded border border-gray-300 px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#D32F2F]"
               />
+            </div>
+          </div>
+
+          {/* Coupon */}
+          <div className="flex flex-col gap-1.5 border-t border-gray-100 pt-2">
+            <div className="flex justify-between items-center text-gray-600">
+              <span>Apply Coupon</span>
+              {appliedCoupon ? (
+                <div className="flex items-center gap-1">
+                  <span className="bg-[#D32F2F]/10 border border-[#D32F2F]/20 text-[#D32F2F] text-xs font-bold px-2 py-0.5 rounded-lg">
+                    {appliedCoupon.code}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      actions.setAppliedCoupon(null);
+                      setCouponInputText("");
+                      addToast({ type: "success", message: "Coupon removed" });
+                    }}
+                    className="text-xs text-gray-400 hover:text-red-500 font-bold px-1 cursor-pointer"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="ENTER CODE"
+                    value={couponInputText}
+                    onChange={(e) => setCouponInputText(e.target.value.toUpperCase())}
+                    className="w-28 rounded border border-gray-300 px-2 py-0.5 text-xs text-[#1A1A1A] uppercase focus:outline-none focus:ring-1 focus:ring-[#D32F2F]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    className="bg-[#D32F2F] hover:bg-[#B71C1C] text-white text-[11px] font-bold px-2.5 py-1 rounded transition-colors cursor-pointer"
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

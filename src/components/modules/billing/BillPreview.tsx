@@ -23,6 +23,8 @@ export function BillPreview({ bill, onClose }: BillPreviewProps) {
     setPrintLoading(true);
     try {
       const doc = await generateBillPDF(bill);
+      doc.autoPrint();
+      
       const pdfBlob = doc.output("blob");
       const blobUrl = URL.createObjectURL(pdfBlob);
 
@@ -35,14 +37,17 @@ export function BillPreview({ bill, onClose }: BillPreviewProps) {
 
       document.body.appendChild(iframe);
 
-      iframe.onload = () => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-          URL.revokeObjectURL(blobUrl);
-        }, 1000);
-      };
+      // Clean up after the print dialog is triggered
+      setTimeout(() => {
+        try {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        } catch (e) {
+          console.warn("Cleanup iframe warning:", e);
+        }
+        URL.revokeObjectURL(blobUrl);
+      }, 6000);
     } catch (err) {
       console.error("Print bill failed:", err);
     } finally {
@@ -89,13 +94,18 @@ export function BillPreview({ bill, onClose }: BillPreviewProps) {
                 <span className="font-semibold">Source:</span> {bill.salesSource}
               </p>
             </div>
-            <div className="space-y-0.5 text-right">
+            <div className="space-y-0.5 text-right font-medium">
               <p>
                 <span className="font-semibold">Customer:</span> {bill.customerName}
               </p>
               {bill.customerPhone && (
                 <p>
                   <span className="font-semibold">Phone:</span> {bill.customerPhone}
+                </p>
+              )}
+              {bill.customerAddress && (
+                <p>
+                  <span className="font-semibold">Address:</span> {bill.customerAddress}
                 </p>
               )}
               <p>

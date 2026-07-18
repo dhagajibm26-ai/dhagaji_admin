@@ -546,6 +546,7 @@ export interface IBill {
   billNumber: string;
   customerName: string;
   customerPhone?: string;
+  customerAddress?: string;
   salesSource: SalesSource;
   items: IBillItem[];
   gstEnabled: boolean;
@@ -578,6 +579,7 @@ export const billItemSchema = z.object({
 export const billSchema = z.object({
   customerName: z.string().min(1, "Customer name required"),
   customerPhone: z.string().optional(),
+  customerAddress: z.string().optional(),
   salesSource: z.enum(["Offline", "Instagram", "WhatsApp", "Exhibition"]),
   items: z.array(billItemSchema).min(1, "At least one item required"),
   gstEnabled: z.boolean().default(false),
@@ -631,6 +633,83 @@ export const skuCategorySchema = z.object({
   isActive: z.boolean().default(true),
 });
 export type SkuCategoryInput = z.infer<typeof skuCategorySchema>;
+
+// ─── Customer ─────────────────────────────────────────────────────────────────
+export interface ICustomer {
+  _id: string;
+  name: string;
+  mobileNumbers: string[];
+  address?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const customerSchema = z.object({
+  name: z.string().min(1, "Name required"),
+  mobileNumbers: z
+    .array(z.string().min(1, "Mobile number cannot be empty"))
+    .min(1, "At least one mobile number is required"),
+  address: z.string().optional(),
+});
+export type CustomerInput = z.infer<typeof customerSchema>;
+
+// ─── Coupon ───────────────────────────────────────────────────────────────────
+export interface ICoupon {
+  _id: string;
+  code: string;
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  assignedType: "general" | "customer";
+  customerIds: string[] | { _id: string; name: string; mobileNumbers?: string[] }[];
+  isActive: boolean;
+  neverExpires: boolean;
+  startDate?: string | null;
+  endDate?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const couponBaseSchema = z.object({
+  code: z
+    .string()
+    .min(1, "Coupon code is required")
+    .transform((val) => val.toUpperCase().trim()),
+  discountType: z.enum(["percentage", "fixed"]),
+  discountValue: z.number().min(0, "Discount value must be 0 or more"),
+  assignedType: z.enum(["general", "customer"]),
+  customerIds: z.array(z.string()).default([]),
+  isActive: z.boolean().default(true),
+  neverExpires: z.boolean().default(true),
+  startDate: z.string().nullable().optional(),
+  endDate: z.string().nullable().optional(),
+});
+
+export const couponSchema = couponBaseSchema
+  .refine(
+    (data) => {
+      if (data.assignedType === "customer" && data.customerIds.length === 0) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "At least one customer must be selected for customer-specific coupons",
+      path: ["customerIds"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (!data.neverExpires) {
+        return !!data.startDate && !!data.endDate;
+      }
+      return true;
+    },
+    {
+      message: "Start date and End date are required when coupon has an expiry",
+      path: ["endDate"],
+    }
+  );
+export type CouponInput = z.infer<typeof couponSchema>;
 
 // ─── API Response ─────────────────────────────────────────────────────────────
 export interface ApiResponse<T = unknown> {

@@ -8,6 +8,8 @@ export interface BillFilters {
   dateFrom?: string;
   dateTo?: string;
   source?: string;
+  customerName?: string;
+  customerPhone?: string;
 }
 
 export const BILLING_KEYS = {
@@ -24,6 +26,8 @@ async function fetchBills(filters: BillFilters = {}): Promise<IBill[]> {
   if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
   if (filters.dateTo) params.set("dateTo", filters.dateTo);
   if (filters.source) params.set("source", filters.source);
+  if (filters.customerName) params.set("customerName", filters.customerName);
+  if (filters.customerPhone) params.set("customerPhone", filters.customerPhone);
   const qs = params.toString();
   const res = await fetch(`/api/billing${qs ? `?${qs}` : ""}`);
   const json: ApiResponse<IBill[]> = await res.json();

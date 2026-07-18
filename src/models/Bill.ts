@@ -23,6 +23,7 @@ export interface IBillDocument extends Document {
   billNumber: string;       // DC-2024-0001 format, auto-generated
   customerName: string;
   customerPhone?: string;
+  customerAddress?: string;
   salesSource: SalesSource;
   items: IBillItem[];
   gstEnabled: boolean;
@@ -76,6 +77,7 @@ const BillSchema = new Schema<IBillDocument>(
     billNumber: { type: String, unique: true },
     customerName: { type: String, required: true, trim: true },
     customerPhone: { type: String, trim: true },
+    customerAddress: { type: String, trim: true },
     salesSource: {
       type: String,
       enum: ["Offline", "Instagram", "WhatsApp", "Exhibition"],

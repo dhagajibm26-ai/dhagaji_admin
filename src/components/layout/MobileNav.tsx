@@ -17,6 +17,8 @@ import {
   Layers,
   Gem,
   Ruler,
+  Users,
+  Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -33,6 +35,8 @@ const MORE_ITEMS = [
   { href: "/work-orders", label: "Work Flow", Icon: Clock3 },
   { href: "/bangles", label: "Bangles", Icon: Circle },
   { href: "/threads", label: "Threads", Icon: Layers },
+  { href: "/customers", label: "Customers", Icon: Users },
+  { href: "/coupons", label: "Coupons", Icon: Ticket },
   { href: "/material-categories", label: "Material Categories", Icon: Shapes, ownerOnly: true },
   { href: "/bangle-sizes", label: "Bangle Sizes", Icon: Ruler, ownerOnly: true },
   { href: "/sku-categories", label: "SKU Categories", Icon: Shapes, ownerOnly: true },

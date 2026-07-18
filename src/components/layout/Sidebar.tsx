@@ -19,6 +19,8 @@ import {
   X,
   ChevronRight,
   ChevronDown,
+  Users,
+  Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -43,6 +45,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/workers", label: "Workers", Icon: HardHat, section: "Operations" },
   { href: "/work-orders", label: "Work Flow", Icon: Clock3, section: "Operations" },
   { href: "/billing", label: "Billing", Icon: Receipt, highlight: true, section: "Operations" },
+  { href: "/customers", label: "Customers", Icon: Users, section: "Operations" },
+  { href: "/coupons", label: "Coupon Codes", Icon: Ticket, section: "Operations" },
   { href: "/reports", label: "Reports", Icon: BarChart3, ownerOnly: true, section: "Analytics" },
   { href: "/material-categories", label: "Material Categories", Icon: Shapes, ownerOnly: true, section: "Setup" },
   { href: "/bangle-sizes", label: "Bangle Sizes", Icon: Ruler, ownerOnly: true, section: "Setup" },

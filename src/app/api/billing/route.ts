@@ -22,12 +22,16 @@ export async function GET(request: Request) {
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
     const source = searchParams.get("source");
+    const customerName = searchParams.get("customerName");
+    const customerPhone = searchParams.get("customerPhone");
 
     await connectDB();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filter: Record<string, any> = {};
     if (source) filter.salesSource = source;
+    if (customerName) filter.customerName = { $regex: customerName, $options: "i" };
+    if (customerPhone) filter.customerPhone = customerPhone;
     if (dateFrom || dateTo) {
       filter.billDate = {};
       if (dateFrom) filter.billDate.$gte = new Date(dateFrom);

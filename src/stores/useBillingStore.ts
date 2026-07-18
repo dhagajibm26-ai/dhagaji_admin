@@ -21,8 +21,10 @@ export interface BillDraftItem {
 // ─── State interface ──────────────────────────────────────────────────────────
 
 interface BillingState {
+  customerId: string | null;
   customerName: string;
   customerPhone: string;
+  customerAddress: string;
   salesSource: SalesSource;
   paymentMethod: PaymentMethod;
   items: BillDraftItem[];
@@ -30,8 +32,13 @@ interface BillingState {
   gstRate: number | null;
   gstNumber: string;
   discount: number;
+  appliedCoupon: {
+    code: string;
+    discountType: "percentage" | "fixed";
+    discountValue: number;
+  } | null;
   // Actions
-  setCustomer: (name: string, phone: string) => void;
+  setCustomer: (id: string | null, name: string, phone: string, address: string) => void;
   setSalesSource: (source: SalesSource) => void;
   setPaymentMethod: (method: PaymentMethod) => void;
   addItem: (product: IFinishedProduct, qty?: number) => void;
@@ -41,14 +48,17 @@ interface BillingState {
   setGSTRate: (rate: number | null) => void;
   setGSTNumber: (n: string) => void;
   setDiscount: (amount: number) => void;
+  setAppliedCoupon: (coupon: { code: string; discountType: "percentage" | "fixed"; discountValue: number } | null) => void;
   clearBill: () => void;
   toggleItemHsnCode: (barcodeId: string, hsnCode: string) => void;
 }
 
 const INITIAL: Pick<
   BillingState,
+  | "customerId"
   | "customerName"
   | "customerPhone"
+  | "customerAddress"
   | "salesSource"
   | "paymentMethod"
   | "items"
@@ -56,9 +66,12 @@ const INITIAL: Pick<
   | "gstRate"
   | "gstNumber"
   | "discount"
+  | "appliedCoupon"
 > = {
+  customerId: null,
   customerName: "",
   customerPhone: "",
+  customerAddress: "",
   salesSource: "Offline",
   paymentMethod: "Cash",
   items: [],
@@ -66,6 +79,7 @@ const INITIAL: Pick<
   gstRate: null,
   gstNumber: "",
   discount: 0,
+  appliedCoupon: null,
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -73,7 +87,7 @@ const INITIAL: Pick<
 export const useBillingStore = create<BillingState>()((set) => ({
   ...INITIAL,
 
-  setCustomer: (name, phone) => set({ customerName: name, customerPhone: phone }),
+  setCustomer: (id, name, phone, address) => set({ customerId: id, customerName: name, customerPhone: phone, customerAddress: address }),
   setSalesSource: (source) => set({ salesSource: source }),
   setPaymentMethod: (method) => set({ paymentMethod: method }),
 
@@ -125,7 +139,8 @@ export const useBillingStore = create<BillingState>()((set) => ({
   toggleGST: () => set((s) => ({ gstEnabled: !s.gstEnabled })),
   setGSTRate: (rate) => set({ gstRate: rate }),
   setGSTNumber: (n) => set({ gstNumber: n }),
-  setDiscount: (amount) => set({ discount: Math.max(0, amount) }),
+  setDiscount: (amount) => set({ discount: Math.max(0, amount), appliedCoupon: null }),
+  setAppliedCoupon: (coupon) => set({ appliedCoupon: coupon }),
   clearBill: () => set(INITIAL),
   toggleItemHsnCode: (barcodeId, hsnCode) =>
     set((s) => ({
@@ -142,30 +157,53 @@ export const useBillingStore = create<BillingState>()((set) => ({
 
 // ─── Individual selector hooks (Zustand v5 pattern) ──────────────────────────
 
+export const useCustomerId = () => useBillingStore((s) => s.customerId);
 export const useCustomerName = () => useBillingStore((s) => s.customerName);
 export const useCustomerPhone = () => useBillingStore((s) => s.customerPhone);
+export const useCustomerAddress = () => useBillingStore((s) => s.customerAddress);
 export const useSalesSource = () => useBillingStore((s) => s.salesSource);
 export const usePaymentMethod = () => useBillingStore((s) => s.paymentMethod);
 export const useBillItems = () => useBillingStore((s) => s.items);
 export const useGSTEnabled = () => useBillingStore((s) => s.gstEnabled);
 export const useGSTRate = () => useBillingStore((s) => s.gstRate);
 export const useGSTNumber = () => useBillingStore((s) => s.gstNumber);
-export const useBillDiscount = () => useBillingStore((s) => s.discount);
+export const useAppliedCoupon = () => useBillingStore((s) => s.appliedCoupon);
 
 export const useSubtotal = () =>
   useBillingStore((s) => s.items.reduce((sum, i) => sum + i.sellingPrice * i.qty, 0));
 
+export const useBillDiscount = () =>
+  useBillingStore((s) => {
+    if (!s.appliedCoupon) return s.discount;
+    const subtotal = s.items.reduce((sum, i) => sum + i.sellingPrice * i.qty, 0);
+    if (s.appliedCoupon.discountType === "percentage") {
+      return (subtotal * s.appliedCoupon.discountValue) / 100;
+    } else {
+      return Math.min(subtotal, s.appliedCoupon.discountValue);
+    }
+  });
+
 export const useTaxAmount = () =>
   useBillingStore((s) => {
     const subtotal = s.items.reduce((sum, i) => sum + i.sellingPrice * i.qty, 0);
-    const taxable = Math.max(0, subtotal - s.discount);
+    const discount = s.appliedCoupon
+      ? s.appliedCoupon.discountType === "percentage"
+        ? (subtotal * s.appliedCoupon.discountValue) / 100
+        : Math.min(subtotal, s.appliedCoupon.discountValue)
+      : s.discount;
+    const taxable = Math.max(0, subtotal - discount);
     return s.gstEnabled && s.gstRate ? (taxable * s.gstRate) / 100 : 0;
   });
 
 export const useGrandTotal = () =>
   useBillingStore((s) => {
     const subtotal = s.items.reduce((sum, i) => sum + i.sellingPrice * i.qty, 0);
-    const taxable = Math.max(0, subtotal - s.discount);
+    const discount = s.appliedCoupon
+      ? s.appliedCoupon.discountType === "percentage"
+        ? (subtotal * s.appliedCoupon.discountValue) / 100
+        : Math.min(subtotal, s.appliedCoupon.discountValue)
+      : s.discount;
+    const taxable = Math.max(0, subtotal - discount);
     const tax = s.gstEnabled && s.gstRate ? (taxable * s.gstRate) / 100 : 0;
     return taxable + tax;
   });
@@ -182,6 +220,7 @@ export const useBillingActions = () =>
     setGSTRate: s.setGSTRate,
     setGSTNumber: s.setGSTNumber,
     setDiscount: s.setDiscount,
+    setAppliedCoupon: s.setAppliedCoupon,
     clearBill: s.clearBill,
     toggleItemHsnCode: s.toggleItemHsnCode,
   })));
