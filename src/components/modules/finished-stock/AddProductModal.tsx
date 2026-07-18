@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { Lock } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Lock, Plus, Trash2, Calculator } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -64,6 +64,8 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
     return skuCategories.filter((c) => c.isActive);
   }, [skuCategories]);
 
+  const [subCosts, setSubCosts] = useState<{ id: number; name: string; value: number }[]>([]);
+  const [isCalcOpen, setIsCalcOpen] = useState(false);
   const {
     register,
     handleSubmit,
@@ -86,8 +88,8 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
         otherCostPerPc: product.otherCostPerPc,
         readyStock: product.readyStock,
         overrideMRP: product.mrpMarginOverride,
-        customMRP: product.MRP,
-        overrideSellingPrice: false,
+        customMRP: product.mrpMarginOverride ? product.MRP : undefined,
+        overrideSellingPrice: product.sellingPrice !== (product.makingCostPerPc * 3 + product.otherCostPerPc),
         customSellingPrice: product.sellingPrice,
       }
       : {
@@ -103,6 +105,48 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
       },
   });
 
+  useEffect(() => {
+    if (isOpen) {
+      if (product) {
+        reset({
+          designName: product.designName,
+          designCode: product.designCode,
+          category: product.category ?? "",
+          size: product.size,
+          makingCostPerPc: product.makingCostPerPc,
+          otherCostPerPc: product.otherCostPerPc,
+          readyStock: product.readyStock,
+          overrideMRP: product.mrpMarginOverride,
+          customMRP: product.mrpMarginOverride ? product.MRP : undefined,
+          overrideSellingPrice: product.sellingPrice !== (product.makingCostPerPc * 3 + product.otherCostPerPc),
+          customSellingPrice: product.sellingPrice,
+        });
+        setSubCosts([{ id: Date.now(), name: "Base Making Cost", value: product.makingCostPerPc }]);
+      } else {
+        reset({
+          designName: "",
+          designCode: "",
+          category: "",
+          size: "",
+          makingCostPerPc: 0,
+          otherCostPerPc: 0,
+          readyStock: 0,
+          overrideMRP: false,
+          overrideSellingPrice: false,
+        });
+        setSubCosts([]);
+      }
+    }
+  }, [isOpen, product, reset]);
+
+  const totalSubCosts = subCosts.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
+
+  useEffect(() => {
+    if (subCosts.length > 0) {
+      setValue("makingCostPerPc", Number(totalSubCosts.toFixed(2)));
+    }
+  }, [totalSubCosts, setValue, subCosts.length]);
+
   // ── Live watch for auto-calculations ───────────────────────────────────────
   const making = useWatch({ control, name: "makingCostPerPc" }) ?? 0;
   const other = useWatch({ control, name: "otherCostPerPc" }) ?? 0;
@@ -110,9 +154,9 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
   const overrideSellingPrice = useWatch({ control, name: "overrideSellingPrice" });
 
   const totalCost = (Number(making) || 0) + (Number(other) || 0);
-  const suggestedMRP = totalCost * 4;
-  const suggestedSelling = totalCost * 3;
-  const suggestedWholesale = totalCost * 2.5;
+  const suggestedMRP = (Number(making) || 0) * 4 + (Number(other) || 0);
+  const suggestedSelling = (Number(making) || 0) * 3 + (Number(other) || 0);
+  const suggestedWholesale = (Number(making) || 0) * 2.5 + (Number(other) || 0);
 
   const selectedCategoryName = useWatch({ control, name: "category" });
   
@@ -194,7 +238,8 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
   }
 
   return (
-    <Modal
+    <>
+      <Modal
       isOpen={isOpen}
       onClose={handleClose}
       title={isEdit ? "Edit Product" : "Add Finished Product"}
@@ -215,6 +260,31 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
       }
     >
       <div className="space-y-5 py-2">
+        {isEdit && product && (
+          <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs shadow-sm">
+            <div>
+              <p className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Barcode ID</p>
+              <p className="font-mono text-slate-800 text-sm mt-0.5">{product.barcodeId}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">Total Sold</p>
+              <p className="font-semibold text-slate-800 text-sm mt-0.5">{product.totalSold} pcs</p>
+            </div>
+            {product.hsnCodes && product.hsnCodes.length > 0 && (
+              <div>
+                <p className="text-slate-400 font-bold uppercase tracking-wide text-[10px]">HSN Codes</p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {product.hsnCodes.map((code) => (
+                    <span key={code} className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-mono font-medium text-slate-600 border border-slate-200">
+                      {code}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Product Identity ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-1">
@@ -281,15 +351,35 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
             Costing (Owner Only)
           </p>
           <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Making Cost / pc (₹)"
-              type="number"
-              min={0}
-              step="0.01"
-              required
-              error={errors.makingCostPerPc?.message}
-              {...register("makingCostPerPc", { valueAsNumber: true })}
-            />
+            <div className="space-y-2">
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Input
+                    label="Making Cost / pc (₹)"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    required
+                    error={errors.makingCostPerPc?.message}
+                    {...register("makingCostPerPc", { valueAsNumber: true })}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCalcOpen(true)}
+                  className="h-11 px-3 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-xs font-semibold text-slate-600 shadow-sm flex-shrink-0"
+                  title="Calculate Making Cost"
+                >
+                  <Calculator size={16} className="text-slate-500" />
+                  <span>Calc</span>
+                  {subCosts.length > 0 && (
+                    <span className="inline-flex items-center justify-center rounded-full bg-[#D32F2F] w-4 h-4 text-[9px] font-bold text-white">
+                      {subCosts.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
             <Input
               label="Other Cost / pc (₹)"
               type="number"
@@ -377,5 +467,95 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
         </div>
       </div>
     </Modal>
+
+    {isCalcOpen && (
+      <Modal
+        isOpen={isCalcOpen}
+        onClose={() => setIsCalcOpen(false)}
+        title="Making Cost Calculator"
+        size="md"
+        footer={
+          <div className="flex justify-between items-center w-full">
+            <div className="text-sm font-semibold text-slate-700">
+              Total Making Cost: <span className="font-mono text-[#D32F2F] text-base">₹{totalSubCosts.toFixed(2)}</span>
+            </div>
+            <Button variant="primary" onClick={() => setIsCalcOpen(false)}>
+              Apply & Close
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2">
+          <div className="flex justify-between items-center">
+            <p className="text-xs text-slate-500">
+              Break down the making cost into multiple parts (e.g., Labor, Beads, Polishing).
+            </p>
+            <button
+              type="button"
+              onClick={() => setSubCosts([...subCosts, { id: Date.now() + Math.random(), name: "", value: 0 }])}
+              className="inline-flex items-center rounded-lg bg-red-50 hover:bg-red-100 px-2 py-1.5 text-xs font-semibold text-[#D32F2F] ring-1 ring-inset ring-[#D32F2F]/20 cursor-pointer transition-colors"
+            >
+              <Plus size={12} className="mr-1" /> Add Component
+            </button>
+          </div>
+
+          {subCosts.length > 0 ? (
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+              {subCosts.map((c, index) => (
+                <div key={c.id} className="flex gap-2 items-center">
+                  <span className="text-[10px] text-slate-400 font-bold w-5">#{index + 1}</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Labor / Polishing"
+                    value={c.name}
+                    onChange={(e) => {
+                      const nameVal = e.target.value;
+                      setSubCosts(subCosts.map((item) => item.id === c.id ? { ...item, name: nameVal } : item));
+                    }}
+                    className="flex-1 min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#D32F2F] focus:border-transparent shadow-sm"
+                  />
+                  <div className="relative w-28">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={c.value || ""}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        setSubCosts(subCosts.map((item) => item.id === c.id ? { ...item, value: val } : item));
+                      }}
+                      className="w-full rounded-lg border border-slate-200 bg-white pl-6 pr-3 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#D32F2F] focus:border-transparent text-right shadow-sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSubCosts(subCosts.filter((item) => item.id !== c.id))}
+                    className="text-slate-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                    title="Remove component"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 rounded-xl bg-slate-50 border border-dashed border-slate-200">
+              <Calculator className="mx-auto h-8 w-8 text-slate-300 mb-2" />
+              <p className="text-xs text-slate-500 font-medium">No cost components added yet.</p>
+              <button
+                type="button"
+                onClick={() => setSubCosts([{ id: Date.now(), name: "", value: 0 }])}
+                className="mt-2 text-xs font-semibold text-[#D32F2F] hover:underline cursor-pointer"
+              >
+                Create First Component
+              </button>
+            </div>
+          )}
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
