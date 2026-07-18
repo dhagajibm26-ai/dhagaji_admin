@@ -87,6 +87,7 @@ export interface PatchThreadsPayload {
   addStockQty?: number;
   totalPurchaseAmount?: number;
   costPerUnit?: number;
+  hsnCodes?: string[];
 }
 
 async function patchThread({ id, ...data }: PatchThreadsPayload): Promise<IThreadsStock> {

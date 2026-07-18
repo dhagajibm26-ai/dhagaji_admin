@@ -19,6 +19,7 @@ const patchSchema = z
     addQuantity: z.number().min(0).optional(),
     totalPurchaseAmount: z.number().min(0).optional(),
     pricePerPiece: z.number().min(0).optional(),
+    hsnCodes: z.array(z.string()).optional(),
   })
   .refine(
     (d) =>
@@ -29,7 +30,8 @@ const patchSchema = z
       d.addNetUsed !== undefined ||
       d.addQuantity !== undefined ||
       d.totalPurchaseAmount !== undefined ||
-      d.pricePerPiece !== undefined,
+      d.pricePerPiece !== undefined ||
+      d.hsnCodes !== undefined,
     { message: "At least one field must be provided" }
   );
 
@@ -75,6 +77,7 @@ export async function PATCH(
       addQuantity,
       totalPurchaseAmount,
       pricePerPiece,
+      hsnCodes,
     } = parsed.data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,6 +88,7 @@ export async function PATCH(
     if (quantityAdd !== undefined) update.$set.quantityAdd = quantityAdd;
     if (netUsed !== undefined) update.$set.netUsed = netUsed;
     if (totalPurchaseAmount !== undefined) update.$set.totalPurchaseAmount = totalPurchaseAmount;
+    if (hsnCodes !== undefined) update.$set.hsnCodes = hsnCodes;
 
     if (addNetUsed !== undefined && addNetUsed > 0) {
       update.$inc = { ...(update.$inc ?? {}), netUsed: addNetUsed };

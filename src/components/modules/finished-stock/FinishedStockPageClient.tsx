@@ -12,6 +12,7 @@ import { BarcodeScanner } from "./BarcodeScanner";
 import { PrintBarcode } from "./PrintBarcode";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 import type { IFinishedProduct } from "@/types";
 
@@ -28,6 +29,7 @@ export function FinishedStockPageClient() {
   const addToast = useUIStore((s) => s.addToast);
 
   const { data: products = [], isLoading } = useFinishedStock();
+  const [selectedHsnItem, setSelectedHsnItem] = useState<IFinishedProduct | null>(null);
 
   const [search, setSearch] = useState("");
   const [sizeFilter, setSizeFilter] = useState("");
@@ -249,6 +251,7 @@ export function FinishedStockPageClient() {
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Code</th>
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Category</th>
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">Size</th>
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400">HSN</th>
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Stock</th>
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Selling ₹</th>
                 {isOwner && (
@@ -283,6 +286,36 @@ export function FinishedStockPageClient() {
                       <Badge variant="info">{product.category || "—"}</Badge>
                     </td>
                     <td className="px-4 py-3 text-slate-500">{product.size}</td>
+                    
+                    {/* HSN */}
+                    <td className="px-4 py-3 text-slate-600 font-mono text-xs">
+                      <div className="flex items-center gap-1.5">
+                        {product.hsnCodes && product.hsnCodes.length > 0 ? (
+                          product.hsnCodes.length === 1 ? (
+                            <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
+                              {product.hsnCodes[0]}
+                            </Badge>
+                          ) : (
+                            <>
+                              <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
+                                {product.hsnCodes[0]}
+                              </Badge>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedHsnItem(product)}
+                                className="inline-flex items-center rounded-full bg-red-50 hover:bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-[#D32F2F] ring-1 ring-inset ring-[#D32F2F]/20 cursor-pointer transition-colors"
+                                title="View all HSN codes"
+                              >
+                                +{product.hsnCodes.length - 1}
+                              </button>
+                            </>
+                          )
+                        ) : (
+                          "—"
+                        )}
+                      </div>
+                    </td>
+
                     <td className="px-4 py-3 text-right">
                       <span className={cn("font-bold tabular-nums", isLow ? "text-[#D32F2F]" : "text-slate-800")}>
                         {product.readyStock}
@@ -345,6 +378,37 @@ export function FinishedStockPageClient() {
         isOpen={printOpen}
         onClose={() => { setPrintOpen(false); setPrintProducts([]); }}
       />
+      
+      {selectedHsnItem && (
+        <Modal
+          isOpen={!!selectedHsnItem}
+          onClose={() => setSelectedHsnItem(null)}
+          title="HSN Codes"
+          size="sm"
+          footer={
+            <Button onClick={() => setSelectedHsnItem(null)} variant="primary">
+              Close
+            </Button>
+          }
+        >
+          <div className="space-y-3 p-1">
+            <p className="text-sm text-slate-500">
+              This finished product is associated with the following HSN codes:
+            </p>
+            <div className="flex flex-wrap gap-2 rounded-xl bg-slate-50 border border-slate-100 p-3">
+              {selectedHsnItem.hsnCodes?.map((code) => (
+                <Badge
+                  key={code}
+                  variant="neutral"
+                  className="font-mono text-sm px-2.5 py-1 bg-white border border-slate-200 shadow-sm"
+                >
+                  {code}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

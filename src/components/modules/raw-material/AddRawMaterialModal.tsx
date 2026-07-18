@@ -87,10 +87,6 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     if (e) e.preventDefault();
     const trimmed = hsnInput.trim();
     if (!trimmed) return;
-    if (!/^\d+$/.test(trimmed)) {
-      setError("hsnCodes", { message: "HSN code must contain only numbers" });
-      return;
-    }
     if (hsnCodes.includes(trimmed)) {
       setError("hsnCodes", { message: "HSN code already added" });
       return;

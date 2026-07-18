@@ -14,6 +14,8 @@ export interface BillDraftItem {
   sellingPrice: number;
   /** Cached at add-time for stock-overflow UI warning */
   maxStock: number;
+  availableHsnCodes?: string[];
+  hsnCodes?: string[];
 }
 
 // ─── State interface ──────────────────────────────────────────────────────────
@@ -40,6 +42,7 @@ interface BillingState {
   setGSTNumber: (n: string) => void;
   setDiscount: (amount: number) => void;
   clearBill: () => void;
+  toggleItemHsnCode: (barcodeId: string, hsnCode: string) => void;
 }
 
 const INITIAL: Pick<
@@ -87,6 +90,7 @@ export const useBillingStore = create<BillingState>()((set) => ({
         };
       }
       const clampedQty = Math.min(qty, product.readyStock);
+      const prodHsn = product.hsnCodes || [];
       return {
         items: [
           ...s.items,
@@ -99,6 +103,8 @@ export const useBillingStore = create<BillingState>()((set) => ({
             qty: clampedQty,
             sellingPrice: product.sellingPrice,
             maxStock: product.readyStock,
+            availableHsnCodes: prodHsn,
+            hsnCodes: prodHsn,
           },
         ],
       };
@@ -121,6 +127,17 @@ export const useBillingStore = create<BillingState>()((set) => ({
   setGSTNumber: (n) => set({ gstNumber: n }),
   setDiscount: (amount) => set({ discount: Math.max(0, amount) }),
   clearBill: () => set(INITIAL),
+  toggleItemHsnCode: (barcodeId, hsnCode) =>
+    set((s) => ({
+      items: s.items.map((i) => {
+        if (i.barcodeId !== barcodeId) return i;
+        const current = i.hsnCodes || [];
+        const next = current.includes(hsnCode)
+          ? current.filter((c) => c !== hsnCode)
+          : [...current, hsnCode];
+        return { ...i, hsnCodes: next };
+      }),
+    })),
 }));
 
 // ─── Individual selector hooks (Zustand v5 pattern) ──────────────────────────
@@ -166,6 +183,7 @@ export const useBillingActions = () =>
     setGSTNumber: s.setGSTNumber,
     setDiscount: s.setDiscount,
     clearBill: s.clearBill,
+    toggleItemHsnCode: s.toggleItemHsnCode,
   })));
 
 

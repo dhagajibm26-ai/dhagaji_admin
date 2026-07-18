@@ -27,6 +27,8 @@ export interface IBanglesStockDocument extends Document {
   pricePerPiece: number;
   totalPurchaseAmount?: number;
   netUsed: number;     // pieces deducted when given to worker
+  hsnCode?: string;
+  hsnCodes?: string[];
   purchaseHistory?: Array<{
     quantity: number;
     totalAmount: number;
@@ -57,13 +59,33 @@ const BanglesStockSchema = new Schema<IBanglesStockDocument>(
     pricePerPiece: { type: Number, required: true, min: 0 },
     totalPurchaseAmount: { type: Number, default: 0 },
     netUsed: { type: Number, default: 0, min: 0 },
+    hsnCode: { type: String, trim: true },
+    hsnCodes: { type: [String], default: [] },
     purchaseHistory: { type: [PurchaseEntrySchema], default: [] },
     isDeleted: { type: Boolean, default: false },
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    toJSON: {
+      virtuals: true,
+      transform: (doc, ret) => {
+        if (!ret.hsnCodes || ret.hsnCodes.length === 0) {
+          ret.hsnCodes = ret.hsnCode ? [ret.hsnCode] : [];
+        }
+        delete ret.hsnCode;
+        return ret;
+      }
+    },
+    toObject: {
+      virtuals: true,
+      transform: (doc, ret) => {
+        if (!ret.hsnCodes || ret.hsnCodes.length === 0) {
+          ret.hsnCodes = ret.hsnCode ? [ret.hsnCode] : [];
+        }
+        delete ret.hsnCode;
+        return ret;
+      }
+    },
   }
 );
 

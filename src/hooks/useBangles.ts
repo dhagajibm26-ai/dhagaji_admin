@@ -40,6 +40,7 @@ export interface PatchBanglesPayload {
   addQuantity?: number;
   totalPurchaseAmount?: number;
   pricePerPiece?: number;
+  hsnCodes?: string[];
 }
 
 async function patchBangles({ id, ...data }: PatchBanglesPayload): Promise<IBanglesStock> {

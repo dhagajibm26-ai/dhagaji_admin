@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Plus, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { useAddBangles, useBanglesStock, usePatchBangles } from "@/hooks/useBangles";
 import { useBangleSizes } from "@/hooks/useBangleSizes";
 import { PurchaseHistoryPanel } from "@/components/ui/PurchaseHistoryPanel";
@@ -41,6 +43,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
     reset,
     setValue,
     setError,
+    clearErrors,
     control,
     formState: { errors, isSubmitting },
   } = useForm<BanglesFormInput, unknown, BanglesStockInput>({
@@ -52,6 +55,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
       cutType: "C1",
       quantityAdd: 0,
       pricePerPiece: 0,
+      hsnCodes: [],
     },
   });
 
@@ -60,6 +64,26 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
   const quantityAdd = useWatch({ control, name: "quantityAdd" });
   const pricePerPiece = useWatch({ control, name: "pricePerPiece" });
   const peta = cutType && cutType in PETA_MAP ? PETA_MAP[cutType as keyof typeof PETA_MAP] : null;
+
+  const [hsnInput, setHsnInput] = useState("");
+  const hsnCodes = useWatch({ control, name: "hsnCodes" }) || [];
+
+  const handleAddHsn = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = hsnInput.trim();
+    if (!trimmed) return;
+    if (hsnCodes.includes(trimmed)) {
+      setError("hsnCodes", { message: "HSN code already added" });
+      return;
+    }
+    setValue("hsnCodes", [...hsnCodes, trimmed], { shouldDirty: true });
+    setHsnInput("");
+    clearErrors("hsnCodes");
+  };
+
+  const handleRemoveHsn = (codeToRemove: string) => {
+    setValue("hsnCodes", hsnCodes.filter((c) => c !== codeToRemove), { shouldDirty: true });
+  };
 
   const previousRows = useMemo(() => {
     if (!selectedSize || !cutType) return [] as IBanglesStock[];
@@ -138,6 +162,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
         cutType: item.cutType,
         quantityAdd: item.quantityAdd,
         pricePerPiece: item.pricePerPiece,
+        hsnCodes: item.hsnCodes || [],
       });
     } else {
       setTotalAmountInput("");
@@ -147,6 +172,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
         cutType: "C1",
         quantityAdd: 0,
         pricePerPiece: 0,
+        hsnCodes: [],
       });
     }
   }, [isOpen, item, reset]);
@@ -178,6 +204,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
           quantityAdd: data.quantityAdd,
           pricePerPiece: Number(data.pricePerPiece || 0),
           totalPurchaseAmount: totalAmt,
+          hsnCodes: data.hsnCodes,
         },
         { onSuccess: () => onClose() }
       );
@@ -312,6 +339,64 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
               }
             })}
           />
+        </div>
+
+        {/* HSN Codes */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+            HSN Codes (Optional)
+          </label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={hsnInput}
+                onChange={(e) => setHsnInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddHsn();
+                  }
+                }}
+                placeholder="Type and press Enter, e.g. 8471"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]"
+              />
+            </div>
+            <Button
+              type="button"
+              onClick={() => handleAddHsn()}
+              variant="secondary"
+              className="h-11 px-4 border border-slate-200 flex items-center gap-1"
+            >
+              <Plus size={16} /> Add
+            </Button>
+          </div>
+          
+          {errors.hsnCodes?.message && (
+            <p className="text-xs text-rose-600 font-medium">{errors.hsnCodes.message}</p>
+          )}
+
+          {hsnCodes.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
+              {hsnCodes.map((code) => (
+                <Badge
+                  key={code}
+                  variant="neutral"
+                  className="pl-3 pr-2 py-1 font-mono text-xs flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm hover:border-rose-200 transition-colors"
+                >
+                  <span>{code}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveHsn(code)}
+                    className="rounded-full p-0.5 hover:bg-rose-50 hover:text-rose-600 transition-colors focus:outline-none cursor-pointer"
+                    aria-label={`Remove HSN code ${code}`}
+                  >
+                    <X size={12} />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
 
         {(selectedSize && cutType && Number(quantityAdd) > 0) && (

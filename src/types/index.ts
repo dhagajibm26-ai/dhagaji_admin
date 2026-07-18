@@ -92,6 +92,7 @@ export interface IBanglesStock {
   pricePerPiece: number;
   totalPurchaseAmount?: number;
   netUsed: number;
+  hsnCodes?: string[];
   purchaseHistory?: IPurchaseEntry[];
   // virtuals
   peta: number;
@@ -111,6 +112,7 @@ export const banglesStockSchema = z.object({
   pricePerPiece: z.number().min(0, "Price must be 0 or more"),
   totalPurchaseAmount: z.number().min(0, "Total purchase amount must be 0 or more").optional(),
   netUsed: z.number().min(0).default(0),
+  hsnCodes: z.array(z.string()).optional(),
   purchaseHistory: z.array(purchaseEntrySchema).optional(),
 });
 export type BanglesStockInput = z.infer<typeof banglesStockSchema>;
@@ -141,6 +143,7 @@ export interface IThreadsStock {
   openingStock: number;
   netUsed: number;
   costPerUnit: number;
+  hsnCodes?: string[];
   purchaseHistory?: IPurchaseEntry[];
   // virtuals
   closingStock: number;
@@ -159,6 +162,7 @@ export const threadsStockSchema = z.object({
   openingStock: z.number().min(0).default(0),
   netUsed: z.number().min(0).default(0),
   costPerUnit: z.number().min(0, "Cost must be 0 or more"),
+  hsnCodes: z.array(z.string()).optional(),
   purchaseHistory: z.array(purchaseEntrySchema).optional(),
 });
 export type ThreadsStockInput = z.infer<typeof threadsStockSchema>;

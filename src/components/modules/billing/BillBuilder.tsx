@@ -177,6 +177,7 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
         sellingPrice: item.sellingPrice,
         discount: 0,
         lineTotal: item.sellingPrice * item.qty,
+        hsnCodes: item.hsnCodes,
       })),
     };
 
@@ -326,42 +327,70 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
               return (
                 <li
                   key={item.barcodeId}
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+                  className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#1A1A1A] truncate">{item.designName}</p>
-                    <p className="text-xs text-gray-500">{item.designCode} · {item.size}</p>
-                    {overStock && (
-                      <p className="text-xs text-amber-600 font-medium">Max stock reached</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <div className="flex items-center gap-2 w-full">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[#1A1A1A] truncate">{item.designName}</p>
+                      <p className="text-xs text-gray-500">{item.designCode} · {item.size}</p>
+                      {overStock && (
+                        <p className="text-xs text-amber-600 font-medium">Max stock reached</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => actions.updateQty(item.barcodeId, item.qty - 1)}
+                        disabled={item.qty <= 1}
+                        className="w-7 h-7 rounded-full bg-gray-200 text-[#1A1A1A] text-sm font-bold flex items-center justify-center disabled:opacity-30 active:bg-gray-300"
+                      >
+                        −
+                      </button>
+                      <span className="w-6 text-center text-sm font-semibold">{item.qty}</span>
+                      <button
+                        onClick={() => actions.updateQty(item.barcodeId, item.qty + 1)}
+                        disabled={item.qty >= item.maxStock}
+                        className="w-7 h-7 rounded-full bg-gray-200 text-[#1A1A1A] text-sm font-bold flex items-center justify-center disabled:opacity-30 active:bg-gray-300"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <span className="text-sm font-semibold text-[#1A1A1A] w-20 text-right flex-shrink-0">
+                      {formatINR(item.sellingPrice * item.qty)}
+                    </span>
                     <button
-                      onClick={() => actions.updateQty(item.barcodeId, item.qty - 1)}
-                      disabled={item.qty <= 1}
-                      className="w-7 h-7 rounded-full bg-gray-200 text-[#1A1A1A] text-sm font-bold flex items-center justify-center disabled:opacity-30 active:bg-gray-300"
+                      onClick={() => actions.removeItem(item.barcodeId)}
+                      className="w-7 h-7 rounded-full text-gray-400 hover:text-[#D32F2F] hover:bg-red-50 flex items-center justify-center flex-shrink-0 transition-colors"
+                      aria-label="Remove item"
                     >
-                      −
-                    </button>
-                    <span className="w-6 text-center text-sm font-semibold">{item.qty}</span>
-                    <button
-                      onClick={() => actions.updateQty(item.barcodeId, item.qty + 1)}
-                      disabled={item.qty >= item.maxStock}
-                      className="w-7 h-7 rounded-full bg-gray-200 text-[#1A1A1A] text-sm font-bold flex items-center justify-center disabled:opacity-30 active:bg-gray-300"
-                    >
-                      +
+                      ×
                     </button>
                   </div>
-                  <span className="text-sm font-semibold text-[#1A1A1A] w-20 text-right flex-shrink-0">
-                    {formatINR(item.sellingPrice * item.qty)}
-                  </span>
-                  <button
-                    onClick={() => actions.removeItem(item.barcodeId)}
-                    className="w-7 h-7 rounded-full text-gray-400 hover:text-[#D32F2F] hover:bg-red-50 flex items-center justify-center flex-shrink-0 transition-colors"
-                    aria-label="Remove item"
-                  >
-                    ×
-                  </button>
+
+                  {item.availableHsnCodes && item.availableHsnCodes.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-gray-200/50">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">
+                        Invoiced HSN:
+                      </span>
+                      {item.availableHsnCodes.map((code) => {
+                        const isSelected = item.hsnCodes?.includes(code);
+                        return (
+                          <button
+                            key={code}
+                            type="button"
+                            onClick={() => actions.toggleItemHsnCode(item.barcodeId, code)}
+                            className={cn(
+                              "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono border transition-all active:scale-95 cursor-pointer",
+                              isSelected
+                                ? "bg-red-50 border-[#D32F2F]/30 text-[#D32F2F] font-semibold"
+                                : "bg-white border-gray-200 text-gray-400"
+                            )}
+                          >
+                            {code}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </li>
               );
             })}

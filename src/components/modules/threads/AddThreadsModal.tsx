@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Plus, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { useAddThread, usePatchThread } from "@/hooks/useThreads";
 import { PurchaseHistoryPanel } from "@/components/ui/PurchaseHistoryPanel";
 import { formatGramRate, formatKgRateFromGramRate, resolvePurchaseHistory } from "@/lib/purchaseHistory";
@@ -19,6 +21,7 @@ const threadFormSchema = z.object({
   threadCompanyName: z.string().min(1, "Company name required"),
   addStockGrams: z.number().min(0),
   totalPurchaseAmount: z.number().min(0, "Amount must be 0 or more"),
+  hsnCodes: z.array(z.string()).default([]),
 });
 
 type ThreadFormInput = z.input<typeof threadFormSchema>;
@@ -41,7 +44,9 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
     handleSubmit,
     reset,
     control,
+    setValue,
     setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<ThreadFormInput, unknown, ThreadFormOutput>({
     resolver: zodResolver(threadFormSchema),
@@ -54,8 +59,29 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
       threadCompanyName: "",
       addStockGrams: 0,
       totalPurchaseAmount: 0,
+      hsnCodes: [],
     },
   });
+
+  const [hsnInput, setHsnInput] = useState("");
+  const hsnCodes = useWatch({ control, name: "hsnCodes" }) || [];
+
+  const handleAddHsn = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = hsnInput.trim();
+    if (!trimmed) return;
+    if (hsnCodes.includes(trimmed)) {
+      setError("hsnCodes", { message: "HSN code already added" });
+      return;
+    }
+    setValue("hsnCodes", [...hsnCodes, trimmed], { shouldDirty: true });
+    setHsnInput("");
+    clearErrors("hsnCodes");
+  };
+
+  const handleRemoveHsn = (codeToRemove: string) => {
+    setValue("hsnCodes", hsnCodes.filter((c) => c !== codeToRemove), { shouldDirty: true });
+  };
 
   const addStockGrams = useWatch({ control, name: "addStockGrams" });
   const totalPurchaseAmount = useWatch({ control, name: "totalPurchaseAmount" });
@@ -90,6 +116,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
         threadCompanyName: item.threadCompanyName,
         addStockGrams: item.stockAdd,
         totalPurchaseAmount: prefillAmount,
+        hsnCodes: item.hsnCodes || [],
       });
       return;
     }
@@ -101,6 +128,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
       threadCompanyName: "",
       addStockGrams: 0,
       totalPurchaseAmount: 0,
+      hsnCodes: [],
     });
   }, [isOpen, item, reset]);
 
@@ -121,6 +149,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
           stockAdd: data.addStockGrams,
           totalPurchaseAmount: amount,
           costPerUnit: perGramRate,
+          hsnCodes: data.hsnCodes,
         },
         { onSuccess: () => onClose() }
       );
@@ -138,6 +167,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
         stockAdd: data.addStockGrams,
         netUsed: 0,
         costPerUnit: perGramRate,
+        hsnCodes: data.hsnCodes,
       },
       { onSuccess: () => onClose() }
     );
@@ -232,6 +262,64 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
             error={errors.totalPurchaseAmount?.message}
             {...register("totalPurchaseAmount", { valueAsNumber: true })}
           />
+        </div>
+
+        {/* HSN Codes */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+            HSN Codes (Optional)
+          </label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={hsnInput}
+                onChange={(e) => setHsnInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddHsn();
+                  }
+                }}
+                placeholder="Type and press Enter, e.g. 8471"
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]"
+              />
+            </div>
+            <Button
+              type="button"
+              onClick={() => handleAddHsn()}
+              variant="secondary"
+              className="h-11 px-4 border border-slate-200 flex items-center gap-1"
+            >
+              <Plus size={16} /> Add
+            </Button>
+          </div>
+          
+          {errors.hsnCodes?.message && (
+            <p className="text-xs text-rose-600 font-medium">{errors.hsnCodes.message}</p>
+          )}
+
+          {hsnCodes.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
+              {hsnCodes.map((code) => (
+                <Badge
+                  key={code}
+                  variant="neutral"
+                  className="pl-3 pr-2 py-1 font-mono text-xs flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm hover:border-rose-200 transition-colors"
+                >
+                  <span>{code}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveHsn(code)}
+                    className="rounded-full p-0.5 hover:bg-rose-50 hover:text-rose-600 transition-colors focus:outline-none cursor-pointer"
+                    aria-label={`Remove HSN code ${code}`}
+                  >
+                    <X size={12} />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">

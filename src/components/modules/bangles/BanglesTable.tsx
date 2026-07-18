@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { usePatchBangles, useDeleteBangles } from "@/hooks/useBangles";
 import { formatPieceRate } from "@/lib/purchaseHistory";
 import { useIsOwner } from "@/stores/useAuthStore";
@@ -76,6 +77,7 @@ interface BanglesTableProps {
 export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdit }: BanglesTableProps) {
   const deleteMutation = useDeleteBangles();
   const isOwner = useIsOwner();
+  const [selectedHsnItem, setSelectedHsnItem] = useState<IBanglesStock | null>(null);
 
   if (isLoading) {
     return (
@@ -119,6 +121,7 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
             <th className="px-4 py-3">Date</th>
             <th className="px-4 py-3">Size</th>
             <th className="px-4 py-3">Cut Type</th>
+            <th className="px-4 py-3">HSN</th>
             <th className="px-4 py-3 text-center">Peta</th>
             <th className="px-4 py-3 text-right">Qty Added</th>
             <th className="px-4 py-3 text-right">Total Pieces</th>
@@ -155,6 +158,35 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
                 {/* Cut Type */}
                 <td className="whitespace-nowrap px-4 py-3 text-gray-600">
                   {item.cutType}
+                </td>
+
+                {/* HSN */}
+                <td className="px-4 py-3 text-slate-600 font-mono text-xs">
+                  <div className="flex items-center gap-1.5">
+                    {item.hsnCodes && item.hsnCodes.length > 0 ? (
+                      item.hsnCodes.length === 1 ? (
+                        <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
+                          {item.hsnCodes[0]}
+                        </Badge>
+                      ) : (
+                        <>
+                          <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
+                            {item.hsnCodes[0]}
+                          </Badge>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedHsnItem(item)}
+                            className="inline-flex items-center rounded-full bg-red-50 hover:bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-[#D32F2F] ring-1 ring-inset ring-[#D32F2F]/20 cursor-pointer transition-colors"
+                            title="View all HSN codes"
+                          >
+                            +{item.hsnCodes.length - 1}
+                          </button>
+                        </>
+                      )
+                    ) : (
+                      "—"
+                    )}
+                  </div>
                 </td>
 
                 {/* Peta (auto from cut type) */}
@@ -245,6 +277,37 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
           })}
         </tbody>
       </table>
+
+      {selectedHsnItem && (
+        <Modal
+          isOpen={!!selectedHsnItem}
+          onClose={() => setSelectedHsnItem(null)}
+          title="HSN Codes"
+          size="sm"
+          footer={
+            <Button onClick={() => setSelectedHsnItem(null)} variant="primary">
+              Close
+            </Button>
+          }
+        >
+          <div className="space-y-3 p-1">
+            <p className="text-sm text-slate-500">
+              This bangles stock is associated with the following HSN codes:
+            </p>
+            <div className="flex flex-wrap gap-2 rounded-xl bg-slate-50 border border-slate-100 p-3">
+              {selectedHsnItem.hsnCodes?.map((code) => (
+                <Badge
+                  key={code}
+                  variant="neutral"
+                  className="font-mono text-sm px-2.5 py-1 bg-white border border-slate-200 shadow-sm"
+                >
+                  {code}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

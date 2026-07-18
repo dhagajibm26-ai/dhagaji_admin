@@ -5,6 +5,8 @@ import { Bill } from "@/models/Bill";
 import { FinishedProduct } from "@/models/FinishedProduct";
 import { WorkOrder } from "@/models/WorkOrder";
 import { RawMaterial } from "@/models/RawMaterial";
+import { BanglesStock } from "@/models/BanglesStock";
+import { ThreadsStock } from "@/models/ThreadsStock";
 import { billSchema } from "@/types";
 import type { ApiResponse, IBill } from "@/types";
 import { nextBillNumber } from "@/lib/billNumber";
@@ -85,16 +87,27 @@ export async function POST(request: Request) {
       // Find all work orders that produced this finished product
       const workOrders = await WorkOrder.find({ finishedProductId: item.finishedProductId });
       
-      // Extract raw material IDs
+      // Extract component IDs
       const rawMaterialIds = workOrders.flatMap((wo) => [
         ...(wo.rawMaterialsGiven || []).map((rm) => rm.rawMaterialId.toString()),
         ...(wo.rawMaterialsReturned || []).map((rm) => rm.rawMaterialId.toString()),
       ]);
       const uniqueRmIds = Array.from(new Set(rawMaterialIds));
 
+      const bangleStockIds = workOrders.flatMap((wo) => [
+        ...(wo.banglesGiven || []).map((bg) => bg.banglesStockId.toString()),
+      ]);
+      const uniqueBangleIds = Array.from(new Set(bangleStockIds));
+
+      const threadStockIds = workOrders.flatMap((wo) => [
+        ...(wo.threadItemsGiven || []).map((tg) => tg.threadStockId.toString()),
+      ]);
+      const uniqueThreadIds = Array.from(new Set(threadStockIds));
+
+      const hsnCodesSet = new Set<string>();
+
       // Fetch raw materials to get HSN codes
       const rawMaterials = await RawMaterial.find({ _id: { $in: uniqueRmIds } }).select("hsnCodes hsnCode");
-      const hsnCodesSet = new Set<string>();
       for (const rm of rawMaterials) {
         if (rm.hsnCodes && rm.hsnCodes.length > 0) {
           rm.hsnCodes.forEach((code) => {
@@ -105,9 +118,40 @@ export async function POST(request: Request) {
         }
       }
 
+      // Fetch bangles to get HSN codes
+      const bangles = await BanglesStock.find({ _id: { $in: uniqueBangleIds } }).select("hsnCodes hsnCode");
+      for (const bs of bangles) {
+        const doc = bs as any;
+        if (doc.hsnCodes && doc.hsnCodes.length > 0) {
+          doc.hsnCodes.forEach((code: string) => {
+            if (code) hsnCodesSet.add(code);
+          });
+        } else if (doc.hsnCode) {
+          hsnCodesSet.add(doc.hsnCode);
+        }
+      }
+
+      // Fetch threads to get HSN codes
+      const threads = await ThreadsStock.find({ _id: { $in: uniqueThreadIds } }).select("hsnCodes hsnCode");
+      for (const ts of threads) {
+        const doc = ts as any;
+        if (doc.hsnCodes && doc.hsnCodes.length > 0) {
+          doc.hsnCodes.forEach((code: string) => {
+            if (code) hsnCodesSet.add(code);
+          });
+        } else if (doc.hsnCode) {
+          hsnCodesSet.add(doc.hsnCode);
+        }
+      }
+
+      let finalHsnCodes = Array.from(hsnCodesSet);
+      if (item.hsnCodes && Array.isArray(item.hsnCodes)) {
+        finalHsnCodes = item.hsnCodes.filter((code) => hsnCodesSet.has(code));
+      }
+
       updatedItems.push({
         ...item,
-        hsnCodes: Array.from(hsnCodesSet),
+        hsnCodes: finalHsnCodes,
       });
     }
 
