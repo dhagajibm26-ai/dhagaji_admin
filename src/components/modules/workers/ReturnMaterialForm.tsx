@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useWorkOrders, useReturnWorkOrder } from "@/hooks/useWorkOrders";
+import { useWorkOrders, useReturnWorkOrder, useResolveRejected } from "@/hooks/useWorkOrders";
 import { useFinishedStock } from "@/hooks/useFinishedStock";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/Select";
 import { type CutType, type IWorkOrder } from "@/types";
 import { formatDateDMY } from "@/lib/utils";
 import { useSkuCategories } from "@/hooks/useSkuCategories";
+import { AlertTriangle, CheckCircle2, RotateCcw } from "lucide-react";
 
 interface ReturnMaterialFormProps {
   isOpen: boolean;
@@ -30,6 +31,8 @@ interface ReturnState {
   threadsReturned: number;
   finishedPieces: number;
   qualityOK: number;
+  /** Used only in resolve-rejected mode: how many of the rejected pieces are now OK */
+  nowOK: number;
   damageNotes: string;
 }
 
@@ -43,10 +46,12 @@ const empty: ReturnState = {
   threadsReturned: 0,
   finishedPieces: 0,
   qualityOK: 0,
+  nowOK: 0,
   damageNotes: "",
 };
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function getWorkerName(order: IWorkOrder): string {
   if (typeof order.workerId === "object" && order.workerId && "name" in order.workerId) {
     return (order.workerId as unknown as { name?: string }).name ?? "Unknown";
@@ -54,57 +59,42 @@ function getWorkerName(order: IWorkOrder): string {
   return "Unknown";
 }
 
-// ─── Earnings Card Component ───────────────────────────────────────────────────
+// ─── Earnings Card ─────────────────────────────────────────────────────────────
+
 function WorkerEarningsCard({
   workerName,
   rate,
-  finishedPieces,
-  qualityOK,
+  totalPieces,
+  noDeduction,
 }: {
   workerName: string;
   rate: number;
-  finishedPieces: number;
-  qualityOK: number;
+  totalPieces: number;
+  noDeduction?: boolean;
 }) {
-  const rejected = Math.max(0, finishedPieces - qualityOK);
-  const okEarnings = qualityOK * rate;
-  const rejectionDeduction = rejected * rate * 0.5;
-  const netEarnings = Math.max(0, okEarnings - rejectionDeduction);
-
+  const earnings = totalPieces * rate;
   return (
     <div className="rounded-xl border-2 border-slate-200 p-4 space-y-2 bg-slate-50">
       <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-        {workerName}'s Earnings
+        {workerName}&apos;s Earnings
       </p>
       <div className="flex justify-between text-sm">
-        <span className="text-slate-600">
-          {qualityOK} OK pcs × ₹{rate}
-        </span>
-        <span className="font-semibold text-green-700">
-          + ₹{okEarnings.toLocaleString("en-IN")}
-        </span>
+        <span className="text-slate-600">{totalPieces} pcs × ₹{rate}</span>
+        <span className="font-semibold text-green-700">+ ₹{earnings.toLocaleString("en-IN")}</span>
       </div>
-      {rejected > 0 && (
-        <div className="flex justify-between text-sm">
-          <span className="text-slate-600">
-            {rejected} rejected × ₹{rate} × 50% deduction
-          </span>
-          <span className="font-semibold text-rose-600">
-            − ₹{rejectionDeduction.toLocaleString("en-IN")}
-          </span>
-        </div>
+      {noDeduction && (
+        <p className="text-[10px] text-emerald-600 font-medium">✓ No rejection deduction — all pieces resolved</p>
       )}
-      <div className="flex justify-between text-sm border-t border-slate-300 pt-2 mt-1">
+      <div className="flex justify-between text-sm border-t border-slate-300 pt-2">
         <span className="font-bold text-slate-800">Net Payable</span>
-        <span className="font-black text-lg text-green-700">
-          ₹{netEarnings.toLocaleString("en-IN")}
-        </span>
+        <span className="font-black text-lg text-green-700">₹{earnings.toLocaleString("en-IN")}</span>
       </div>
     </div>
   );
 }
 
-// ─── Materials Return Section Component ─────────────────────────────────────────
+// ─── Materials Return Section ──────────────────────────────────────────────────
+
 function WorkerMaterialsReturnSection({
   order,
   isFinal,
@@ -142,22 +132,16 @@ function WorkerMaterialsReturnSection({
       <div className="flex items-center gap-2">
         <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${isFinal ? "bg-indigo-500" : "bg-amber-500"}`} />
         <p className="text-sm font-bold text-slate-800">
-          {workerName}'s Materials {isFinal ? "(Final Worker)" : "(Previous Worker)"}
+          {workerName}&apos;s Materials {isFinal ? "(Final Worker)" : "(Previous Worker)"}
         </p>
       </div>
 
-      {/* Bangles */}
       {(order.banglesGiven?.length ?? 0) > 0 && (
         <div className="space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Bangles Returned (leftover)
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Bangles Returned (leftover)</p>
           <div className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
             {order.banglesGiven.map((g, idx) => (
-              <div
-                key={idx}
-                className="grid grid-cols-[1fr_120px] gap-2 items-center px-3 py-2"
-              >
+              <div key={idx} className="grid grid-cols-[1fr_120px] gap-2 items-center px-3 py-2">
                 <span className="text-sm text-slate-700">
                   {g.size} · {g.cutType}
                   <span className="text-slate-400"> (issued {g.pieces} pcs)</span>
@@ -176,12 +160,9 @@ function WorkerMaterialsReturnSection({
         </div>
       )}
 
-      {/* Thread */}
       {threadTotal > 0 && (
         <div className="space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Thread Returned
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Thread Returned</p>
           <Input
             label={`Thread (grams) — issued ${threadTotal} g`}
             type="number"
@@ -194,18 +175,12 @@ function WorkerMaterialsReturnSection({
         </div>
       )}
 
-      {/* Raw Materials */}
       {(order.rawMaterialsGiven?.length ?? 0) > 0 && (
         <div className="space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Tools / Raw Materials Returned
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tools / Raw Materials Returned</p>
           <div className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
             {order.rawMaterialsGiven!.map((r) => (
-              <div
-                key={r.rawMaterialId}
-                className="grid grid-cols-[1fr_120px] gap-2 items-center px-3 py-2"
-              >
+              <div key={r.rawMaterialId} className="grid grid-cols-[1fr_120px] gap-2 items-center px-3 py-2">
                 <span className="text-sm text-slate-700">
                   {r.itemName}
                   <span className="text-slate-400"> (issued {r.qty} {r.unit ?? "units"})</span>
@@ -227,7 +202,95 @@ function WorkerMaterialsReturnSection({
   );
 }
 
+// ─── Stock Section Component ───────────────────────────────────────────────────
+
+function StockSection({
+  finishedProducts,
+  activeSkuCategories,
+  isSizeEnabled,
+  totalMakingRate,
+  state,
+  piecesToAdd,
+  setState,
+}: {
+  finishedProducts: { _id: string; designCode: string; designName: string; category: string; size: string }[];
+  activeSkuCategories: { _id: string; name: string; isSizeFieldEnabled: boolean }[];
+  isSizeEnabled: boolean;
+  totalMakingRate: number;
+  state: ReturnState;
+  piecesToAdd: number;
+  setState: React.Dispatch<React.SetStateAction<ReturnState>>;
+}) {
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 space-y-3">
+      <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+        Add {piecesToAdd} Piece{piecesToAdd !== 1 ? "s" : ""} to Finished Stock
+      </p>
+      <Select
+        label="What did the workers finish?"
+        value={state.finishedMode}
+        onChange={(e) => setState((s) => ({ ...s, finishedMode: e.target.value as FinishedMode }))}
+      >
+        <option value="new">Create new finished product</option>
+        <option value="existing">Add to existing product</option>
+        <option value="none">Don&apos;t add to finished stock</option>
+      </Select>
+
+      {state.finishedMode === "existing" && (
+        <Select
+          label="Finished Product"
+          hint={`${piecesToAdd} pcs will be added to its ready stock`}
+          value={state.finishedProductId}
+          onChange={(e) => setState((s) => ({ ...s, finishedProductId: e.target.value }))}
+        >
+          <option value="">Select finished product...</option>
+          {finishedProducts.map((p) => (
+            <option key={p._id} value={p._id}>
+              {p.designCode} - {p.designName} ({p.category} · {p.size})
+            </option>
+          ))}
+        </Select>
+      )}
+
+      {state.finishedMode === "new" && (
+        <div className="grid grid-cols-2 gap-3">
+          <Select
+            label="SKU"
+            value={state.newCategory}
+            onChange={(e) => setState((s) => ({ ...s, newCategory: e.target.value }))}
+          >
+            <option value="">Select SKU Category...</option>
+            {activeSkuCategories.map((c) => (
+              <option key={c._id} value={c.name}>{c.name}</option>
+            ))}
+          </Select>
+          <Input
+            label="Size"
+            placeholder={isSizeEnabled ? "e.g. 2.4" : "Disabled for this category"}
+            value={state.newSize}
+            onChange={(e) => setState((s) => ({ ...s, newSize: e.target.value }))}
+            disabled={!isSizeEnabled}
+          />
+          <div className="col-span-2">
+            <Input
+              label="Design Name"
+              placeholder="e.g. Red Kundan Bangle Set"
+              value={state.newDesignName}
+              onChange={(e) => setState((s) => ({ ...s, newDesignName: e.target.value }))}
+            />
+          </div>
+          <p className="col-span-2 text-[11px] text-emerald-700">
+            A new product is created with {piecesToAdd} pcs ready stock.
+            Making cost defaults to ₹{totalMakingRate}/pc — edit later in Finished Stock.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Root Form Component ───────────────────────────────────────────────────────
+
 export function ReturnMaterialForm({
   isOpen,
   onClose,
@@ -235,79 +298,88 @@ export function ReturnMaterialForm({
   preSelectedOrderId,
 }: ReturnMaterialFormProps) {
   const [state, setState] = useState<ReturnState>(empty);
-  // Current (final) order's returns
   const [bangleReturns, setBangleReturns] = useState<Record<number, string>>({});
   const [rawReturns, setRawReturns] = useState<Record<string, string>>({});
-  // Chain ancestor returns: keyed by orderId
   const [chainBangleReturns, setChainBangleReturns] = useState<Record<string, Record<number, string>>>({});
   const [chainRawReturns, setChainRawReturns] = useState<Record<string, Record<string, string>>>({});
   const [chainThreadReturns, setChainThreadReturns] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
   const returnMutation = useReturnWorkOrder();
+  const resolveMutation = useResolveRejected();
   const { data: finishedProducts = [] } = useFinishedStock();
   const { data: skuCategories = [] } = useSkuCategories();
 
-  const activeSkuCategories = useMemo(() => {
-    return skuCategories.filter((c) => c.isActive);
-  }, [skuCategories]);
+  const activeSkuCategories = useMemo(() => skuCategories.filter((c) => c.isActive), [skuCategories]);
 
-  // Find selected category object
-  const selectedCategoryObj = useMemo(() => {
-    return activeSkuCategories.find((c) => c.name === state.newCategory);
-  }, [activeSkuCategories, state.newCategory]);
-
+  const selectedCategoryObj = useMemo(
+    () => activeSkuCategories.find((c) => c.name === state.newCategory),
+    [activeSkuCategories, state.newCategory]
+  );
   const isSizeEnabled = selectedCategoryObj ? selectedCategoryObj.isSizeFieldEnabled : false;
 
-  // Set default category when modal opens or activeSkuCategories loads
   useEffect(() => {
     if (isOpen && activeSkuCategories.length > 0 && !state.newCategory) {
       setState((s) => ({ ...s, newCategory: activeSkuCategories[0].name }));
     }
   }, [isOpen, activeSkuCategories, state.newCategory]);
 
-  // Handle auto-update of newSize when size is disabled
   useEffect(() => {
     if (state.newCategory) {
-      if (!isSizeEnabled) {
-        setState((s) => ({ ...s, newSize: "—" }));
-      } else {
-        setState((s) => {
-          if (s.newSize === "—") {
-            return { ...s, newSize: "" };
-          }
-          return s;
-        });
-      }
+      if (!isSizeEnabled) setState((s) => ({ ...s, newSize: "—" }));
+      else setState((s) => (s.newSize === "—" ? { ...s, newSize: "" } : s));
     }
   }, [isSizeEnabled, state.newCategory]);
 
-  const { data: allOrders = [] } = useWorkOrders(
-    workerId ? { workerId, status: "Open" } : { status: "Open" }
-  );
-  // Only returnable orders: Full + Half final legs
-  const openOrders = allOrders.filter(
-    (o) => o.status === "Open" && !(o.assignmentType === "half" && o.allowReturn !== true)
+  // Fetch all orders (Open + Rejected) — no status filter
+  const { data: allOrders = [] } = useWorkOrders(workerId ? { workerId } : {});
+
+  // Show Open (returnable) and Rejected orders in the dropdown
+  const selectableOrders = useMemo(
+    () =>
+      allOrders.filter((o) => {
+        if (o.status === "Rejected") return true;
+        if (o.status !== "Open") return false;
+        return !(o.assignmentType === "half" && o.allowReturn !== true);
+      }),
+    [allOrders]
   );
 
   const selectedOrderId = state.workOrderId || preSelectedOrderId || "";
-  const selectedOrder = openOrders.find((o) => o._id === selectedOrderId);
+  const selectedOrder = selectableOrders.find((o) => o._id === selectedOrderId);
 
-  // Build ancestor chain for the selected final-leg order
+  // ── Mode detection ────────────────────────────────────────────────────────
+  /** True when the selected order has already been returned but has rejected pieces to resolve */
+  const isResolveRejectedMode = selectedOrder?.status === "Rejected";
+
+  /** In normal return mode: true when qualityOK < finishedPieces (will "move to rejected") */
+  const isMovingToRejected =
+    !isResolveRejectedMode &&
+    state.finishedPieces > 0 &&
+    state.qualityOK >= 0 &&
+    state.qualityOK < state.finishedPieces;
+
+  // Rejected resolution data
+  const totalRejected = isResolveRejectedMode
+    ? Math.max(0, (selectedOrder?.finishedPieces ?? 0) - (selectedOrder?.qualityOK ?? 0))
+    : 0;
+  const alreadyResolved = selectedOrder?.rejectedResolved ?? 0;
+  const remainingRejected = Math.max(0, totalRejected - alreadyResolved);
+
+  // In resolve mode: total pieces to add to stock = qualityOK (from first return) + nowOK
+  const resolveStockTotal = isResolveRejectedMode
+    ? (selectedOrder?.qualityOK ?? 0) + state.nowOK
+    : 0;
+
+  // Ancestor chain for half-work final leg (only used in normal return mode)
   const ancestorChain = useMemo<IWorkOrder[]>(() => {
-    if (
-      !selectedOrder ||
-      selectedOrder.assignmentType !== "half" ||
-      selectedOrder.allowReturn !== true
-    ) {
-      return [];
-    }
+    if (!selectedOrder || selectedOrder.assignmentType !== "half" || selectedOrder.allowReturn !== true) return [];
     const chain: IWorkOrder[] = [];
     let parentId = selectedOrder.parentWorkOrderId;
     while (parentId) {
       const parent = allOrders.find((o) => o._id === parentId);
       if (!parent) break;
-      chain.unshift(parent); // oldest first
+      chain.unshift(parent);
       parentId = parent.parentWorkOrderId;
     }
     return chain;
@@ -322,12 +394,9 @@ export function ReturnMaterialForm({
   const totalMakingRate = useMemo(() => {
     if (!selectedOrder) return 0;
     let sum = selectedOrder.perPieceRate;
-    for (const ancestor of ancestorChain) {
-      sum += ancestor.perPieceRate;
-    }
+    for (const ancestor of ancestorChain) sum += ancestor.perPieceRate;
     return sum;
   }, [selectedOrder, ancestorChain]);
-
 
   function resetOrderInputs(workOrderId: string) {
     setState({ ...empty, workOrderId });
@@ -350,14 +419,66 @@ export function ReturnMaterialForm({
     onClose();
   }
 
+  // ── Submit ─────────────────────────────────────────────────────────────────
+
   function handleSubmit() {
     if (!selectedOrder) return;
+
+    // ── RESOLVE REJECTED MODE ──
+    if (isResolveRejectedMode) {
+      if (state.nowOK !== remainingRejected) {
+        setError(
+          `You must resolve ALL ${remainingRejected} rejected piece(s) at once to complete this order. You entered ${state.nowOK}.`
+        );
+        return;
+      }
+
+      // Stock validation
+      if (state.finishedMode === "existing" && !state.finishedProductId) {
+        setError("Select a finished product, or switch to 'Create new'");
+        return;
+      }
+      if (state.finishedMode === "new") {
+        if (!state.newDesignName.trim() || !state.newSize.trim()) {
+          setError("Enter a design name and size for the new finished product");
+          return;
+        }
+      }
+
+      const finishedProductId =
+        state.finishedMode === "existing" ? state.finishedProductId : undefined;
+      const newFinishedProduct =
+        state.finishedMode === "new"
+          ? {
+              category: state.newCategory,
+              designName: state.newDesignName.trim(),
+              size: state.newSize.trim(),
+            }
+          : undefined;
+
+      setError("");
+      resolveMutation.mutate(
+        {
+          id: selectedOrder._id,
+          data: {
+            nowOK: state.nowOK,
+            finishedProductId,
+            newFinishedProduct,
+            notes: state.damageNotes || undefined,
+          },
+        },
+        { onSuccess: handleClose }
+      );
+      return;
+    }
+
+    // ── NORMAL RETURN MODE ──
     if (state.qualityOK > state.finishedPieces) {
       setError("Quality OK pieces cannot exceed total finished pieces");
       return;
     }
 
-    // Build final-leg bangle returns
+    // Build bangle returns
     const banglesReturned = (selectedOrder.banglesGiven ?? [])
       .map((g, idx) => {
         const pieces = parseFloat(bangleReturns[idx] || "0");
@@ -373,7 +494,7 @@ export function ReturnMaterialForm({
       })
       .filter((b): b is NonNullable<typeof b> => b !== null);
 
-    // Build final-leg raw material returns
+    // Build raw material returns
     const rawMaterialsReturned = (selectedOrder.rawMaterialsGiven ?? [])
       .map((r) => {
         const qty = parseFloat(rawReturns[r.rawMaterialId] || "0");
@@ -415,30 +536,31 @@ export function ReturnMaterialForm({
       };
     });
 
-    // Finished stock
+    // If moving to rejected: skip stock section entirely
     let finishedProductId: string | undefined;
     let newFinishedProduct: { category: string; designName: string; size: string } | undefined;
 
-    if (state.qualityOK > 0 && state.finishedMode === "existing") {
-      if (!state.finishedProductId) {
-        setError("Select a finished product, or switch to 'Create new'");
-        return;
+    if (!isMovingToRejected) {
+      if (state.qualityOK > 0 && state.finishedMode === "existing") {
+        if (!state.finishedProductId) {
+          setError("Select a finished product, or switch to 'Create new'");
+          return;
+        }
+        finishedProductId = state.finishedProductId;
+      } else if (state.qualityOK > 0 && state.finishedMode === "new") {
+        if (!state.newDesignName.trim() || !state.newSize.trim()) {
+          setError("Enter a design name and size for the new finished product");
+          return;
+        }
+        newFinishedProduct = {
+          category: state.newCategory,
+          designName: state.newDesignName.trim(),
+          size: state.newSize.trim(),
+        };
       }
-      finishedProductId = state.finishedProductId;
-    } else if (state.qualityOK > 0 && state.finishedMode === "new") {
-      if (!state.newDesignName.trim() || !state.newSize.trim()) {
-        setError("Enter a design name and size for the new finished product");
-        return;
-      }
-      newFinishedProduct = {
-        category: state.newCategory,
-        designName: state.newDesignName.trim(),
-        size: state.newSize.trim(),
-      };
     }
 
     setError("");
-
     returnMutation.mutate(
       {
         id: selectedOrder._id,
@@ -461,56 +583,186 @@ export function ReturnMaterialForm({
     );
   }
 
+  const isPending = returnMutation.isPending || resolveMutation.isPending;
+
+  // ── Button label ───────────────────────────────────────────────────────────
+  const submitLabel = isResolveRejectedMode
+    ? "Resolve & Complete"
+    : isMovingToRejected
+    ? "Move to Rejected"
+    : "Save Return";
+
+  const isSubmitDisabled = isResolveRejectedMode
+    ? !selectedOrder
+    : !selectedOrder || state.finishedPieces === 0;
+
+  // ── Modal title ────────────────────────────────────────────────────────────
+  const modalTitle = isResolveRejectedMode
+    ? "Finish Rejected Pieces"
+    : "Record Material Return";
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Record Material Return"
+      title={modalTitle}
       size="lg"
       footer={
         <div className="flex gap-2 justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClose}
-            disabled={returnMutation.isPending}
-          >
+          <Button variant="ghost" size="sm" onClick={handleClose} disabled={isPending}>
             Cancel
           </Button>
           <Button
             variant="primary"
             size="sm"
-            isLoading={returnMutation.isPending}
-            disabled={!selectedOrder || state.finishedPieces === 0}
+            isLoading={isPending}
+            disabled={isSubmitDisabled}
             onClick={handleSubmit}
+            className={
+              isMovingToRejected
+                ? "!bg-rose-600 hover:!bg-rose-700"
+                : isResolveRejectedMode
+                ? "!bg-emerald-600 hover:!bg-emerald-700"
+                : ""
+            }
           >
-            Save Return
+            {isResolveRejectedMode && <RotateCcw size={13} className="mr-1.5" />}
+            {isMovingToRejected && <AlertTriangle size={13} className="mr-1.5" />}
+            {!isResolveRejectedMode && !isMovingToRejected && <CheckCircle2 size={13} className="mr-1.5" />}
+            {submitLabel}
           </Button>
         </div>
       }
     >
       <div className="space-y-4">
+        {/* Order selection dropdown */}
         <Select
-          label="Open Work Order"
+          label="Work Order"
           required
           value={selectedOrderId}
           onChange={(e) => resetOrderInputs(e.target.value)}
         >
           <option value="">Select work order...</option>
-          {openOrders.map((o) => {
+          {selectableOrders.map((o) => {
             const workerName = getWorkerName(o);
             const isHalfFinal = o.assignmentType === "half" && o.allowReturn === true;
+            const isRejected = o.status === "Rejected";
             return (
               <option key={o._id} value={o._id}>
                 {formatDateDMY(o.date)} — {o.workType}
                 {workerName ? ` (${workerName})` : ""}
-                {isHalfFinal ? " ⬡ Final Half" : ""}
+                {isRejected ? ` 🔴 Rejected (${Math.max(0, o.finishedPieces - o.qualityOK - (o.rejectedResolved ?? 0))} pcs pending)` : ""}
+                {isHalfFinal && !isRejected ? " ⬡ Final Half" : ""}
               </option>
             );
           })}
         </Select>
 
-        {selectedOrder && (
+        {/* ══════════════════════════════════════════════════════════════════
+            RESOLVE REJECTED MODE
+        ══════════════════════════════════════════════════════════════════ */}
+        {selectedOrder && isResolveRejectedMode && (
+          <>
+            {/* Rejected banner */}
+            <div className="rounded-xl border-2 border-rose-300 bg-rose-50 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={14} className="text-rose-600 shrink-0" />
+                <p className="text-sm font-bold text-rose-800">Resolving Rejected Work Order</p>
+              </div>
+              <p className="text-xs text-rose-700 pl-5">
+                Worker: <strong>{getWorkerName(selectedOrder)}</strong> · Work: <strong>{selectedOrder.workType}</strong>
+              </p>
+            </div>
+
+            {/* Read-only summary */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Total Finished</p>
+                <p className="text-2xl font-black text-slate-800">{selectedOrder.finishedPieces}</p>
+                <p className="text-[10px] text-slate-400">pieces</p>
+              </div>
+              <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 mb-1">Quality OK</p>
+                <p className="text-2xl font-black text-emerald-700">{selectedOrder.qualityOK}</p>
+                <p className="text-[10px] text-emerald-500">from first return</p>
+              </div>
+              <div className="rounded-xl border-2 border-rose-200 bg-rose-50 p-3 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-rose-500 mb-1">Rejected</p>
+                <p className="text-2xl font-black text-rose-700">{remainingRejected}</p>
+                <p className="text-[10px] text-rose-400">need resolution</p>
+              </div>
+            </div>
+
+            {/* nowOK input */}
+            <div>
+              <Input
+                label={`Pieces Now OK from Rejected (must be exactly ${remainingRejected})`}
+                type="number"
+                required
+                min={1}
+                max={remainingRejected}
+                placeholder={`Enter ${remainingRejected}`}
+                value={state.nowOK || ""}
+                onChange={(e) => {
+                  setState((s) => ({ ...s, nowOK: parseFloat(e.target.value) || 0 }));
+                  setError("");
+                }}
+              />
+              {/* Must-resolve-all warning */}
+              {state.nowOK > 0 && state.nowOK < remainingRejected && (
+                <div className="mt-2 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                  <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                  <span>
+                    <strong>You must resolve ALL {remainingRejected} rejected piece(s)</strong> at once.
+                    Partial resolution is not allowed — enter exactly {remainingRejected}.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Earnings preview */}
+            {state.nowOK === remainingRejected && state.nowOK > 0 && (
+              <WorkerEarningsCard
+                workerName={getWorkerName(selectedOrder)}
+                rate={selectedOrder.perPieceRate}
+                totalPieces={resolveStockTotal}
+                noDeduction
+              />
+            )}
+
+            {/* Stock section — always visible in resolve mode */}
+            {state.nowOK === remainingRejected && state.nowOK > 0 && (
+              <StockSection
+                finishedProducts={finishedProducts}
+                activeSkuCategories={activeSkuCategories}
+                isSizeEnabled={isSizeEnabled}
+                totalMakingRate={selectedOrder.perPieceRate}
+                state={state}
+                piecesToAdd={resolveStockTotal}
+                setState={setState}
+              />
+            )}
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Rework Notes (optional)
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Notes about the rework..."
+                value={state.damageNotes}
+                onChange={(e) => setState((s) => ({ ...s, damageNotes: e.target.value }))}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F] resize-none placeholder:text-slate-400"
+              />
+            </div>
+          </>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════
+            NORMAL RETURN / MOVE-TO-REJECTED MODE
+        ══════════════════════════════════════════════════════════════════ */}
+        {selectedOrder && !isResolveRejectedMode && (
           <>
             {/* Half-work final leg banner */}
             {selectedOrder.assignmentType === "half" && selectedOrder.allowReturn === true && (
@@ -520,8 +772,9 @@ export function ReturnMaterialForm({
                   <p className="text-sm font-bold text-amber-800">Final Half-Work Assignment</p>
                 </div>
                 <p className="text-xs text-amber-700 pl-4">
-                  This is the last step in a multi-worker chain ({ancestorChain.length + 1} worker{ancestorChain.length > 0 ? "s" : ""} total).
-                  Enter leftover materials for <strong>each worker below</strong>. All orders will be closed together.
+                  This is the last step in a multi-worker chain ({ancestorChain.length + 1} worker
+                  {ancestorChain.length > 0 ? "s" : ""} total). Enter leftover materials for{" "}
+                  <strong>each worker below</strong>. All orders will be closed together.
                 </p>
               </div>
             )}
@@ -559,105 +812,62 @@ export function ReturnMaterialForm({
               </div>
             </div>
 
-            {/* Earnings breakdown card of ALL workers in the chain (ancestors + final) */}
-            {state.finishedPieces > 0 && (
+            {/* Move-to-Rejected warning (replaces stock section) */}
+            {isMovingToRejected && (
+              <div className="flex gap-2 rounded-xl border-2 border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0 text-rose-500" />
+                <div className="space-y-1">
+                  <p className="font-bold text-rose-800">
+                    {state.finishedPieces - state.qualityOK} piece(s) will be Rejected
+                  </p>
+                  <p className="text-xs">
+                    This order will be saved as <strong>Rejected</strong>.
+                    No stock will be added now. You will resolve the rejected pieces later
+                    using the <strong>"Finish Rejected"</strong> button on the workflow page.
+                    Earnings will be credited in full once all pieces are resolved.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Earnings preview (for normal / all-ok return) */}
+            {!isMovingToRejected && state.finishedPieces > 0 && (
               <div className="space-y-3">
-                {/* ── Ancestors Earnings ── */}
                 {ancestorChain.map((ancestor) => (
                   <WorkerEarningsCard
                     key={ancestor._id}
                     workerName={getWorkerName(ancestor)}
                     rate={ancestor.perPieceRate}
-                    finishedPieces={state.finishedPieces}
-                    qualityOK={state.qualityOK}
+                    totalPieces={state.qualityOK}
                   />
                 ))}
-
-                {/* ── Final Worker Earnings ── */}
                 <WorkerEarningsCard
                   workerName={getWorkerName(selectedOrder)}
                   rate={selectedOrder.perPieceRate}
-                  finishedPieces={state.finishedPieces}
-                  qualityOK={state.qualityOK}
+                  totalPieces={state.qualityOK}
                 />
               </div>
             )}
 
-            {/* Finished stock */}
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                Add Finished Pieces to Stock
-              </p>
-              <Select
-                label="What did the workers finish?"
-                value={state.finishedMode}
-                onChange={(e) =>
-                  setState((s) => ({ ...s, finishedMode: e.target.value as FinishedMode }))
-                }
-              >
-                <option value="new">Create new finished product</option>
-                <option value="existing">Add to existing product</option>
-                <option value="none">Don&apos;t add to finished stock</option>
-              </Select>
+            {/* Stock section — hidden when moving to rejected */}
+            {!isMovingToRejected && (
+              <StockSection
+                finishedProducts={finishedProducts}
+                activeSkuCategories={activeSkuCategories}
+                isSizeEnabled={isSizeEnabled}
+                totalMakingRate={totalMakingRate}
+                state={state}
+                piecesToAdd={state.qualityOK}
+                setState={setState}
+              />
+            )}
 
-              {state.finishedMode === "existing" && (
-                <Select
-                  label="Finished Product"
-                  hint={`${state.qualityOK} OK pcs will be added to its ready stock`}
-                  value={state.finishedProductId}
-                  onChange={(e) => setState((s) => ({ ...s, finishedProductId: e.target.value }))}
-                >
-                  <option value="">Select finished product...</option>
-                  {finishedProducts.map((p) => (
-                    <option key={p._id} value={p._id}>
-                      {p.designCode} - {p.designName} ({p.category} · {p.size})
-                    </option>
-                  ))}
-                </Select>
-              )}
-
-              {state.finishedMode === "new" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <Select
-                    label="SKU"
-                    value={state.newCategory}
-                    onChange={(e) => setState((s) => ({ ...s, newCategory: e.target.value }))}
-                  >
-                    <option value="">Select SKU Category...</option>
-                    {activeSkuCategories.map((c) => (
-                      <option key={c._id} value={c.name}>{c.name}</option>
-                    ))}
-                  </Select>
-                  <Input
-                    label="Size"
-                    placeholder={isSizeEnabled ? "e.g. 2.4" : "Disabled for this category"}
-                    value={state.newSize}
-                    onChange={(e) => setState((s) => ({ ...s, newSize: e.target.value }))}
-                    disabled={!isSizeEnabled}
-                  />
-                  <div className="col-span-2">
-                    <Input
-                      label="Design Name"
-                      placeholder="e.g. Red Kundan Bangle Set"
-                      value={state.newDesignName}
-                      onChange={(e) => setState((s) => ({ ...s, newDesignName: e.target.value }))}
-                    />
-                  </div>
-                  <p className="col-span-2 text-[11px] text-emerald-700">
-                    A new product is created with {state.qualityOK || 0} pcs ready stock.
-                    Making cost defaults to ₹{totalMakingRate}/pc (sum of all workers in the chain) — edit later in Finished Stock.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* ── Materials Returned (Leftover) of EVERY worker in the chain (ancestors + final) ── */}
+            {/* Materials returned — shown in all normal return modes */}
             <div className="space-y-4">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Leftover Materials / Tools Returned
               </p>
 
-              {/* Ancestors Materials */}
               {ancestorChain.map((ancestor) => (
                 <WorkerMaterialsReturnSection
                   key={ancestor._id}
@@ -684,19 +894,14 @@ export function ReturnMaterialForm({
                 />
               ))}
 
-              {/* Final Worker Materials */}
               <WorkerMaterialsReturnSection
                 order={selectedOrder}
                 isFinal={true}
                 bangleReturns={bangleReturns}
                 rawReturns={rawReturns}
                 threadsReturned={state.threadsReturned ? String(state.threadsReturned) : ""}
-                onBangleChange={(idx, val) =>
-                  setBangleReturns((prev) => ({ ...prev, [idx]: val }))
-                }
-                onRawChange={(id, val) =>
-                  setRawReturns((prev) => ({ ...prev, [id]: val }))
-                }
+                onBangleChange={(idx, val) => setBangleReturns((prev) => ({ ...prev, [idx]: val }))}
+                onRawChange={(id, val) => setRawReturns((prev) => ({ ...prev, [id]: val }))}
                 onThreadChange={(val) =>
                   setState((s) => ({ ...s, threadsReturned: parseFloat(val) || 0 }))
                 }
@@ -716,12 +921,10 @@ export function ReturnMaterialForm({
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F] resize-none placeholder:text-slate-400"
               />
             </div>
-
-            {error && (
-              <p className="text-sm text-rose-600 font-medium">{error}</p>
-            )}
           </>
         )}
+
+        {error && <p className="text-sm text-rose-600 font-medium">{error}</p>}
       </div>
     </Modal>
   );

@@ -51,7 +51,7 @@ interface IOtherReturned {
   qty: number;
 }
 
-export type WorkOrderStatus = "Open" | "Returned" | "Completed";
+export type WorkOrderStatus = "Open" | "Returned" | "Completed" | "Rejected";
 export type PaymentStatus = "Paid" | "Partial" | "Unpaid";
 
 // ─── Main document interface ──────────────────────────────────────────────────
@@ -100,6 +100,9 @@ export interface IWorkOrderDocument extends Document {
   amountPaid: number;
 
   status: WorkOrderStatus;
+
+  /** How many of the originally rejected pieces have been resolved through rework (used when status = "Rejected") */
+  rejectedResolved: number;
 
   // virtuals — NET USED
   netBangles: number;
@@ -256,9 +259,12 @@ const WorkOrderSchema = new Schema<IWorkOrderDocument>(
 
     status: {
       type: String,
-      enum: ["Open", "Returned", "Completed"],
+      enum: ["Open", "Returned", "Completed", "Rejected"],
       default: "Open",
     },
+
+    /** Tracks re-worked pieces when status = "Rejected" */
+    rejectedResolved: { type: Number, default: 0, min: 0 },
   },
   {
     timestamps: true,
@@ -336,6 +342,10 @@ WorkOrderSchema.index({ workerId: 1 });
 WorkOrderSchema.index({ date: -1 });
 WorkOrderSchema.index({ status: 1 });
 
+if (mongoose.models.WorkOrder) {
+  delete mongoose.models.WorkOrder;
+}
+
 export const WorkOrder: Model<IWorkOrderDocument> =
-  mongoose.models.WorkOrder ??
   mongoose.model<IWorkOrderDocument>("WorkOrder", WorkOrderSchema);
+

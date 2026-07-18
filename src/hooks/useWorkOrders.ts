@@ -120,3 +120,49 @@ export function useRecordPayment() {
     onError: (err: Error) => addToast({ type: "error", message: err.message }),
   });
 }
+
+async function resolveRejectedWorkOrder(
+  id: string,
+  data: {
+    nowOK: number;
+    finishedProductId?: string;
+    newFinishedProduct?: { category: string; designName: string; designCode?: string; size: string };
+    notes?: string;
+  }
+): Promise<IWorkOrder> {
+  const res = await fetch(`/api/work-orders/${id}/resolve-rejected`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const json: ApiResponse<IWorkOrder> = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "Failed to resolve rejected pieces");
+  return json.data!;
+}
+
+export function useResolveRejected() {
+  const qc = useQueryClient();
+  const addToast = useUIStore((s) => s.addToast);
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: {
+        nowOK: number;
+        finishedProductId?: string;
+        newFinishedProduct?: { category: string; designName: string; designCode?: string; size: string };
+        notes?: string;
+      };
+    }) => resolveRejectedWorkOrder(id, data),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.lists() });
+      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.detail(id) });
+      qc.invalidateQueries({ queryKey: WORKERS_KEYS.lists() });
+      qc.invalidateQueries({ queryKey: FINISHED_STOCK_KEYS.lists() });
+      addToast({ type: "success", message: "All pieces resolved. Stock & earnings updated." });
+    },
+    onError: (err: Error) => addToast({ type: "error", message: err.message }),
+  });
+}

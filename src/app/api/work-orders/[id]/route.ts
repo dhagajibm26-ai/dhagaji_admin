@@ -85,7 +85,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     order.qualityOK = qualityOK;
     if (perPieceRate !== undefined) order.perPieceRate = perPieceRate;
     if (damageNotes !== undefined) order.damageNotes = damageNotes;
-    order.status = "Returned";
+    // If there are rejected pieces, mark as Rejected; otherwise mark as Returned
+    const hasRejected = qualityOK < finishedPieces;
+    order.status = hasRejected ? "Rejected" : "Returned";
+    order.rejectedResolved = 0;
 
     // ── Restore returned stock back to inventory ──────────────────────────────
 
@@ -174,65 +177,69 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       await restockByKind("cutter", cutterReturned);
     }
 
-    // ── Update Worker.totalEarned ─────────────────────────────────────────────
-    const okEarnings = order.qualityOK * order.perPieceRate;
-    const rejected = Math.max(0, order.finishedPieces - order.qualityOK);
-    const rejectionDeduction = rejected * order.perPieceRate * 0.5;
-    const netAmountDue = Math.max(0, okEarnings - rejectionDeduction);
-    if (netAmountDue > 0) {
-      await Worker.findByIdAndUpdate(order.workerId, { $inc: { totalEarned: netAmountDue } });
+    // ── Update Worker.totalEarned ──────────────────────────────────────────────
+    // Skipped when hasRejected — earnings credited in full only when resolved
+    if (!hasRejected) {
+      const okEarnings = order.qualityOK * order.perPieceRate;
+      const rejected = Math.max(0, order.finishedPieces - order.qualityOK);
+      const rejectionDeduction = rejected * order.perPieceRate * 0.5;
+      const netAmountDue = Math.max(0, okEarnings - rejectionDeduction);
+      if (netAmountDue > 0) {
+        await Worker.findByIdAndUpdate(order.workerId, { $inc: { totalEarned: netAmountDue } });
+      }
     }
 
     // ── Finished stock integration ────────────────────────────────────────────
-    // Either create a brand-new finished product from this return, or add the
-    // OK pieces to an existing one. The link is persisted on the work order.
+    // Skipped when hasRejected — stock added only when all pieces are resolved
     let resolvedFinishedProductId: typeof order.finishedProductId | undefined;
 
-    if (qualityOK > 0 && newFinishedProduct) {
-      let makingCost = newFinishedProduct.makingCostPerPc;
-      if (makingCost === undefined) {
-        let sumRates = order.perPieceRate;
-        if (order.assignmentType === "half" && order.parentWorkOrderId) {
-          let currentParentId = order.parentWorkOrderId;
-          while (currentParentId) {
-            const parent = await WorkOrder.findById(currentParentId);
-            if (!parent) break;
-            sumRates += parent.perPieceRate;
-            currentParentId = parent.parentWorkOrderId as any;
+    if (!hasRejected) {
+      if (qualityOK > 0 && newFinishedProduct) {
+        let makingCost = newFinishedProduct.makingCostPerPc;
+        if (makingCost === undefined) {
+          let sumRates = order.perPieceRate;
+          if (order.assignmentType === "half" && order.parentWorkOrderId) {
+            let currentParentId = order.parentWorkOrderId;
+            while (currentParentId) {
+              const parent = await WorkOrder.findById(currentParentId);
+              if (!parent) break;
+              sumRates += parent.perPieceRate;
+              currentParentId = parent.parentWorkOrderId as any;
+            }
           }
+          makingCost = sumRates;
         }
-        makingCost = sumRates;
+        const otherCost = newFinishedProduct.otherCostPerPc ?? 0;
+        const totalCost = makingCost + otherCost;
+        const created = await FinishedProduct.create({
+          designName: newFinishedProduct.designName,
+          designCode:
+            newFinishedProduct.designCode?.trim() ||
+            `WO-${String(order._id).slice(-6).toUpperCase()}`,
+          category: newFinishedProduct.category,
+          size: newFinishedProduct.size,
+          makingCostPerPc: makingCost,
+          otherCostPerPc: otherCost,
+          MRP: Math.round(totalCost * 4),
+          wholesalePrice: Math.round(totalCost * 2.5),
+          sellingPrice: Math.round(totalCost * 3),
+          readyStock: qualityOK,
+        });
+        resolvedFinishedProductId = created._id as typeof order.finishedProductId;
+        order.finishedProductId = resolvedFinishedProductId;
+      } else if (finishedProductId && qualityOK > 0) {
+        await FinishedProduct.findByIdAndUpdate(finishedProductId, {
+          $inc: { readyStock: qualityOK },
+        });
+        resolvedFinishedProductId = finishedProductId as unknown as typeof order.finishedProductId;
+        order.finishedProductId = resolvedFinishedProductId;
       }
-      const otherCost = newFinishedProduct.otherCostPerPc ?? 0;
-      const totalCost = makingCost + otherCost;
-      const created = await FinishedProduct.create({
-        designName: newFinishedProduct.designName,
-        designCode:
-          newFinishedProduct.designCode?.trim() ||
-          `WO-${String(order._id).slice(-6).toUpperCase()}`,
-        category: newFinishedProduct.category,
-        size: newFinishedProduct.size,
-        makingCostPerPc: makingCost,
-        otherCostPerPc: otherCost,
-        MRP: Math.round(totalCost * 4),
-        wholesalePrice: Math.round(totalCost * 2.5),
-        sellingPrice: Math.round(totalCost * 3),
-        readyStock: qualityOK,
-      });
-      resolvedFinishedProductId = created._id as typeof order.finishedProductId;
-      order.finishedProductId = resolvedFinishedProductId;
-    } else if (finishedProductId && qualityOK > 0) {
-      await FinishedProduct.findByIdAndUpdate(finishedProductId, {
-        $inc: { readyStock: qualityOK },
-      });
-      resolvedFinishedProductId = finishedProductId as unknown as typeof order.finishedProductId;
-      order.finishedProductId = resolvedFinishedProductId;
     }
 
     await order.save();
 
     // ── Process ancestor legs in the half-work chain ──────────────────────────
-    // Walk up the parentWorkOrderId chain, closing each order as "Completed",
+    // Walk up the parentWorkOrderId chain, closing each order as "Completed" (or "Rejected" if rejected),
     // copying finished/quality OK counts, crediting worker earnings, and restoring
     // stock for any returned materials specified in chainReturns.
     if (order.assignmentType === "half" && order.allowReturn === true && order.parentWorkOrderId) {
@@ -247,7 +254,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         // 1. Copy finished pieces and quality counts
         ancestorOrder.finishedPieces = finishedPieces;
         ancestorOrder.qualityOK = qualityOK;
-        ancestorOrder.status = "Completed";
+        // Use same Rejected/Completed logic as the final leg
+        ancestorOrder.status = hasRejected ? "Rejected" : "Completed";
+        ancestorOrder.rejectedResolved = 0;
 
         if (resolvedFinishedProductId) {
           ancestorOrder.finishedProductId = resolvedFinishedProductId;
@@ -293,13 +302,15 @@ export async function PATCH(request: Request, { params }: RouteContext) {
           }
         }
 
-        // 3. Update ancestor worker's totalEarned
-        const ancestorOkEarnings = qualityOK * ancestorOrder.perPieceRate;
-        const ancestorRejected = Math.max(0, finishedPieces - qualityOK);
-        const ancestorRejectionDeduction = ancestorRejected * ancestorOrder.perPieceRate * 0.5;
-        const ancestorNetAmountDue = Math.max(0, ancestorOkEarnings - ancestorRejectionDeduction);
-        if (ancestorNetAmountDue > 0) {
-          await Worker.findByIdAndUpdate(ancestorOrder.workerId, { $inc: { totalEarned: ancestorNetAmountDue } });
+        // 3. Update ancestor worker's totalEarned (skip when hasRejected)
+        if (!hasRejected) {
+          const ancestorOkEarnings = qualityOK * ancestorOrder.perPieceRate;
+          const ancestorRejected = Math.max(0, finishedPieces - qualityOK);
+          const ancestorRejectionDeduction = ancestorRejected * ancestorOrder.perPieceRate * 0.5;
+          const ancestorNetAmountDue = Math.max(0, ancestorOkEarnings - ancestorRejectionDeduction);
+          if (ancestorNetAmountDue > 0) {
+            await Worker.findByIdAndUpdate(ancestorOrder.workerId, { $inc: { totalEarned: ancestorNetAmountDue } });
+          }
         }
 
         await ancestorOrder.save();
@@ -312,7 +323,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
 
     return NextResponse.json<ApiResponse>({ success: true, data: order.toJSON() });
-  } catch {
-    return NextResponse.json<ApiResponse>({ success: false, error: "Internal server error" }, { status: 500 });
+  } catch (err: any) {
+    console.error("PATCH WORK-ORDER ERROR:", err);
+    return NextResponse.json<ApiResponse>({ success: false, error: err?.message || "Internal server error" }, { status: 500 });
   }
 }

@@ -390,6 +390,8 @@ export const workOrderReturnSchema = z.object({
 });
 export type WorkOrderReturnInput = z.infer<typeof workOrderReturnSchema>;
 
+export type WorkOrderStatus = "Open" | "Returned" | "Completed" | "Rejected";
+
 export const paymentSchema = z.object({
   amount: z.number().min(0.01, "Amount must be > 0"),
   paymentMethod: z.enum(["Cash", "UPI", "Card"]).default("Cash"),
@@ -457,7 +459,9 @@ export interface IWorkOrder {
   // PAYMENT
   perPieceRate: number;
   amountPaid: number;
-  status: "Open" | "Returned" | "Completed";
+  status: "Open" | "Returned" | "Completed" | "Rejected";
+  /** How many of the originally rejected pieces have been resolved via rework */
+  rejectedResolved: number;
   // virtuals
   netBangles: number;
   netThreads: number;
