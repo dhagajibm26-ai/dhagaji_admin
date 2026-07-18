@@ -118,19 +118,50 @@ export async function PATCH(
       update.$push = { purchaseHistory: entry };
       update.$set.pricePerPiece = newRate;
     } else if (quantityAdd !== undefined) {
+      const oldQty = existing.quantityAdd || 0;
       const effectiveCut = cutType ?? existing.cutType;
       const peta = PETA_MAP[effectiveCut];
-      const pieces = quantityAdd * peta;
-      const effectivePrice = pricePerPiece !== undefined ? pricePerPiece : existing.pricePerPiece;
-      const amount = totalPurchaseAmount !== undefined
-        ? totalPurchaseAmount
-        : Number((pieces * effectivePrice).toFixed(2));
-      const entry = buildDbPurchaseEntry(pieces, amount);
       
-      update.$set.purchaseHistory = [entry];
-      update.$set.totalPurchaseAmount = amount;
-      if (pricePerPiece !== undefined) {
-        update.$set.pricePerPiece = pricePerPiece;
+      const newPieces = quantityAdd * peta;
+      const oldPieces = oldQty * PETA_MAP[existing.cutType];
+      const diffPieces = newPieces - oldPieces;
+
+      if (diffPieces > 0) {
+        const newTotalAmount = totalPurchaseAmount !== undefined
+          ? totalPurchaseAmount
+          : Number((newPieces * (pricePerPiece ?? existing.pricePerPiece)).toFixed(2));
+        const oldTotalAmount = oldPieces * existing.pricePerPiece;
+        const diffAmount = Math.max(0, newTotalAmount - oldTotalAmount);
+
+        const entry = buildDbPurchaseEntry(diffPieces, diffAmount);
+        update.$push = { purchaseHistory: entry };
+
+        const newRate = newPieces > 0 ? Number((newTotalAmount / newPieces).toFixed(4)) : 0;
+        update.$set.pricePerPiece = newRate;
+        update.$set.totalPurchaseAmount = newTotalAmount;
+      } else if (diffPieces < 0) {
+        const amount = totalPurchaseAmount !== undefined
+          ? totalPurchaseAmount
+          : Number((newPieces * (pricePerPiece ?? existing.pricePerPiece)).toFixed(2));
+        const entry = buildDbPurchaseEntry(newPieces, amount);
+        update.$set.purchaseHistory = [entry];
+        update.$set.totalPurchaseAmount = amount;
+
+        if (pricePerPiece !== undefined) {
+          update.$set.pricePerPiece = pricePerPiece;
+        } else {
+          const newRate = newPieces > 0 ? Number((amount / newPieces).toFixed(4)) : 0;
+          update.$set.pricePerPiece = newRate;
+        }
+      } else {
+        if (pricePerPiece !== undefined || totalPurchaseAmount !== undefined) {
+          const amount = totalPurchaseAmount !== undefined
+            ? totalPurchaseAmount
+            : Number((newPieces * (pricePerPiece ?? existing.pricePerPiece)).toFixed(2));
+          update.$set.totalPurchaseAmount = amount;
+          const newRate = newPieces > 0 ? Number((amount / newPieces).toFixed(4)) : 0;
+          update.$set.pricePerPiece = newRate;
+        }
       }
     } else if (pricePerPiece !== undefined && addQuantity === undefined) {
       update.$set.pricePerPiece = pricePerPiece;

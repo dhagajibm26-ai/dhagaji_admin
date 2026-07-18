@@ -127,12 +127,13 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
     if (!item) return [];
     const itemPeta = PETA_MAP[item.cutType];
     const pieces = item.quantityAdd * itemPeta;
-    return resolvePurchaseHistory(item.purchaseHistory, {
+    const resolved = resolvePurchaseHistory(item.purchaseHistory, {
       quantity: pieces,
       totalAmount: Number((pieces * item.pricePerPiece).toFixed(2)),
       ratePerUnit: item.pricePerPiece,
       date: String(item.createdAt),
     });
+    return resolved.slice(0, 1);
   }, [item]);
 
   const sizeOptions = useMemo(() => {

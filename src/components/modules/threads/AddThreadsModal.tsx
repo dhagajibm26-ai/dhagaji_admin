@@ -93,12 +93,13 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
 
   const purchaseHistory = useMemo(() => {
     if (!item) return [];
-    return resolvePurchaseHistory(item.purchaseHistory, {
+    const resolved = resolvePurchaseHistory(item.purchaseHistory, {
       quantity: item.stockAdd,
       totalAmount: Number((item.stockAdd * item.costPerUnit).toFixed(2)),
       ratePerUnit: item.costPerUnit,
       date: String(item.createdAt),
     });
+    return resolved.slice(0, 1);
   }, [item]);
 
   useEffect(() => {

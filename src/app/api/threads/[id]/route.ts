@@ -127,15 +127,42 @@ export async function PATCH(
       update.$push = { purchaseHistory: entry };
       update.$set.costPerUnit = newRate;
     } else if (stockAdd !== undefined) {
-      const effectiveCost = costPerUnit !== undefined ? costPerUnit : existing.costPerUnit;
-      const amount = totalPurchaseAmount !== undefined
-        ? totalPurchaseAmount
-        : Number((stockAdd * effectiveCost).toFixed(2));
-      const entry = buildDbPurchaseEntry(stockAdd, amount);
-      
-      update.$set.purchaseHistory = [entry];
-      if (costPerUnit !== undefined) {
-        update.$set.costPerUnit = costPerUnit;
+      const oldQty = existing.stockAdd || 0;
+      const diffGrams = stockAdd - oldQty;
+
+      if (diffGrams > 0) {
+        const newTotalAmount = totalPurchaseAmount !== undefined
+          ? totalPurchaseAmount
+          : Number((stockAdd * (costPerUnit ?? existing.costPerUnit)).toFixed(2));
+        const oldTotalAmount = oldQty * existing.costPerUnit;
+        const diffAmount = Math.max(0, newTotalAmount - oldTotalAmount);
+
+        const entry = buildDbPurchaseEntry(diffGrams, diffAmount);
+        update.$push = { purchaseHistory: entry };
+
+        const newRate = stockAdd > 0 ? Number((newTotalAmount / stockAdd).toFixed(4)) : 0;
+        update.$set.costPerUnit = newRate;
+      } else if (diffGrams < 0) {
+        const amount = totalPurchaseAmount !== undefined
+          ? totalPurchaseAmount
+          : Number((stockAdd * (costPerUnit ?? existing.costPerUnit)).toFixed(2));
+        const entry = buildDbPurchaseEntry(stockAdd, amount);
+        update.$set.purchaseHistory = [entry];
+
+        if (costPerUnit !== undefined) {
+          update.$set.costPerUnit = costPerUnit;
+        } else {
+          const newRate = stockAdd > 0 ? Number((amount / stockAdd).toFixed(4)) : 0;
+          update.$set.costPerUnit = newRate;
+        }
+      } else {
+        if (costPerUnit !== undefined || totalPurchaseAmount !== undefined) {
+          const amount = totalPurchaseAmount !== undefined
+            ? totalPurchaseAmount
+            : Number((stockAdd * (costPerUnit ?? existing.costPerUnit)).toFixed(2));
+          const newRate = stockAdd > 0 ? Number((amount / stockAdd).toFixed(4)) : 0;
+          update.$set.costPerUnit = newRate;
+        }
       }
     } else if (costPerUnit !== undefined && addStockQty === undefined) {
       update.$set.costPerUnit = costPerUnit;

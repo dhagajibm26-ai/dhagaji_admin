@@ -106,31 +106,49 @@ async function rawMaterialReport(): Promise<Omit<ReportData, "generatedAt" | "da
     { key: "name",      label: "Item Name",     type: "text" },
     { key: "category",  label: "Category",      type: "badge" },
     { key: "unit",      label: "Unit",          type: "text" },
-    { key: "opening",   label: "Opening",       type: "number" },
-    { key: "purchased", label: "Purchased",     type: "number" },
-    { key: "used",      label: "Used",          type: "number" },
-    { key: "closing",   label: "Closing",       type: "number" },
-    { key: "rate",      label: "Rate",          type: "currency" },
-    { key: "value",     label: "Total Value",   type: "currency", isSummable: true },
+    { key: "date",      label: "Purchase Date", type: "date" },
+    { key: "qty",       label: "Purchased Qty", type: "number", isSummable: true },
+    { key: "rate",      label: "Rate (₹)",      type: "currency" },
+    { key: "amount",    label: "Amount (₹)",    type: "currency", isSummable: true },
+    { key: "closing",   label: "Current Closing",type: "number" },
     { key: "threshold", label: "Min Stock",     type: "number" },
     { key: "status",    label: "Status",        type: "badge" },
   ];
 
-  const rows: ReportRow[] = mats.map((m) => {
+  const rows: ReportRow[] = [];
+  mats.forEach((m) => {
     const closing = m.openingStock + m.purchasedQty - m.usedQty;
-    return {
-      name:      m.itemName,
-      category:  m.category,
-      unit:      m.unit,
-      opening:   m.openingStock,
-      purchased: m.purchasedQty,
-      used:      m.usedQty,
-      closing,
-      rate:      m.ratePerUnit,
-      value:     closing * m.ratePerUnit,
-      threshold: m.lowStockThreshold,
-      status:    closing <= m.lowStockThreshold ? "Low Stock" : "OK",
-    };
+    const history = m.purchaseHistory || [];
+
+    if (history.length === 0) {
+      rows.push({
+        name:      m.itemName,
+        category:  m.category,
+        unit:      m.unit,
+        date:      m.lastPurchaseDate ? new Date(m.lastPurchaseDate).toISOString().split("T")[0] : "—",
+        qty:       m.openingStock + m.purchasedQty,
+        rate:      m.ratePerUnit,
+        amount:    (m.openingStock + m.purchasedQty) * m.ratePerUnit,
+        closing,
+        threshold: m.lowStockThreshold,
+        status:    closing <= m.lowStockThreshold ? "Low Stock" : "OK",
+      });
+    } else {
+      history.forEach((h) => {
+        rows.push({
+          name:      m.itemName,
+          category:  m.category,
+          unit:      m.unit,
+          date:      h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
+          qty:       h.quantity,
+          rate:      h.ratePerUnit,
+          amount:    h.totalAmount,
+          closing,
+          threshold: m.lowStockThreshold,
+          status:    closing <= m.lowStockThreshold ? "Low Stock" : "OK",
+        });
+      });
+    }
   });
 
   return { title: REPORT_LABELS["raw-material"], columns, rows, summary: sumCols(columns, rows) };
@@ -453,33 +471,52 @@ async function banglesStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
     { key: "size",                label: "Size",               type: "text" },
     { key: "cutType",             label: "Cut Type",           type: "text" },
     { key: "peta",                label: "Peta",               type: "number",   align: "center" },
-    { key: "quantityAdd",         label: "Qty Added (sets)",   type: "number",   align: "right", isSummable: true },
+    { key: "date",                label: "Purchase Date",      type: "date" },
+    { key: "quantityAdd",         label: "Qty Purchased (sets)",type: "number",   align: "right", isSummable: true },
     { key: "totalPieces",         label: "Total Pieces",       type: "number",   align: "right", isSummable: true },
     { key: "pricePerPiece",       label: "Price/Pc (₹)",       type: "currency", align: "right" },
-    { key: "totalPurchaseAmount", label: "Total Purchase (₹)", type: "currency", align: "right", isSummable: true },
-    { key: "netUsed",             label: "Net Used",           type: "number",   align: "right", isSummable: true },
-    { key: "closingStock",        label: "Closing Pieces",     type: "number",   align: "right", isSummable: true },
-    { key: "totalValue",          label: "Current Value (₹)",  type: "currency", align: "right", isSummable: true },
+    { key: "totalPurchaseAmount", label: "Purchase Amount (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "closingStock",        label: "Current Closing",     type: "number",   align: "right", isSummable: true },
     { key: "status",              label: "Status",             type: "badge",    align: "center" },
   ];
 
-  const rows: ReportRow[] = docs.map((b) => {
+  const rows: ReportRow[] = [];
+  docs.forEach((b) => {
     const peta = PETA_MAP[b.cutType];
     const totalPieces = b.quantityAdd * peta;
     const closingStock = totalPieces - b.netUsed;
-    return {
-      size:                b.size,
-      cutType:             b.cutType,
-      peta,
-      quantityAdd:         b.quantityAdd,
-      totalPieces,
-      pricePerPiece:       b.pricePerPiece,
-      totalPurchaseAmount: b.totalPurchaseAmount ?? (totalPieces * b.pricePerPiece),
-      netUsed:             b.netUsed,
-      closingStock,
-      totalValue:          closingStock * b.pricePerPiece,
-      status:              b.status,
-    };
+    const history = b.purchaseHistory || [];
+
+    if (history.length === 0) {
+      rows.push({
+        size:                b.size,
+        cutType:             b.cutType,
+        peta,
+        date:                b.updatedAt ? new Date(b.updatedAt).toISOString().split("T")[0] : "—",
+        quantityAdd:         b.quantityAdd,
+        totalPieces,
+        pricePerPiece:       b.pricePerPiece,
+        totalPurchaseAmount: b.totalPurchaseAmount ?? (totalPieces * b.pricePerPiece),
+        closingStock,
+        status:              b.status,
+      });
+    } else {
+      history.forEach((h) => {
+        const hQuantitySets = peta > 0 ? h.quantity / peta : 0;
+        rows.push({
+          size:                b.size,
+          cutType:             b.cutType,
+          peta,
+          date:                h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
+          quantityAdd:         hQuantitySets,
+          totalPieces:         h.quantity,
+          pricePerPiece:       h.ratePerUnit,
+          totalPurchaseAmount: h.totalAmount,
+          closingStock,
+          status:              b.status,
+        });
+      });
+    }
   });
 
   return { title: REPORT_LABELS["bangles-stock"], columns, rows, summary: sumCols(columns, rows) };
@@ -494,29 +531,46 @@ async function threadsStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
     { key: "code",    label: "Thread Code",     type: "text" },
     { key: "colour",  label: "Thread Colour",   type: "text" },
     { key: "company", label: "Company",         type: "text" },
-    { key: "opening", label: "Opening (g)",     type: "number",   align: "right" },
-    { key: "added",   label: "Added (g)",       type: "number",   align: "right", isSummable: true },
-    { key: "used",    label: "Used (g)",        type: "number",   align: "right", isSummable: true },
-    { key: "closing", label: "Closing (g)",     type: "number",   align: "right", isSummable: true },
+    { key: "date",    label: "Purchase Date",   type: "date" },
+    { key: "added",   label: "Qty Added (g)",   type: "number",   align: "right", isSummable: true },
     { key: "rate",    label: "Rate/g (₹)",      type: "currency", align: "right" },
-    { key: "value",   label: "Stock Value (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "amount",  label: "Amount (₹)",      type: "currency", align: "right", isSummable: true },
+    { key: "closing", label: "Current Closing", type: "number",   align: "right", isSummable: true },
     { key: "status",  label: "Status",          type: "badge",    align: "center" },
   ];
 
-  const rows: ReportRow[] = docs.map((t) => {
+  const rows: ReportRow[] = [];
+  docs.forEach((t) => {
     const closing = t.openingStock + t.stockAdd - t.netUsed;
-    return {
-      code:    t.threadCode,
-      colour:  t.threadColour,
-      company: t.threadCompanyName,
-      opening: t.openingStock,
-      added:   t.stockAdd,
-      used:    t.netUsed,
-      closing,
-      rate:    t.costPerUnit,
-      value:   closing * t.costPerUnit,
-      status:  closing <= 0 ? "Out of Stock" : "OK",
-    };
+    const history = t.purchaseHistory || [];
+
+    if (history.length === 0) {
+      rows.push({
+        code:    t.threadCode,
+        colour:  t.threadColour,
+        company: t.threadCompanyName,
+        date:    t.updatedAt ? new Date(t.updatedAt).toISOString().split("T")[0] : "—",
+        added:   t.stockAdd,
+        rate:    t.costPerUnit,
+        amount:  t.stockAdd * t.costPerUnit,
+        closing,
+        status:  closing <= 0 ? "Out of Stock" : "OK",
+      });
+    } else {
+      history.forEach((h) => {
+        rows.push({
+          code:    t.threadCode,
+          colour:  t.threadColour,
+          company: t.threadCompanyName,
+          date:    h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
+          added:   h.quantity,
+          rate:    h.ratePerUnit,
+          amount:  h.totalAmount,
+          closing,
+          status:  closing <= 0 ? "Out of Stock" : "OK",
+        });
+      });
+    }
   });
 
   return { title: REPORT_LABELS["threads-stock"], columns, rows, summary: sumCols(columns, rows) };

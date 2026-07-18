@@ -171,12 +171,13 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
 
   const purchaseHistory = useMemo(() => {
     if (!item) return [];
-    return resolvePurchaseHistory(item.purchaseHistory, {
+    const resolved = resolvePurchaseHistory(item.purchaseHistory, {
       quantity: item.purchasedQty,
       totalAmount: Number((item.purchasedQty * item.ratePerUnit).toFixed(2)),
       ratePerUnit: item.ratePerUnit,
       date: item.lastPurchaseDate ?? String(item.createdAt),
     });
+    return resolved.slice(0, 1);
   }, [item]);
 
   const onSubmit = (data: RawMaterialFormOutput) => {

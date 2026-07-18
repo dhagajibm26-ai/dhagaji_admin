@@ -126,14 +126,44 @@ export async function PATCH(
         ? new Date(directFields.lastPurchaseDate)
         : new Date();
     } else if (directFields.purchasedQty !== undefined) {
-      const amount = totalPurchaseAmount !== undefined 
-        ? totalPurchaseAmount 
-        : directFields.purchasedQty * (ratePerUnit ?? existing.ratePerUnit);
-      const entry = buildDbPurchaseEntry(directFields.purchasedQty, amount);
-      update.$set.purchaseHistory = [entry];
-      
-      if (ratePerUnit !== undefined) {
-        update.$set.ratePerUnit = ratePerUnit;
+      const newQty = directFields.purchasedQty;
+      const oldQty = existing.purchasedQty || 0;
+      const diffQty = newQty - oldQty;
+
+      if (diffQty > 0) {
+        const newTotalAmount = totalPurchaseAmount !== undefined
+          ? totalPurchaseAmount
+          : newQty * (ratePerUnit ?? existing.ratePerUnit);
+        const oldTotalAmount = oldQty * existing.ratePerUnit;
+        const diffAmount = Math.max(0, newTotalAmount - oldTotalAmount);
+
+        const entry = buildDbPurchaseEntry(diffQty, diffAmount);
+        update.$push = { purchaseHistory: entry };
+
+        const newRate = newQty > 0 ? Number((newTotalAmount / newQty).toFixed(4)) : 0;
+        update.$set.ratePerUnit = newRate;
+        update.$set.lastPurchaseDate = new Date();
+      } else if (diffQty < 0) {
+        const amount = totalPurchaseAmount !== undefined
+          ? totalPurchaseAmount
+          : newQty * (ratePerUnit ?? existing.ratePerUnit);
+        const entry = buildDbPurchaseEntry(newQty, amount);
+        update.$set.purchaseHistory = [entry];
+
+        if (ratePerUnit !== undefined) {
+          update.$set.ratePerUnit = ratePerUnit;
+        } else {
+          const newRate = newQty > 0 ? Number((amount / newQty).toFixed(4)) : 0;
+          update.$set.ratePerUnit = newRate;
+        }
+      } else {
+        if (totalPurchaseAmount !== undefined || ratePerUnit !== undefined) {
+          const amount = totalPurchaseAmount !== undefined
+            ? totalPurchaseAmount
+            : newQty * (ratePerUnit ?? existing.ratePerUnit);
+          const newRate = newQty > 0 ? Number((amount / newQty).toFixed(4)) : 0;
+          update.$set.ratePerUnit = newRate;
+        }
       }
     } else if (ratePerUnit !== undefined && addPurchasedQty === undefined) {
       update.$set.ratePerUnit = ratePerUnit;
