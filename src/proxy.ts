@@ -10,7 +10,7 @@ import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
 
-// Build a lightweight NextAuth instance from the Edge-safe config
+// Build aa lightweight NextAuth instance from the Edge-safe config
 const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
