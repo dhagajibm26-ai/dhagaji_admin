@@ -229,8 +229,8 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
     if (coupon.assignedType === "customer") {
       const allowedCustomerIds = Array.isArray(coupon.customerIds)
         ? coupon.customerIds.map((cust: any) =>
-            typeof cust === "object" && cust !== null ? cust._id : cust
-          )
+          typeof cust === "object" && cust !== null ? cust._id : cust
+        )
         : [];
 
       if (!customerId) {

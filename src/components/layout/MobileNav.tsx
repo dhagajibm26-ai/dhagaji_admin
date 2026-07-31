@@ -60,7 +60,7 @@ export function MobileNav() {
   return (
     <>
       {/* Bottom tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-20 flex items-end border-t border-slate-100 bg-white/95 backdrop-blur-md pb-safe lg:hidden shadow-lg shadow-black/5">
+      <nav className="fixed bottom-0 left-0 right-0 z-20 flex items-end border-t border-[#d29e71]/20 bg-[#11271d]/95 backdrop-blur-md pb-safe lg:hidden shadow-lg shadow-black/10">
         {/* Left tabs */}
         {leftTabs.map((tab) => (
           <Link
@@ -68,12 +68,12 @@ export function MobileNav() {
             href={tab.href}
             className={cn(
               "flex flex-1 flex-col items-center gap-1 pt-2 pb-3 text-[10px] font-semibold min-h-14 justify-center transition-all",
-              isActive(tab.href) ? "text-[#D32F2F]" : "text-slate-400 hover:text-slate-700"
+              isActive(tab.href) ? "text-[#d29e71]" : "text-[#d29e71]/50 hover:text-[#d29e71]"
             )}
           >
             <div className={cn(
               "flex h-7 w-7 items-center justify-center rounded-xl transition-all",
-              isActive(tab.href) ? "bg-[#D32F2F]/10 scale-110" : ""
+              isActive(tab.href) ? "bg-[#1b4332]/35 scale-110" : ""
             )}>
               <tab.Icon size={18} />
             </div>
@@ -88,9 +88,15 @@ export function MobileNav() {
             className={cn(
               "flex flex-col items-center justify-center rounded-2xl w-14 h-14 -mt-6",
               "bg-[#D32F2F] text-white transition-all hover:bg-[#B71C1C] active:scale-95",
-              "shadow-xl shadow-red-700/40",
-              pathname.startsWith("/billing") && "ring-2 ring-[#D32F2F] ring-offset-2 ring-offset-white"
+              "shadow-xl shadow-green-950/40",
+              pathname.startsWith("/billing")
+                ? "ring-2 ring-[#d29e71] ring-offset-2 ring-offset-[#11271d]"
+                : ""
             )}
+            style={{
+              background: "linear-gradient(135deg, #d29e71 0%, #b88556 100%)",
+              color: "#11271d",
+            }}
             aria-label="Billing"
           >
             <Receipt size={20} />
@@ -105,12 +111,12 @@ export function MobileNav() {
             href={tab.href}
             className={cn(
               "flex flex-1 flex-col items-center gap-1 pt-2 pb-3 text-[10px] font-semibold min-h-14 justify-center transition-all",
-              isActive(tab.href) ? "text-[#D32F2F]" : "text-slate-400 hover:text-slate-700"
+              isActive(tab.href) ? "text-[#d29e71]" : "text-[#d29e71]/50 hover:text-[#d29e71]"
             )}
           >
             <div className={cn(
               "flex h-7 w-7 items-center justify-center rounded-xl transition-all",
-              isActive(tab.href) ? "bg-[#D32F2F]/10 scale-110" : ""
+              isActive(tab.href) ? "bg-[#1b4332]/35 scale-110" : ""
             )}>
               <tab.Icon size={18} />
             </div>
@@ -121,7 +127,7 @@ export function MobileNav() {
         {/* More */}
         <button
           onClick={() => setDrawerOpen(true)}
-          className="flex flex-1 flex-col items-center gap-1 pt-2 pb-3 text-[10px] font-semibold min-h-14 justify-center text-slate-400 hover:text-slate-700 transition-colors"
+          className="flex flex-1 flex-col items-center gap-1 pt-2 pb-3 text-[10px] font-semibold min-h-14 justify-center text-[#d29e71]/50 hover:text-[#d29e71] transition-colors"
           aria-label="More"
         >
           <div className="flex h-7 w-7 items-center justify-center rounded-xl">
@@ -134,7 +140,7 @@ export function MobileNav() {
       {/* Drawer overlay */}
       {drawerOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
           aria-hidden="true"
           onClick={() => setDrawerOpen(false)}
         />
@@ -143,7 +149,7 @@ export function MobileNav() {
       {/* More drawer */}
       <div
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white shadow-2xl lg:hidden",
+          "fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-[#11271d] border-t border-[#d29e71]/30 shadow-2xl lg:hidden",
           "transition-transform duration-300 ease-out",
           drawerOpen ? "translate-y-0" : "translate-y-full"
         )}
@@ -151,12 +157,12 @@ export function MobileNav() {
         {/* Handle + title */}
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex flex-col">
-            <span className="text-sm font-bold text-slate-900">More Pages</span>
-            <span className="text-xs text-slate-400">Navigate to other sections</span>
+            <span className="text-sm font-bold text-[#d29e71]/90">More Pages</span>
+            <span className="text-xs text-[#d29e71]/50">Navigate to other sections</span>
           </div>
           <button
             onClick={() => setDrawerOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#1b4332]/35 text-[#d29e71] hover:bg-[#1b4332]/55 transition-colors"
             aria-label="Close"
           >
             <X size={16} />
@@ -171,15 +177,15 @@ export function MobileNav() {
                 className={cn(
                   "flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm font-semibold min-h-14 transition-all",
                   isActive(item.href)
-                    ? "bg-[#D32F2F]/10 text-[#D32F2F]"
-                    : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    ? "bg-[#1b4332]/35 text-white"
+                    : "bg-[#1a382b]/55 text-[#d29e71]/60 hover:bg-[#1b4332]/20 hover:text-[#d29e71]"
                 )}
               >
                 <div className={cn(
                   "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
-                  isActive(item.href) ? "bg-[#D32F2F]/20" : "bg-white shadow-sm"
+                  isActive(item.href) ? "bg-[#1b4332] text-[#d29e71]" : "bg-[#11271d] text-[#d29e71]/50 shadow-inner"
                 )}>
-                  <item.Icon size={16} className={isActive(item.href) ? "text-[#D32F2F]" : "text-slate-500"} />
+                  <item.Icon size={16} className={isActive(item.href) ? "text-[#d29e71]" : "text-[#d29e71]/50"} />
                 </div>
                 {item.label}
               </Link>

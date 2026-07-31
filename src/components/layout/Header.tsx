@@ -65,12 +65,12 @@ export function Header() {
     : "U";
 
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between bg-white/90 backdrop-blur-md border-b border-slate-100 px-4 py-2.5 lg:px-6">
+    <header className="sticky top-0 z-10 flex items-center justify-between bg-[#11271d]/90 backdrop-blur-md border-b border-[#d29e71]/20 px-4 py-2.5 lg:px-6">
       {/* Left */}
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={toggleSidebar}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 transition-colors lg:hidden"
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-[#d29e71]/70 hover:bg-[#1b4332]/35 hover:text-[#d29e71] transition-colors lg:hidden"
           aria-label="Toggle sidebar"
         >
           <Menu size={18} />
@@ -80,21 +80,21 @@ export function Header() {
         <nav className="flex items-center gap-1.5 text-sm min-w-0" aria-label="Breadcrumb">
           <Link
             href="/"
-            className="hidden items-center gap-1 text-slate-400 hover:text-[#D32F2F] transition-colors sm:flex shrink-0"
+            className="hidden items-center gap-1 text-[#d29e71]/50 hover:text-[#d29e71] transition-colors sm:flex shrink-0"
           >
             <Home size={13} />
           </Link>
           {crumb && (
             <>
-              <span className="hidden text-slate-200 sm:block text-xs">/</span>
-              <span className="flex items-center gap-1.5 font-semibold text-slate-800 truncate">
-                <crumb.Icon size={13} className="hidden sm:block text-slate-400 shrink-0" />
+              <span className="hidden text-[#d29e71]/30 sm:block text-xs">/</span>
+              <span className="flex items-center gap-1.5 font-semibold text-[#d29e71] truncate">
+                <crumb.Icon size={13} className="hidden sm:block text-[#d29e71]/50 shrink-0" />
                 {pageTitle}
               </span>
             </>
           )}
-          <span className="flex items-center gap-1.5 font-semibold text-slate-800 sm:hidden">
-            {crumb && <crumb.Icon size={13} className="text-slate-400 shrink-0" />}
+          <span className="flex items-center gap-1.5 font-semibold text-[#d29e71] sm:hidden">
+            {crumb && <crumb.Icon size={13} className="text-[#d29e71]/50 shrink-0" />}
             {pageTitle}
           </span>
         </nav>
@@ -105,36 +105,36 @@ export function Header() {
         {/* Low-stock bell */}
         <Link
           href="/raw-material"
-          className="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 transition-colors"
+          className="relative flex h-9 w-9 items-center justify-center rounded-xl text-[#d29e71]/60 hover:bg-[#1b4332]/35 hover:text-[#d29e71] transition-colors"
           aria-label={lowCount > 0 ? `${lowCount} low-stock alerts` : "Stock alerts"}
           title={lowCount > 0 ? `${lowCount} material(s) low on stock` : "All stock OK"}
         >
-          <Bell size={17} className={lowCount > 0 ? "text-[#D32F2F]" : ""} />
+          <Bell size={17} className={lowCount > 0 ? "text-[#d29e71]" : ""} />
           {lowCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#D32F2F] px-1 text-[9px] font-black text-white leading-none">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#d29e71] px-1 text-[9px] font-black text-[#11271d] leading-none">
               {lowCount > 9 ? "9+" : lowCount}
             </span>
           )}
         </Link>
 
         {/* User chip (desktop) */}
-        <div className="hidden sm:flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50 px-3 py-1.5">
+        <div className="hidden sm:flex items-center gap-2.5 rounded-xl border border-[#d29e71]/20 bg-[#1b4332]/25 px-3 py-1.5">
           <div
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-white text-[10px] font-black select-none"
-            style={{ background: "linear-gradient(135deg, #D32F2F 0%, #7f1d1d 100%)" }}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[#11271d] text-[10px] font-black select-none"
+            style={{ background: "linear-gradient(135deg, #d29e71 0%, #b88556 100%)", border: "1px solid rgba(17,39,29,0.2)" }}
           >
             {initials}
           </div>
           <div className="flex flex-col leading-none">
-            <span className="text-xs font-semibold text-slate-800">{userName}</span>
-            <span className="text-[10px] capitalize text-slate-400">{role}</span>
+            <span className="text-xs font-semibold text-[#d29e71]/90">{userName}</span>
+            <span className="text-[10px] capitalize text-[#d29e71]/50">{role}</span>
           </div>
         </div>
 
         {/* Avatar (mobile) */}
         <div
-          className="sm:hidden flex h-8 w-8 items-center justify-center rounded-xl text-white text-xs font-black select-none"
-          style={{ background: "linear-gradient(135deg, #D32F2F 0%, #7f1d1d 100%)" }}
+          className="sm:hidden flex h-8 w-8 items-center justify-center rounded-xl text-[#11271d] text-xs font-black select-none"
+          style={{ background: "linear-gradient(135deg, #d29e71 0%, #b88556 100%)", border: "1px solid rgba(17,39,29,0.2)" }}
         >
           {initials}
         </div>

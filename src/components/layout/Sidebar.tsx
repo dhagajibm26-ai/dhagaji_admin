@@ -85,12 +85,12 @@ export function Sidebar() {
       <aside
         className={cn(
           "fixed left-0 top-0 z-30 flex h-full w-[256px] flex-col",
-          "bg-[#0f0f0f] text-white",
+          "bg-[#11271d] text-white",
           "transition-transform duration-300 ease-out",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0"
         )}
-        style={{ borderRight: "1px solid rgba(255,255,255,0.06)" }}
+        style={{ borderRight: "1px solid rgba(210, 158, 113, 0.12)" }}
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-5 py-5">
@@ -100,13 +100,13 @@ export function Sidebar() {
               alt="Dhagaji Creation"
               className="h-14 w-auto object-contain select-none"
             />
-            <p className="text-[9px] text-white/30 leading-tight tracking-wide pl-0.5">
+            <p className="text-[9px] text-[#d29e71]/80 leading-tight tracking-wide pl-0.5">
               Factory Management
             </p>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-white/30 hover:bg-white/10 hover:text-white transition-colors lg:hidden"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#d29e71]/70 hover:bg-[#1b4332]/20 hover:text-[#d29e71] transition-colors lg:hidden"
             aria-label="Close sidebar"
           >
             <X size={15} />
@@ -122,10 +122,10 @@ export function Sidebar() {
                 {idx > 0 && (
                   <div
                     className="mx-3 mb-3"
-                    style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+                    style={{ borderTop: "1px solid rgba(210, 158, 113, 0.12)" }}
                   />
                 )}
-                <p className="mb-1 px-3 text-[9px] font-bold uppercase tracking-[0.15em] text-white/25">
+                <p className="mb-1 px-3 text-[9px] font-bold uppercase tracking-[0.15em] text-[#d29e71]/75">
                   {section}
                 </p>
                 <ul className="space-y-0.5">
@@ -137,8 +137,8 @@ export function Sidebar() {
                         className={cn(
                           "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium min-h-11",
                           pathname.startsWith("/workers") || pathname.startsWith("/work-orders")
-                            ? "bg-white/10 text-white"
-                            : "text-white/60 hover:bg-white/8 hover:text-white"
+                            ? "bg-[#1b4332]/30 text-[#d29e71]"
+                            : "text-[#d29e71]/90 hover:bg-[#1b4332]/20 hover:text-[#d29e71]"
                         )}
                       >
                         <HardHat size={16} className="shrink-0" />
@@ -160,8 +160,8 @@ export function Sidebar() {
                                 className={cn(
                                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium min-h-11 transition-all duration-150",
                                   isActive
-                                    ? "bg-[#D32F2F] text-white shadow-lg shadow-red-900/30"
-                                    : "text-white/50 hover:bg-white/8 hover:text-white/90"
+                                    ? "bg-[#1b4332] text-white shadow-lg shadow-green-950/40 border-l-2 border-[#d29e71]"
+                                    : "text-[#d29e71]/80 hover:bg-[#1b4332]/20 hover:text-[#d29e71]"
                                 )}
                               >
                                 <item.Icon size={15} className="shrink-0" />
@@ -189,10 +189,10 @@ export function Sidebar() {
                             "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium min-h-11",
                             "transition-all duration-150",
                             isActive
-                              ? "bg-[#D32F2F] text-white shadow-lg shadow-red-900/30"
+                              ? "bg-[#1b4332] text-white shadow-lg shadow-green-950/40 border-l-2 border-[#d29e71]"
                               : item.highlight
-                                ? "border border-[#D32F2F]/30 text-[#EF9A9A] hover:bg-[#D32F2F] hover:text-white hover:border-transparent"
-                                : "text-white/50 hover:bg-white/8 hover:text-white/90"
+                                ? "border border-[#d29e71]/40 text-[#f3e5ab] hover:bg-[#1b4332] hover:text-white hover:border-transparent"
+                                : "text-[#d29e71]/85 hover:bg-[#1b4332]/20 hover:text-[#d29e71]"
                           )}
                         >
                           <item.Icon
@@ -204,12 +204,12 @@ export function Sidebar() {
                           />
                           <span className="flex-1 leading-none">{item.label}</span>
                           {item.highlight && !isActive && (
-                            <span className="rounded-md bg-[#D32F2F] px-1.5 py-0.5 text-[9px] font-black text-white leading-none tracking-wider">
+                            <span className="rounded-md bg-[#d29e71] px-1.5 py-0.5 text-[9px] font-black text-black leading-none tracking-wider">
                               POS
                             </span>
                           )}
                           {isActive && (
-                            <ChevronRight size={12} className="opacity-60" />
+                            <ChevronRight size={12} className="text-[#d29e71] font-bold" />
                           )}
                         </Link>
                       </li>
@@ -224,27 +224,27 @@ export function Sidebar() {
         {/* Footer */}
         <div
           className="px-3 py-3"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ borderTop: "1px solid rgba(210, 158, 113, 0.12)" }}
         >
           <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 mb-1">
             <div
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white text-xs font-black select-none"
-              style={{ background: "linear-gradient(135deg, #D32F2F 0%, #7f1d1d 100%)" }}
+              style={{ background: "linear-gradient(135deg, #1b4332 0%, #0d1e0e 100%)", border: "1px solid rgba(210, 158, 113, 0.3)" }}
             >
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-white/90 leading-tight">
+              <p className="truncate text-sm font-semibold text-[#d29e71] leading-tight">
                 {userName ?? "—"}
               </p>
-              <p className="text-[10px] capitalize text-white/30 leading-tight">
+              <p className="text-[10px] capitalize text-[#d29e71]/70 leading-tight">
                 {role ?? ""}
               </p>
             </div>
           </div>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-white/30 hover:bg-white/8 hover:text-white/70 min-h-11 transition-all"
+            className="cursor-pointer flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm hover:bg-[#1b4332]/20 text-[#d29e71]/90 min-h-11 transition-all"
           >
             <LogOut size={15} className="shrink-0" />
             Sign Out

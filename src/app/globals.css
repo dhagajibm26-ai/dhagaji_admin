@@ -75,3 +75,196 @@ body {
   outline: 2px solid var(--brand-red);
   outline-offset: 2px;
 }
+
+/* ─── Scoped Dashboard Light Sage & Gold Theme Overrides ────────────────── */
+#dashboard-layout {
+  background-color: #f2f6f3 !important;
+  color: #2e4339 !important;
+}
+
+#dashboard-layout .bg-slate-50 {
+  background-color: #f2f6f3 !important;
+}
+
+#dashboard-layout .bg-white {
+  background-color: #ffffff !important;
+}
+
+/* Override cards border and shadow states */
+#dashboard-layout .border-slate-100,
+#dashboard-layout .border-slate-200,
+#dashboard-layout .border-gray-200,
+#dashboard-layout .border-gray-300,
+#dashboard-layout .border-slate-300 {
+  border-color: rgba(210, 158, 113, 0.25) !important;
+}
+
+#dashboard-layout .divide-slate-100 > * + *,
+#dashboard-layout .divide-slate-200 > * + * {
+  border-color: rgba(210, 158, 113, 0.18) !important;
+}
+
+/* Texts styling - using dark green for legibility on light background */
+#dashboard-layout .text-slate-900,
+#dashboard-layout .text-slate-800 {
+  color: #11271d !important;
+}
+
+#dashboard-layout .text-slate-700,
+#dashboard-layout .text-slate-600 {
+  color: #2e4339 !important;
+}
+
+#dashboard-layout .text-slate-500 {
+  color: #caa077 !important;
+}
+
+#dashboard-layout .text-slate-400 {
+  color: rgba(17, 39, 29, 0.5) !important;
+}
+
+#dashboard-layout .text-slate-300 {
+  color: rgba(17, 39, 29, 0.25) !important;
+}
+
+/* Forms & Inputs styling */
+#dashboard-layout input,
+#dashboard-layout select,
+#dashboard-layout textarea {
+  background-color: #ffffff !important;
+  color: #11271d !important;
+  border-color: rgba(210, 158, 113, 0.3) !important;
+}
+
+#dashboard-layout input::placeholder,
+#dashboard-layout textarea::placeholder {
+  color: rgba(17, 39, 29, 0.35) !important;
+}
+
+#dashboard-layout input:focus,
+#dashboard-layout select:focus,
+#dashboard-layout textarea:focus {
+  border-color: #d29e71 !important;
+  outline: none !important;
+}
+
+/* Brand Red to Dark Green mapping for buttons, badges, links, accents */
+#dashboard-layout .bg-\[\#D32F2F\],
+#dashboard-layout .bg-brand-red {
+  background: linear-gradient(135deg, #1b4332 0%, #11271d 100%) !important;
+  color: #ffffff !important;
+}
+
+#dashboard-layout .bg-\[\#D32F2F\]:hover,
+#dashboard-layout .bg-brand-red:hover {
+  background: linear-gradient(135deg, #133024 0%, #0d1f16 100%) !important;
+}
+
+#dashboard-layout .text-\[\#D32F2F\],
+#dashboard-layout .text-brand-red {
+  color: #1b4332 !important;
+}
+
+#dashboard-layout .border-\[\#D32F2F\],
+#dashboard-layout .border-brand-red {
+  border-color: #1b4332 !important;
+}
+
+#dashboard-layout .accent-\[\#D32F2F\] {
+  accent-color: #1b4332 !important;
+}
+
+/* Mute skeleton loading animation backgrounds to match light theme */
+#dashboard-layout .skeleton {
+  background: linear-gradient(90deg, #eef3ef 25%, #e2eae4 50%, #eef3ef 75%) !important;
+}
+
+/* ─── Scoped Modal Theme Overrides (Portal elements) ────────────────────── */
+[role="dialog"] .bg-white {
+  background-color: #ffffff !important;
+}
+
+[role="dialog"] .bg-slate-50\/60 {
+  background-color: rgba(242, 246, 243, 0.7) !important;
+}
+
+/* Borders inside modals */
+[role="dialog"] .border-slate-100,
+[role="dialog"] .border-slate-200,
+[role="dialog"] .border-gray-200,
+[role="dialog"] .border-gray-300,
+[role="dialog"] .border-slate-300 {
+  border-color: rgba(210, 158, 113, 0.25) !important;
+}
+
+/* Modal text elements styling */
+[role="dialog"] .text-slate-900,
+[role="dialog"] .text-slate-800 {
+  color: #11271d !important;
+}
+
+[role="dialog"] .text-slate-700,
+[role="dialog"] .text-slate-600 {
+  color: #2e4339 !important;
+}
+
+[role="dialog"] .text-slate-500 {
+  color: #caa077 !important;
+}
+
+[role="dialog"] .text-slate-400 {
+  color: rgba(17, 39, 29, 0.5) !important;
+}
+
+[role="dialog"] .text-slate-300 {
+  color: rgba(17, 39, 29, 0.25) !important;
+}
+
+/* Inputs styling inside modals */
+[role="dialog"] input,
+[role="dialog"] select,
+[role="dialog"] textarea {
+  background-color: #ffffff !important;
+  color: #11271d !important;
+  border-color: rgba(210, 158, 113, 0.3) !important;
+}
+
+[role="dialog"] input::placeholder,
+[role="dialog"] textarea::placeholder {
+  color: rgba(17, 39, 29, 0.35) !important;
+}
+
+[role="dialog"] input:focus,
+[role="dialog"] select:focus,
+[role="dialog"] textarea:focus {
+  border-color: #d29e71 !important;
+  outline: none !important;
+}
+
+/* Brand Red to Dark Green button and badge mapping inside modals */
+[role="dialog"] .bg-\[\#D32F2F\],
+[role="dialog"] .bg-brand-red {
+  background: linear-gradient(135deg, #1b4332 0%, #11271d 100%) !important;
+  color: #ffffff !important;
+}
+
+[role="dialog"] .bg-\[\#D32F2F\]:hover,
+[role="dialog"] .bg-brand-red:hover {
+  background: linear-gradient(135deg, #133024 0%, #0d1f16 100%) !important;
+}
+
+[role="dialog"] .text-\[\#D32F2F\],
+[role="dialog"] .text-brand-red {
+  color: #1b4332 !important;
+}
+
+[role="dialog"] .border-\[\#D32F2F\],
+[role="dialog"] .border-brand-red {
+  border-color: #1b4332 !important;
+}
+
+[role="dialog"] .accent-\[\#D32F2F\] {
+  accent-color: #1b4332 !important;
+}
+
+

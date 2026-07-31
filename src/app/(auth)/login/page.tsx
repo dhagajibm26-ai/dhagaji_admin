@@ -66,22 +66,27 @@ export default function LoginPage() {
   const errInfo = errorCode ? (ERROR_MAP[errorCode] ?? ERROR_MAP.default) : null;
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#080808] px-4 py-12">
+    <main
+      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#11271d] px-4 py-12 bg-cover bg-center"
+      style={{
+        backgroundImage: "linear-gradient(to bottom, rgba(17, 39, 29, 0.93), rgba(17, 39, 29, 0.96)), url('/work-order-bg.jpg')",
+      }}
+    >
       {/* Background glows */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
           className="absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle, rgba(211,47,47,0.15) 0%, transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, rgba(24,54,40,0.5) 0%, transparent 70%)" }}
         />
         <div
           className="absolute -bottom-40 -right-20 h-[500px] w-[500px] rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle, rgba(211,47,47,0.08) 0%, transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, rgba(210,158,113,0.12) 0%, transparent 70%)" }}
         />
         <div
           className="absolute inset-0"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)",
+              "linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)",
             backgroundSize: "48px 48px",
           }}
         />
@@ -95,7 +100,7 @@ export default function LoginPage() {
               alt="Dhagaji Creation"
               className="h-20 w-auto object-contain select-none"
             />
-            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-white/20">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#d29e71]/40">
               Factory Management · Himatnagar
             </p>
           </div>
@@ -105,12 +110,13 @@ export default function LoginPage() {
         <div
           className="rounded-2xl px-7 py-8"
           style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.07)",
+            background: "linear-gradient(135deg, rgba(27, 67, 50, 0.15) 0%, rgba(17, 39, 29, 0.25) 100%)",
+            border: "1px solid rgba(210, 158, 113, 0.22)",
+            boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
             backdropFilter: "blur(24px)",
           }}
         >
-          <p className="mb-6 text-xs font-semibold uppercase tracking-[0.15em] text-white/30">
+          <p className="mb-6 text-xs font-semibold uppercase tracking-[0.15em] text-[#d29e71]/60">
             Sign in to your account
           </p>
 
@@ -119,7 +125,7 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="username"
-                className="block text-[10px] font-bold uppercase tracking-[0.15em] text-white/35"
+                className="block text-[10px] font-bold uppercase tracking-[0.15em] text-[#d29e71]/70"
               >
                 Email
               </label>
@@ -131,10 +137,10 @@ export default function LoginPage() {
                 aria-invalid={!!errors.username}
                 className={[
                   "w-full rounded-xl px-4 py-3 text-sm text-white outline-none transition-all",
-                  "placeholder:text-white/15",
+                  "placeholder:text-[#d29e71]/20",
                   errors.username
                     ? "border border-rose-500/60 bg-rose-950/20 ring-1 ring-rose-500/30"
-                    : "border border-white/6 bg-white/5 focus:border-[#D32F2F]/50 focus:ring-1 focus:ring-[#D32F2F]/25",
+                    : "border border-white/6 bg-white/5 focus:border-[#d29e71]/50 focus:ring-1 focus:ring-[#d29e71]/25",
                 ].join(" ")}
                 {...register("username")}
               />
@@ -150,7 +156,7 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <label
                 htmlFor="password"
-                className="block text-[10px] font-bold uppercase tracking-[0.15em] text-white/35"
+                className="block text-[10px] font-bold uppercase tracking-[0.15em] text-[#d29e71]/70"
               >
                 Password
               </label>
@@ -163,10 +169,10 @@ export default function LoginPage() {
                   aria-invalid={!!errors.password}
                   className={[
                     "w-full rounded-xl px-4 py-3 pr-11 text-sm text-white outline-none transition-all",
-                    "placeholder:text-white/15",
+                    "placeholder:text-[#d29e71]/20",
                     errors.password
                       ? "border border-rose-500/60 bg-rose-950/20 ring-1 ring-rose-500/30"
-                      : "border border-white/6 bg-white/5 focus:border-[#D32F2F]/50 focus:ring-1 focus:ring-[#D32F2F]/25",
+                      : "border border-white/6 bg-white/5 focus:border-[#d29e71]/50 focus:ring-1 focus:ring-[#d29e71]/25",
                   ].join(" ")}
                   {...register("password")}
                 />
@@ -206,10 +212,11 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="mt-2 flex w-full items-center justify-center gap-2.5 rounded-xl py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2 flex w-full items-center justify-center gap-2.5 rounded-xl py-3.5 text-sm font-bold text-[#11271d] transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
               style={{
-                background: "linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%)",
-                boxShadow: isSubmitting ? "none" : "0 4px 24px rgba(211,47,47,0.35)",
+                background: "linear-gradient(135deg, #d29e71 0%, #b88556 100%)",
+                border: "1px solid rgba(210, 158, 113, 0.4)",
+                boxShadow: isSubmitting ? "none" : "0 4px 20px rgba(210, 158, 113, 0.35)",
               }}
             >
               {isSubmitting ? (
@@ -224,7 +231,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-[10px] text-white/12">
+        <p className="mt-6 text-center text-[10px] text-[#d29e71]/25">
           Internal use only · Dhagaji Creation &copy; {new Date().getFullYear()}
         </p>
       </div>

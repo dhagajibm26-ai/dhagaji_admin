@@ -286,7 +286,7 @@ export function FinishedStockPageClient() {
                       <Badge variant="info">{product.category || "—"}</Badge>
                     </td>
                     <td className="px-4 py-3 text-slate-500">{product.size}</td>
-                    
+
                     {/* HSN */}
                     <td className="px-4 py-3 text-slate-600 font-mono text-xs">
                       <div className="flex items-center gap-1.5">
@@ -378,7 +378,7 @@ export function FinishedStockPageClient() {
         isOpen={printOpen}
         onClose={() => { setPrintOpen(false); setPrintProducts([]); }}
       />
-      
+
       {selectedHsnItem && (
         <Modal
           isOpen={!!selectedHsnItem}
