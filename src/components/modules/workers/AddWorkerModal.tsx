@@ -116,19 +116,62 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
   const photoDataUrl = watch("photoDataUrl") ?? "";
 
   useEffect(() => {
-    if (!isOpen || isEdit) return;
-    const raw = window.localStorage.getItem(DRAFT_KEY);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as Partial<WorkerInput>;
+    if (!isOpen) return;
+
+    if (worker) {
       reset({
-        ...parsed,
-        aadhaarNumber: formatAadhaar(parsed.aadhaarNumber ?? ""),
+        name: worker.name,
+        nameGu: worker.nameGu ?? "",
+        fatherOrHusbandName: worker.fatherOrHusbandName ?? "",
+        fatherOrHusbandNameGu: worker.fatherOrHusbandNameGu ?? "",
+        dateOfBirth: worker.dateOfBirth ? new Date(worker.dateOfBirth).toISOString().slice(0, 10) : "",
+        gender: worker.gender,
+        bloodGroup: worker.bloodGroup ?? "",
+        mobile: worker.mobile ?? worker.phone ?? "",
+        emergencyContact: worker.emergencyContact ?? "",
+        phone: worker.phone ?? "",
+        address: worker.address ?? "",
+        addressGu: worker.addressGu ?? "",
+        aadhaarNumber: worker.aadhaarNumber ?? "",
+        designation: worker.designation ?? "",
+        joiningDate: worker.joiningDate ? new Date(worker.joiningDate).toISOString().slice(0, 10) : "",
+        photoDataUrl: worker.photoDataUrl ?? "",
+        isActive: worker.isActive,
       });
-    } catch {
-      window.localStorage.removeItem(DRAFT_KEY);
+    } else {
+      const raw = window.localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as Partial<WorkerInput>;
+          reset({
+            ...parsed,
+            aadhaarNumber: formatAadhaar(parsed.aadhaarNumber ?? ""),
+          });
+          return;
+        } catch {
+          window.localStorage.removeItem(DRAFT_KEY);
+        }
+      }
+      reset({
+        name: "",
+        nameGu: "",
+        fatherOrHusbandName: "",
+        fatherOrHusbandNameGu: "",
+        dateOfBirth: "",
+        bloodGroup: "",
+        mobile: "",
+        emergencyContact: "",
+        phone: "",
+        address: "",
+        addressGu: "",
+        aadhaarNumber: "",
+        designation: "",
+        joiningDate: "",
+        photoDataUrl: "",
+        isActive: true,
+      });
     }
-  }, [isEdit, isOpen, reset]);
+  }, [isOpen, worker, reset]);
 
   useEffect(() => {
     if (!isOpen || allowGujaratiEdit) return;

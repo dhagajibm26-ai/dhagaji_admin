@@ -12,12 +12,14 @@ import {
   Clock,
   IndianRupee,
   TrendingUp,
+  Eye,
 } from "lucide-react";
 import { useWorkers } from "@/hooks/useWorkers";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { useIsOwner } from "@/stores/useAuthStore";
 import { WorkerCard } from "./WorkerCard";
 import { AddWorkerModal } from "./AddWorkerModal";
+import { Modal } from "@/components/ui/Modal";
 import { CreateWorkOrderForm } from "./CreateWorkOrderForm";
 import { ReturnMaterialForm } from "./ReturnMaterialForm";
 import { WorkerLedger } from "./WorkerLedger";
@@ -28,6 +30,232 @@ import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import type { IWorker } from "@/types";
 
+function getLogoDataUrl(): Promise<string> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      resolve("");
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } else {
+        resolve("");
+      }
+    };
+    img.onerror = () => resolve("");
+    img.src = "/logo.png";
+  });
+}
+
+async function downloadPdf(worker: IWorker) {
+  const { default: jsPDF } = await import("jspdf");
+
+  // Create PDF landscape
+  const doc = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: [120, 80]
+  });
+
+  // Background card outline
+  doc.setDrawColor(210, 158, 113); // Gold #d29e71
+  doc.setLineWidth(0.8);
+  doc.setFillColor(242, 246, 243); // Light Sage #f2f6f3
+  doc.roundedRect(4, 4, 112, 72, 3, 3, "FD");
+
+  // Header background banner
+  doc.setFillColor(27, 67, 50); // Dark Green
+  doc.rect(4.4, 4.4, 111.2, 14, "F");
+
+  // Load and draw logo
+  const logoDataUrl = await getLogoDataUrl();
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", 6, 5.5, 38, 11);
+  }
+
+  // Header Text
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.setTextColor(210, 158, 113); // Gold-ish color accent
+  doc.text("WORKER IDENTITY CARD", 48, 11.7);
+
+  // Draw Photo Frame
+  const photoX = 8;
+  const photoY = 22;
+  const photoW = 26;
+  const photoH = 34;
+
+  // Gold frame border for photo
+  doc.setDrawColor(210, 158, 113);
+  doc.setLineWidth(0.3);
+  doc.rect(photoX - 0.2, photoY - 0.2, photoW + 0.4, photoH + 0.4, "D");
+
+  if (worker.photoDataUrl) {
+    try {
+      doc.addImage(worker.photoDataUrl, "JPEG", photoX, photoY, photoW, photoH);
+    } catch (e) {
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(photoX, photoY, photoW, photoH, "D");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      doc.setTextColor(150, 150, 150);
+      doc.text("PHOTO", photoX + 13, photoY + 17, { align: "center" });
+    }
+  } else {
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.2);
+    doc.rect(photoX, photoY, photoW, photoH, "D");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6);
+    doc.setTextColor(150, 150, 150);
+    doc.text("NO PHOTO", photoX + 13, photoY + 17, { align: "center" });
+  }
+
+  // Draw ID text under photo
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6);
+  doc.setTextColor(46, 67, 57); // Dark Sage text #2e4339
+  doc.text(`ID: ${worker._id.slice(-6).toUpperCase()}`, photoX + 13, photoY + 38, { align: "center" });
+
+  // Details column (Right side)
+  const textX = 38;
+  let textY = 24.5;
+  const lineSpacing = 4.2;
+
+  // Name (English)
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(202, 160, 119); // Gold label accent #caa077
+  doc.text("FULL NAME:", textX, textY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(17, 39, 29); // Dark Green value #11271d
+  doc.text(worker.name, textX + 22, textY);
+  
+  if (worker.nameGu) {
+    textY += 3.5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(46, 67, 57); // #2e4339
+    doc.text(worker.nameGu, textX + 22, textY);
+  }
+
+  // Father/Husband
+  textY += lineSpacing;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(202, 160, 119); // #caa077
+  doc.text("FATHER/HUSBAND:", textX, textY);
+  doc.setFont("helvetica", "semibold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(17, 39, 29); // #11271d
+  doc.text(worker.fatherOrHusbandName || "—", textX + 22, textY);
+
+  // Designation
+  textY += lineSpacing;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(202, 160, 119); // #caa077
+  doc.text("DESIGNATION:", textX, textY);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(17, 39, 29); // #11271d
+  doc.text(worker.designation || "Worker", textX + 22, textY);
+
+  // Mobile
+  textY += lineSpacing;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(202, 160, 119); // #caa077
+  doc.text("MOBILE NO:", textX, textY);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(17, 39, 29); // #11271d
+  doc.text(worker.mobile || worker.phone || "—", textX + 22, textY);
+
+  // Aadhaar
+  textY += lineSpacing;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(202, 160, 119); // #caa077
+  doc.text("AADHAAR:", textX, textY);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(17, 39, 29); // #11271d
+  doc.text(worker.aadhaarNumber || "—", textX + 22, textY);
+
+  // Address
+  textY += lineSpacing;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(202, 160, 119); // #caa077
+  doc.text("ADDRESS:", textX, textY);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(17, 39, 29); // #11271d
+  const addr = worker.address || "—";
+  const wrappedAddress = doc.splitTextToSize(addr, 50);
+  doc.text(wrappedAddress, textX + 22, textY);
+
+  // Bottom stats metadata row (White card with thin gold border)
+  const metaY = 66.5;
+  doc.setFillColor(255, 255, 255); // White inner background
+  doc.setDrawColor(210, 158, 113); // Gold border outline
+  doc.setLineWidth(0.2);
+  doc.roundedRect(6, 61, 108, 11, 1, 1, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(5.5);
+  doc.setTextColor(46, 67, 57); // Dark Green label #2e4339
+  
+  // DOB
+  doc.text("DOB", 10, metaY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(17, 39, 29); // Value #11271d
+  doc.text(worker.dateOfBirth ? formatDateDMY(new Date(worker.dateOfBirth)) : "—", 10, metaY + 3.2);
+
+  // Blood
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(5.5);
+  doc.setTextColor(46, 67, 57);
+  doc.text("BLOOD GROUP", 38, metaY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(17, 39, 29);
+  doc.text(worker.bloodGroup || "—", 38, metaY + 3.2);
+
+  // Gender
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(5.5);
+  doc.setTextColor(46, 67, 57); // #2e4339
+  doc.text("GENDER", 68, metaY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(17, 39, 29); // #11271d
+  doc.text(worker.gender || "—", 68, metaY + 3.2);
+
+  // Joining
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(5.5);
+  doc.setTextColor(46, 67, 57); // #2e4339
+  doc.text("JOINING DATE", 92, metaY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(17, 39, 29); // #11271d
+  doc.text(worker.joiningDate ? formatDateDMY(new Date(worker.joiningDate)) : "—", 92, metaY + 3.2);
+
+  doc.save(`Worker_ID_${worker.name.replace(/\s+/g, "_")}.pdf`);
+}
+
 type Tab = "workers" | "active" | "salary" | "ledger";
 
 export function WorkersPageClient() {
@@ -37,6 +265,7 @@ export function WorkersPageClient() {
 
   const [addWorkerOpen, setAddWorkerOpen] = useState(false);
   const [editWorker, setEditWorker] = useState<IWorker | null>(null);
+  const [viewWorker, setViewWorker] = useState<IWorker | null>(null);
   const [orderWorker, setOrderWorker] = useState<IWorker | null>(null);
   const [returnOpen, setReturnOpen] = useState(false);
   const [returnOrderId, setReturnOrderId] = useState<string | undefined>();
@@ -185,6 +414,7 @@ export function WorkersPageClient() {
                     setActiveTab("ledger");
                   }}
                   onEdit={isOwner ? (worker) => setEditWorker(worker) : undefined}
+                  onViewCard={(worker) => setViewWorker(worker)}
                 />
               ))}
             </div>
@@ -356,6 +586,131 @@ export function WorkersPageClient() {
         }}
         preSelectedOrderId={returnOrderId}
       />
+
+      {viewWorker && (
+        <Modal
+          isOpen={!!viewWorker}
+          onClose={() => setViewWorker(null)}
+          title="Worker Details"
+          subtitle="Official identity card and contact profile"
+          size="lg"
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void downloadPdf(viewWorker)}
+              >
+                Download PDF
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => setViewWorker(null)}>
+                Close
+              </Button>
+            </div>
+          }
+        >
+          <div className="flex flex-col items-center justify-center p-4">
+            <div id="worker-id-card-layout" className="w-full max-w-[460px] rounded-2xl border border-[#d29e71]/40 bg-[#f2f6f3] shadow-sm overflow-hidden space-y-0">
+              {/* Header with Logo */}
+              <div className="bg-[#1b4332] px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/logo.png"
+                    alt="Dhagaji Creation Logo"
+                    className="h-9 w-auto object-contain"
+                  />
+                  <span className="text-[#d29e71]">|</span>
+                  <p className="text-xs font-bold text-[#d29e71] tracking-wider uppercase">Worker Identity Card</p>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Grid: Left side Image, Right side Details */}
+                <div className="grid grid-cols-[120px,1fr] gap-4 items-start">
+                  {/* Left Side: Photo */}
+                  <div className="space-y-2 text-center">
+                    {viewWorker.photoDataUrl ? (
+                      <img
+                        src={viewWorker.photoDataUrl}
+                        alt="Worker Photo"
+                        className="h-[140px] w-[110px] rounded-xl border border-[#d29e71]/30 object-cover shadow-sm mx-auto"
+                      />
+                    ) : (
+                      <div className="h-[140px] w-[110px] rounded-xl border-2 border-dashed border-[#d29e71]/20 bg-white grid place-content-center text-xs text-slate-400 font-semibold mx-auto">
+                        No Photo
+                      </div>
+                    )}
+                    <p className="text-[10px] font-bold text-[#2e4339] uppercase tracking-wide">ID: {viewWorker._id.slice(-6).toUpperCase()}</p>
+                  </div>
+
+                  {/* Right Side: Details */}
+                  <div className="space-y-2 text-xs text-[#2e4339]">
+                    <div>
+                      <span className="text-[#2e4339]/60 font-bold block uppercase text-[9px] tracking-wider font-semibold">Full Name</span>
+                      <span className="font-bold text-sm text-[#11271d] block">{viewWorker.name}</span>
+                      {viewWorker.nameGu && <span className="text-[#2e4339] block font-medium mt-0.5">{viewWorker.nameGu}</span>}
+                    </div>
+
+                    {viewWorker.fatherOrHusbandName && (
+                      <div>
+                        <span className="text-[#2e4339]/60 font-bold block uppercase text-[9px] tracking-wider font-semibold">Father / Husband</span>
+                        <span className="font-semibold text-[#11271d] block">{viewWorker.fatherOrHusbandName}</span>
+                        {viewWorker.fatherOrHusbandNameGu && <span className="text-[#2e4339] block mt-0.5">{viewWorker.fatherOrHusbandNameGu}</span>}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[#2e4339]/60 font-bold block uppercase text-[9px] tracking-wider font-semibold">Designation</span>
+                        <span className="font-semibold text-[#11271d] block">{viewWorker.designation || "Worker"}</span>
+                      </div>
+                      <div>
+                        <span className="text-[#2e4339]/60 font-bold block uppercase text-[9px] tracking-wider font-semibold">Mobile</span>
+                        <span className="font-semibold text-[#11271d] block font-mono">{viewWorker.mobile || viewWorker.phone || "—"}</span>
+                      </div>
+                    </div>
+
+                    {viewWorker.aadhaarNumber && (
+                      <div>
+                        <span className="text-[#2e4339]/60 font-bold block uppercase text-[9px] tracking-wider font-semibold">Aadhaar Number</span>
+                        <span className="font-semibold text-[#11271d] block font-mono tracking-wider">{viewWorker.aadhaarNumber}</span>
+                      </div>
+                    )}
+
+                    {viewWorker.address && (
+                      <div>
+                        <span className="text-[#2e4339]/60 font-bold block uppercase text-[9px] tracking-wider font-semibold">Address</span>
+                        <span className="font-semibold text-[#11271d] block leading-tight">{viewWorker.address}</span>
+                        {viewWorker.addressGu && <span className="text-[#2e4339] block leading-tight mt-0.5">{viewWorker.addressGu}</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Metadata details */}
+                <div className="grid grid-cols-4 gap-2 rounded-xl bg-white p-2 text-[10px] text-center border border-[#d29e71]/20">
+                  <div>
+                    <p className="text-[#2e4339]/60 font-bold uppercase font-semibold">DOB</p>
+                    <p className="font-bold text-[#11271d] mt-0.5">{viewWorker.dateOfBirth ? formatDateDMY(new Date(viewWorker.dateOfBirth)) : "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[#2e4339]/60 font-bold uppercase font-semibold">Blood</p>
+                    <p className="font-bold text-[#11271d] mt-0.5">{viewWorker.bloodGroup || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[#2e4339]/60 font-bold uppercase font-semibold">Gender</p>
+                    <p className="font-bold text-[#11271d] mt-0.5 capitalize">{viewWorker.gender || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[#2e4339]/60 font-bold uppercase font-semibold">Joining</p>
+                    <p className="font-bold text-[#11271d] mt-0.5">{viewWorker.joiningDate ? formatDateDMY(new Date(viewWorker.joiningDate)) : "—"}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

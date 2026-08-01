@@ -10,9 +10,10 @@ interface WorkerCardProps {
   onAddOrder: (worker: IWorker) => void;
   onViewLedger: (worker: IWorker) => void;
   onEdit?: (worker: IWorker) => void;
+  onViewCard?: (worker: IWorker) => void;
 }
 
-export function WorkerCard({ worker, onAddOrder, onViewLedger, onEdit }: WorkerCardProps) {
+export function WorkerCard({ worker, onAddOrder, onViewLedger, onEdit, onViewCard }: WorkerCardProps) {
   const isOwner = useIsOwner();
   const hasBalance = worker.balance > 0;
 
@@ -60,6 +61,11 @@ export function WorkerCard({ worker, onAddOrder, onViewLedger, onEdit }: WorkerC
         <Button size="sm" variant="primary" onClick={() => onAddOrder(worker)}>
           + Work Order
         </Button>
+        {onViewCard && (
+          <Button size="sm" variant="ghost" onClick={() => onViewCard(worker)}>
+            View
+          </Button>
+        )}
         <Button size="sm" variant="ghost" onClick={() => onViewLedger(worker)}>
           Ledger
         </Button>
