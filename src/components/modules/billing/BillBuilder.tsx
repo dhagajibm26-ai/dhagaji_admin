@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useFinishedStock, lookupBarcode } from "@/hooks/useFinishedStock";
 import { BarcodeScanner } from "@/components/modules/finished-stock";
 import { useUIStore } from "@/stores/useUIStore";
@@ -11,6 +12,7 @@ import {
   useCustomerName,
   useCustomerPhone,
   useCustomerAddress,
+  useCustomerEmail,
   useSalesSource,
   usePaymentMethod,
   useGSTEnabled,
@@ -68,6 +70,7 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
   const [search, setSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
+  const [saveToDirectory, setSaveToDirectory] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +79,7 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
   const customerName = useCustomerName();
   const customerPhone = useCustomerPhone();
   const customerAddress = useCustomerAddress();
+  const customerEmail = useCustomerEmail();
   const salesSource = useSalesSource();
   const paymentMethod = usePaymentMethod();
   const items = useBillItems();
@@ -103,6 +107,7 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
   const { data: allProducts = [] } = useFinishedStock();
   const { mutateAsync: createBill, isPending } = useCreateBill();
   const addToast = useUIStore((s) => s.addToast);
+  const queryClient = useQueryClient();
 
   // Filter customers based on search term
   const filteredCustomers = useMemo(() => {
@@ -271,10 +276,33 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
       return;
     }
 
+    if (isCustomCustomer && saveToDirectory) {
+      try {
+        const res = await fetch("/api/customers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: customerName.trim(),
+            mobileNumbers: [customerPhone.trim() || "—"],
+            address: customerAddress.trim() || undefined,
+            email: customerEmail.trim() || undefined,
+          }),
+        });
+        const json = await res.json();
+        if (res.ok && json.success && json.data) {
+          queryClient.invalidateQueries({ queryKey: ["customers"] });
+          addToast({ type: "success", message: `Customer "${customerName}" registered to directory` });
+        }
+      } catch (err) {
+        console.error("Auto-customer creation error:", err);
+      }
+    }
+
     const payload: BillInput = {
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim() || undefined,
       customerAddress: customerAddress.trim() || undefined,
+      customerEmail: customerEmail.trim() || undefined,
       salesSource,
       paymentMethod,
       gstEnabled,
@@ -306,9 +334,11 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
   }, [
     customerId,
     isCustomCustomer,
+    saveToDirectory,
     customerName,
     customerPhone,
     customerAddress,
+    customerEmail,
     salesSource,
     paymentMethod,
     gstEnabled,
@@ -320,6 +350,7 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
     actions,
     onBillSaved,
     addToast,
+    queryClient,
   ]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -337,7 +368,7 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
                   type="button"
                   onClick={() => {
                     setIsCustomCustomer(false);
-                    actions.setCustomer(null, "", "", "");
+                    actions.setCustomer(null, "", "", "", "");
                   }}
                   className="text-xs text-slate-500 hover:text-slate-800 hover:underline cursor-pointer font-bold"
                 >
@@ -349,24 +380,45 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
                   type="text"
                   placeholder="Customer Name *"
                   value={customerName}
-                  onChange={(e) => actions.setCustomer(null, e.target.value, customerPhone, customerAddress)}
+                  onChange={(e) => actions.setCustomer(null, e.target.value, customerPhone, customerAddress, customerEmail)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
                 />
                 <input
                   type="tel"
                   placeholder="Phone Number"
                   value={customerPhone}
-                  onChange={(e) => actions.setCustomer(null, customerName, e.target.value, customerAddress)}
+                  onChange={(e) => actions.setCustomer(null, customerName, e.target.value, customerAddress, customerEmail)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
                 />
               </div>
-              <input
-                type="text"
-                placeholder="Address"
-                value={customerAddress}
-                onChange={(e) => actions.setCustomer(null, customerName, customerPhone, e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="email"
+                  placeholder="Email Address"
+                  value={customerEmail}
+                  onChange={(e) => actions.setCustomer(null, customerName, customerPhone, customerAddress, e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+                />
+                <input
+                  type="text"
+                  placeholder="Address"
+                  value={customerAddress}
+                  onChange={(e) => actions.setCustomer(null, customerName, customerPhone, e.target.value, customerEmail)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs text-[#1A1A1A] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="save-to-directory"
+                  checked={saveToDirectory}
+                  onChange={(e) => setSaveToDirectory(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-gray-300 text-[#1b4332] focus:ring-[#1b4332] accent-[#1b4332] cursor-pointer"
+                />
+                <label htmlFor="save-to-directory" className="text-xs text-slate-600 font-medium select-none cursor-pointer">
+                  Save customer to Directory
+                </label>
+              </div>
             </div>
           ) : customerId ? (
             <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50/50 px-3 py-2 text-sm">
@@ -374,12 +426,13 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
                 <span className="font-bold text-slate-800">{customerName}</span>
                 <span className="text-xs text-slate-500">
                   {customerPhone ? `Mobile: ${customerPhone}` : "No phone number"}
+                  {customerEmail ? ` • Email: ${customerEmail}` : ""}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  actions.setCustomer(null, "", "", "");
+                  actions.setCustomer(null, "", "", "", "");
                   if (appliedCoupon) {
                     actions.setAppliedCoupon(null);
                     setCouponInputText("");
@@ -417,7 +470,7 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
                           key={c._id}
                           type="button"
                           onClick={() => {
-                            actions.setCustomer(c._id, c.name, c.mobileNumbers[0] || "", c.address || "");
+                            actions.setCustomer(c._id, c.name, c.mobileNumbers[0] || "", c.address || "", c.email || "");
                             setCustSearch("");
                             setCustDropdownOpen(false);
                           }}
@@ -438,7 +491,7 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
                   type="button"
                   onClick={() => {
                     setIsCustomCustomer(true);
-                    actions.setCustomer(null, "", "", "");
+                    actions.setCustomer(null, "", "", "", "");
                   }}
                   className="text-xs text-[#D32F2F] hover:text-[#B71C1C] font-black underline cursor-pointer"
                 >

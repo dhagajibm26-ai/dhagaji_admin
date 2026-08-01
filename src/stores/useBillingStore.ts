@@ -25,6 +25,7 @@ interface BillingState {
   customerName: string;
   customerPhone: string;
   customerAddress: string;
+  customerEmail: string;
   salesSource: SalesSource;
   paymentMethod: PaymentMethod;
   items: BillDraftItem[];
@@ -38,7 +39,7 @@ interface BillingState {
     discountValue: number;
   } | null;
   // Actions
-  setCustomer: (id: string | null, name: string, phone: string, address: string) => void;
+  setCustomer: (id: string | null, name: string, phone: string, address: string, email: string) => void;
   setSalesSource: (source: SalesSource) => void;
   setPaymentMethod: (method: PaymentMethod) => void;
   addItem: (product: IFinishedProduct, qty?: number) => void;
@@ -59,6 +60,7 @@ const INITIAL: Pick<
   | "customerName"
   | "customerPhone"
   | "customerAddress"
+  | "customerEmail"
   | "salesSource"
   | "paymentMethod"
   | "items"
@@ -72,6 +74,7 @@ const INITIAL: Pick<
   customerName: "",
   customerPhone: "",
   customerAddress: "",
+  customerEmail: "",
   salesSource: "Offline",
   paymentMethod: "Cash",
   items: [],
@@ -87,7 +90,7 @@ const INITIAL: Pick<
 export const useBillingStore = create<BillingState>()((set) => ({
   ...INITIAL,
 
-  setCustomer: (id, name, phone, address) => set({ customerId: id, customerName: name, customerPhone: phone, customerAddress: address }),
+  setCustomer: (id, name, phone, address, email) => set({ customerId: id, customerName: name, customerPhone: phone, customerAddress: address, customerEmail: email }),
   setSalesSource: (source) => set({ salesSource: source }),
   setPaymentMethod: (method) => set({ paymentMethod: method }),
 
@@ -161,6 +164,7 @@ export const useCustomerId = () => useBillingStore((s) => s.customerId);
 export const useCustomerName = () => useBillingStore((s) => s.customerName);
 export const useCustomerPhone = () => useBillingStore((s) => s.customerPhone);
 export const useCustomerAddress = () => useBillingStore((s) => s.customerAddress);
+export const useCustomerEmail = () => useBillingStore((s) => s.customerEmail);
 export const useSalesSource = () => useBillingStore((s) => s.salesSource);
 export const usePaymentMethod = () => useBillingStore((s) => s.paymentMethod);
 export const useBillItems = () => useBillingStore((s) => s.items);

@@ -22,6 +22,7 @@ const customerFormSchema = z.object({
     )
     .min(1, "At least one mobile number is required"),
   address: z.string().optional(),
+  email: z.string().optional(),
 });
 
 type CustomerFormInput = z.infer<typeof customerFormSchema>;
@@ -50,6 +51,7 @@ export function AddCustomerModal({ isOpen, onClose, customer }: AddCustomerModal
       name: "",
       mobileNumbers: [{ value: "" }],
       address: "",
+      email: "",
     },
   });
 
@@ -65,12 +67,14 @@ export function AddCustomerModal({ isOpen, onClose, customer }: AddCustomerModal
           name: customer.name,
           mobileNumbers: customer.mobileNumbers.map((num) => ({ value: num })),
           address: customer.address ?? "",
+          email: customer.email ?? "",
         });
       } else {
         reset({
           name: "",
           mobileNumbers: [{ value: "" }],
           address: "",
+          email: "",
         });
       }
     }
@@ -86,6 +90,7 @@ export function AddCustomerModal({ isOpen, onClose, customer }: AddCustomerModal
       name: data.name,
       mobileNumbers: data.mobileNumbers.map((m) => m.value.trim()),
       address: data.address?.trim() || undefined,
+      email: data.email?.trim() || undefined,
     };
 
     if (isEdit && customer) {
@@ -178,6 +183,15 @@ export function AddCustomerModal({ isOpen, onClose, customer }: AddCustomerModal
             )}
           </div>
         </div>
+
+        <Input
+          label="Email Address"
+          type="email"
+          autoComplete="off"
+          placeholder="e.g. john@example.com"
+          {...register("email")}
+          error={errors.email?.message}
+        />
 
         <Input
           label="Address"

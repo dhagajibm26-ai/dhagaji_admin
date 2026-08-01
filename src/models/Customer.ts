@@ -4,6 +4,7 @@ export interface ICustomerDocument extends Document {
   name: string;
   mobileNumbers: string[];
   address?: string;
+  email?: string;
   isDeleted?: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -14,6 +15,7 @@ const CustomerSchema = new Schema<ICustomerDocument>(
     name: { type: String, required: true, trim: true },
     mobileNumbers: { type: [String], required: true, default: [] },
     address: { type: String, trim: true },
+    email: { type: String, trim: true },
     isDeleted: { type: Boolean, default: false },
   },
   {

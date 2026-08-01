@@ -55,7 +55,7 @@ export async function generateBillPDF(bill: IBill) {
   y += 15;
 
   // Info Grid (2-column card)
-  const fieldsCount = 5 + (bill.customerPhone ? 1 : 0) + (bill.customerAddress ? 1 : 0);
+  const fieldsCount = 5 + (bill.customerPhone ? 1 : 0) + (bill.customerAddress ? 1 : 0) + (bill.customerEmail ? 1 : 0);
   const infoRows = Math.ceil(fieldsCount / 2);
   const rowH = 10;
   const cardH = infoRows * rowH + 6;
@@ -73,6 +73,7 @@ export async function generateBillPDF(bill: IBill) {
     ["Date", formatDate(bill.billDate)],
     ["Customer", bill.customerName],
     ...(bill.customerPhone ? [["Phone", bill.customerPhone] as [string, string]] : []),
+    ...(bill.customerEmail ? [["Email", bill.customerEmail] as [string, string]] : []),
     ...(bill.customerAddress ? [["Address", bill.customerAddress] as [string, string]] : []),
     ["Source", bill.salesSource],
     ["Payment Mode", bill.paymentMethod],

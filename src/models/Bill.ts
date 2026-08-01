@@ -24,6 +24,7 @@ export interface IBillDocument extends Document {
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;
+  customerEmail?: string;
   salesSource: SalesSource;
   items: IBillItem[];
   gstEnabled: boolean;
@@ -78,6 +79,7 @@ const BillSchema = new Schema<IBillDocument>(
     customerName: { type: String, required: true, trim: true },
     customerPhone: { type: String, trim: true },
     customerAddress: { type: String, trim: true },
+    customerEmail: { type: String, trim: true },
     salesSource: {
       type: String,
       enum: ["Offline", "Instagram", "WhatsApp", "Exhibition"],

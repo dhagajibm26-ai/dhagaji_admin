@@ -21,6 +21,7 @@ export function CustomersPageClient() {
   const filtered = customers.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.mobileNumbers.some((num) => num.includes(search)) ||
+    (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
     (c.address && c.address.toLowerCase().includes(search.toLowerCase()))
   );
 
@@ -102,6 +103,7 @@ export function CustomersPageClient() {
               <tr className="bg-slate-50 border-b border-slate-100 text-left">
                 <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Name</th>
                 <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Mobile Number(s)</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Email</th>
                 <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Address</th>
                 <th className="px-5 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Actions</th>
               </tr>
@@ -122,6 +124,13 @@ export function CustomersPageClient() {
                         </span>
                       ))}
                     </div>
+                  </td>
+                  <td className="px-5 py-4 text-slate-600">
+                    {c.email ? (
+                      <span className="text-slate-800 font-medium">{c.email}</span>
+                    ) : (
+                      <span className="text-slate-400 italic">No email provided</span>
+                    )}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
                     {c.address ? (

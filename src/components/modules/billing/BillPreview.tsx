@@ -103,6 +103,11 @@ export function BillPreview({ bill, onClose }: BillPreviewProps) {
                   <span className="font-semibold">Phone:</span> {bill.customerPhone}
                 </p>
               )}
+              {bill.customerEmail && (
+                <p>
+                  <span className="font-semibold">Email:</span> {bill.customerEmail}
+                </p>
+              )}
               {bill.customerAddress && (
                 <p>
                   <span className="font-semibold">Address:</span> {bill.customerAddress}

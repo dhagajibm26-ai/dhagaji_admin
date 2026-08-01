@@ -547,6 +547,7 @@ export interface IBill {
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;
+  customerEmail?: string;
   salesSource: SalesSource;
   items: IBillItem[];
   gstEnabled: boolean;
@@ -580,6 +581,7 @@ export const billSchema = z.object({
   customerName: z.string().min(1, "Customer name required"),
   customerPhone: z.string().optional(),
   customerAddress: z.string().optional(),
+  customerEmail: z.string().optional(),
   salesSource: z.enum(["Offline", "Instagram", "WhatsApp", "Exhibition"]),
   items: z.array(billItemSchema).min(1, "At least one item required"),
   gstEnabled: z.boolean().default(false),
@@ -640,6 +642,7 @@ export interface ICustomer {
   name: string;
   mobileNumbers: string[];
   address?: string;
+  email?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -650,6 +653,7 @@ export const customerSchema = z.object({
     .array(z.string().min(1, "Mobile number cannot be empty"))
     .min(1, "At least one mobile number is required"),
   address: z.string().optional(),
+  email: z.string().optional(),
 });
 export type CustomerInput = z.infer<typeof customerSchema>;
 

@@ -243,6 +243,7 @@ export function BillingPageClient() {
                       <div className="flex flex-col">
                         <span>{bill.customerName}</span>
                         {bill.customerPhone && <span className="text-[10px] text-slate-400">{bill.customerPhone}</span>}
+                        {bill.customerEmail && <span className="text-[9px] text-slate-400 font-medium">{bill.customerEmail}</span>}
                       </div>
                     </td>
                     <td className="px-5 py-4">
