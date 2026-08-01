@@ -103,49 +103,68 @@ async function rawMaterialReport(): Promise<Omit<ReportData, "generatedAt" | "da
   const mats = await RawMaterial.find({ isDeleted: { $ne: true } }).sort({ itemName: 1 });
 
   const columns: ReportColumn[] = [
-    { key: "name",      label: "Item Name",     type: "text" },
-    { key: "category",  label: "Category",      type: "badge" },
-    { key: "unit",      label: "Unit",          type: "text" },
-    { key: "date",      label: "Purchase Date", type: "date" },
-    { key: "qty",       label: "Purchased Qty", type: "number", isSummable: true },
-    { key: "rate",      label: "Rate (₹)",      type: "currency" },
-    { key: "amount",    label: "Amount (₹)",    type: "currency", isSummable: true },
-    { key: "closing",   label: "Current Closing",type: "number" },
-    { key: "threshold", label: "Min Stock",     type: "number" },
-    { key: "status",    label: "Status",        type: "badge" },
+    { key: "name",              label: "Item Name",           type: "text" },
+    { key: "category",          label: "Category",            type: "badge" },
+    { key: "unit",              label: "Unit",                type: "text" },
+    { key: "date",              label: "Purchase Date",       type: "date" },
+    { key: "hsnCode",           label: "HSN Code",            type: "text" },
+    { key: "gstRate",           label: "GST %",               type: "percent",   align: "center" },
+    { key: "qty",               label: "Purchased Qty",       type: "number",     isSummable: true },
+    { key: "rate",              label: "Rate (₹)",            type: "currency" },
+    { key: "amountWithoutGst",  label: "Without GST (₹)",     type: "currency",   isSummable: true },
+    { key: "gstPaidAmount",     label: "GST Paid (₹)",        type: "currency",   isSummable: true },
+    { key: "amount",            label: "Total (With GST) (₹)",type: "currency",   isSummable: true },
+    { key: "closing",           label: "Current Closing",     type: "number" },
+    { key: "threshold",         label: "Min Stock",           type: "number" },
+    { key: "status",            label: "Status",              type: "badge" },
   ];
 
   const rows: ReportRow[] = [];
   mats.forEach((m) => {
     const closing = m.openingStock + m.purchasedQty - m.usedQty;
     const history = m.purchaseHistory || [];
+    const gstPercentage = m.gstPercentage || 0;
 
     if (history.length === 0) {
+      const amount = (m.openingStock + m.purchasedQty) * m.ratePerUnit;
+      const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / (100 + gstPercentage) : 0;
+      const amountWithoutGst = amount - gstPaidAmount;
       rows.push({
-        name:      m.itemName,
-        category:  m.category,
-        unit:      m.unit,
-        date:      m.lastPurchaseDate ? new Date(m.lastPurchaseDate).toISOString().split("T")[0] : "—",
-        qty:       m.openingStock + m.purchasedQty,
-        rate:      m.ratePerUnit,
-        amount:    (m.openingStock + m.purchasedQty) * m.ratePerUnit,
+        name:             m.itemName,
+        category:         m.category,
+        unit:             m.unit,
+        date:             m.lastPurchaseDate ? new Date(m.lastPurchaseDate).toISOString().split("T")[0] : "—",
+        hsnCode:          m.hsnCode || "—",
+        gstRate:          gstPercentage,
+        qty:              m.openingStock + m.purchasedQty,
+        rate:             m.ratePerUnit,
+        amountWithoutGst,
+        gstPaidAmount,
+        amount,
         closing,
-        threshold: m.lowStockThreshold,
-        status:    closing <= m.lowStockThreshold ? "Low Stock" : "OK",
+        threshold:        m.lowStockThreshold,
+        status:           closing <= m.lowStockThreshold ? "Low Stock" : "OK",
       });
     } else {
       history.forEach((h) => {
+        const amount = h.totalAmount;
+        const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / (100 + gstPercentage) : 0;
+        const amountWithoutGst = amount - gstPaidAmount;
         rows.push({
-          name:      m.itemName,
-          category:  m.category,
-          unit:      m.unit,
-          date:      h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
-          qty:       h.quantity,
-          rate:      h.ratePerUnit,
-          amount:    h.totalAmount,
+          name:             m.itemName,
+          category:         m.category,
+          unit:             m.unit,
+          date:             h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
+          hsnCode:          m.hsnCode || "—",
+          gstRate:          gstPercentage,
+          qty:              h.quantity,
+          rate:             h.ratePerUnit,
+          amountWithoutGst,
+          gstPaidAmount,
+          amount,
           closing,
-          threshold: m.lowStockThreshold,
-          status:    closing <= m.lowStockThreshold ? "Low Stock" : "OK",
+          threshold:        m.lowStockThreshold,
+          status:           closing <= m.lowStockThreshold ? "Low Stock" : "OK",
         });
       });
     }
@@ -472,10 +491,14 @@ async function banglesStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
     { key: "cutType",             label: "Cut Type",           type: "text" },
     { key: "peta",                label: "Peta",               type: "number",   align: "center" },
     { key: "date",                label: "Purchase Date",      type: "date" },
+    { key: "hsnCode",             label: "HSN Code",           type: "text" },
+    { key: "gstRate",             label: "GST %",              type: "percent",  align: "center" },
     { key: "quantityAdd",         label: "Qty Purchased (sets)",type: "number",   align: "right", isSummable: true },
     { key: "totalPieces",         label: "Total Pieces",       type: "number",   align: "right", isSummable: true },
     { key: "pricePerPiece",       label: "Price/Pc (₹)",       type: "currency", align: "right" },
-    { key: "totalPurchaseAmount", label: "Purchase Amount (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "amountWithoutGst",    label: "Without GST (₹)",    type: "currency", align: "right", isSummable: true },
+    { key: "gstPaidAmount",       label: "GST Paid (₹)",       type: "currency", align: "right", isSummable: true },
+    { key: "totalPurchaseAmount", label: "Total (With GST) (₹)",type: "currency", align: "right", isSummable: true },
     { key: "closingStock",        label: "Current Closing",     type: "number",   align: "right", isSummable: true },
     { key: "status",              label: "Status",             type: "badge",    align: "center" },
   ];
@@ -486,32 +509,47 @@ async function banglesStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
     const totalPieces = b.quantityAdd * peta;
     const closingStock = totalPieces - b.netUsed;
     const history = b.purchaseHistory || [];
+    const gstPercentage = b.gstPercentage || 0;
 
     if (history.length === 0) {
+      const totalPurchaseAmount = b.totalPurchaseAmount ?? (totalPieces * b.pricePerPiece);
+      const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / (100 + gstPercentage) : 0;
+      const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
       rows.push({
         size:                b.size,
         cutType:             b.cutType,
         peta,
         date:                b.updatedAt ? new Date(b.updatedAt).toISOString().split("T")[0] : "—",
+        hsnCode:             b.hsnCode || "—",
+        gstRate:             gstPercentage,
         quantityAdd:         b.quantityAdd,
         totalPieces,
         pricePerPiece:       b.pricePerPiece,
-        totalPurchaseAmount: b.totalPurchaseAmount ?? (totalPieces * b.pricePerPiece),
+        amountWithoutGst,
+        gstPaidAmount,
+        totalPurchaseAmount,
         closingStock,
         status:              b.status,
       });
     } else {
       history.forEach((h) => {
         const hQuantitySets = peta > 0 ? h.quantity / peta : 0;
+        const totalPurchaseAmount = h.totalAmount;
+        const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / (100 + gstPercentage) : 0;
+        const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
         rows.push({
           size:                b.size,
           cutType:             b.cutType,
           peta,
           date:                h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
+          hsnCode:             b.hsnCode || "—",
+          gstRate:             gstPercentage,
           quantityAdd:         hQuantitySets,
           totalPieces:         h.quantity,
           pricePerPiece:       h.ratePerUnit,
-          totalPurchaseAmount: h.totalAmount,
+          amountWithoutGst,
+          gstPaidAmount,
+          totalPurchaseAmount,
           closingStock,
           status:              b.status,
         });
@@ -528,46 +566,65 @@ async function threadsStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
   const docs = await ThreadsStock.find({ isDeleted: { $ne: true } }).sort({ threadCode: 1 });
 
   const columns: ReportColumn[] = [
-    { key: "code",    label: "Thread Code",     type: "text" },
-    { key: "colour",  label: "Thread Colour",   type: "text" },
-    { key: "company", label: "Company",         type: "text" },
-    { key: "date",    label: "Purchase Date",   type: "date" },
-    { key: "added",   label: "Qty Added (g)",   type: "number",   align: "right", isSummable: true },
-    { key: "rate",    label: "Rate/g (₹)",      type: "currency", align: "right" },
-    { key: "amount",  label: "Amount (₹)",      type: "currency", align: "right", isSummable: true },
-    { key: "closing", label: "Current Closing", type: "number",   align: "right", isSummable: true },
-    { key: "status",  label: "Status",          type: "badge",    align: "center" },
+    { key: "code",             label: "Thread Code",         type: "text" },
+    { key: "colour",           label: "Thread Colour",       type: "text" },
+    { key: "company",          label: "Company",             type: "text" },
+    { key: "date",             label: "Purchase Date",       type: "date" },
+    { key: "hsnCode",          label: "HSN Code",            type: "text" },
+    { key: "gstRate",          label: "GST %",               type: "percent",  align: "center" },
+    { key: "added",            label: "Qty Added (g)",       type: "number",   align: "right", isSummable: true },
+    { key: "rate",             label: "Rate/g (₹)",          type: "currency", align: "right" },
+    { key: "amountWithoutGst", label: "Without GST (₹)",     type: "currency", align: "right", isSummable: true },
+    { key: "gstPaidAmount",    label: "GST Paid (₹)",        type: "currency", align: "right", isSummable: true },
+    { key: "amount",           label: "Total (With GST) (₹)",type: "currency", align: "right", isSummable: true },
+    { key: "closing",          label: "Current Closing",     type: "number",   align: "right", isSummable: true },
+    { key: "status",           label: "Status",              type: "badge",    align: "center" },
   ];
 
   const rows: ReportRow[] = [];
   docs.forEach((t) => {
     const closing = t.openingStock + t.stockAdd - t.netUsed;
     const history = t.purchaseHistory || [];
+    const gstPercentage = t.gstPercentage || 0;
 
     if (history.length === 0) {
+      const amount = t.stockAdd * t.costPerUnit;
+      const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / (100 + gstPercentage) : 0;
+      const amountWithoutGst = amount - gstPaidAmount;
       rows.push({
-        code:    t.threadCode,
-        colour:  t.threadColour,
-        company: t.threadCompanyName,
-        date:    t.updatedAt ? new Date(t.updatedAt).toISOString().split("T")[0] : "—",
-        added:   t.stockAdd,
-        rate:    t.costPerUnit,
-        amount:  t.stockAdd * t.costPerUnit,
+        code:             t.threadCode,
+        colour:           t.threadColour,
+        company:          t.threadCompanyName,
+        date:             t.updatedAt ? new Date(t.updatedAt).toISOString().split("T")[0] : "—",
+        hsnCode:          t.hsnCode || "—",
+        gstRate:          gstPercentage,
+        added:            t.stockAdd,
+        rate:             t.costPerUnit,
+        amountWithoutGst,
+        gstPaidAmount,
+        amount,
         closing,
-        status:  closing <= 0 ? "Out of Stock" : "OK",
+        status:           closing <= 0 ? "Out of Stock" : "OK",
       });
     } else {
       history.forEach((h) => {
+        const amount = h.totalAmount;
+        const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / (100 + gstPercentage) : 0;
+        const amountWithoutGst = amount - gstPaidAmount;
         rows.push({
-          code:    t.threadCode,
-          colour:  t.threadColour,
-          company: t.threadCompanyName,
-          date:    h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
-          added:   h.quantity,
-          rate:    h.ratePerUnit,
-          amount:  h.totalAmount,
+          code:             t.threadCode,
+          colour:           t.threadColour,
+          company:          t.threadCompanyName,
+          date:             h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
+          hsnCode:          t.hsnCode || "—",
+          gstRate:          gstPercentage,
+          added:            h.quantity,
+          rate:             h.ratePerUnit,
+          amountWithoutGst,
+          gstPaidAmount,
+          amount,
           closing,
-          status:  closing <= 0 ? "Out of Stock" : "OK",
+          status:           closing <= 0 ? "Out of Stock" : "OK",
         });
       });
     }
