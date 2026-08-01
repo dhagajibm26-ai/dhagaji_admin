@@ -163,7 +163,7 @@ export function WorkOrderFlowPageClient() {
   const activeWorkers = useMemo(() => workers.filter((w) => w.isActive), [workers]);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
-  const pendingOrders  = useMemo(() => allOrders.filter((o) => o.status === "Open"), [allOrders]);
+  const pendingOrders = useMemo(() => allOrders.filter((o) => o.status === "Open"), [allOrders]);
   const completeOrders = useMemo(() => allOrders.filter((o) => o.status === "Returned" || o.status === "Completed"), [allOrders]);
   const rejectedOrders = useMemo(() => allOrders.filter((o) => o.status === "Rejected"), [allOrders]);
 
@@ -176,13 +176,13 @@ export function WorkOrderFlowPageClient() {
       result = result.filter((o) => {
         return Array.from(entryTypes).some((type) => {
           switch (type) {
-            case "full":       return o.assignmentType === "full";
-            case "half":       return o.assignmentType === "half";
-            case "pending":    return o.status === "Open" && !isHalfWorkInProgress(o);
+            case "full": return o.assignmentType === "full";
+            case "half": return o.assignmentType === "half";
+            case "pending": return o.status === "Open" && !isHalfWorkInProgress(o);
             case "inprogress": return isHalfWorkInProgress(o);
-            case "complete":   return o.status === "Returned" || o.status === "Completed";
-            case "rejected":   return o.status === "Rejected";
-            default:           return false;
+            case "complete": return o.status === "Returned" || o.status === "Completed";
+            case "rejected": return o.status === "Rejected";
+            default: return false;
           }
         });
       });
@@ -313,12 +313,12 @@ export function WorkOrderFlowPageClient() {
 
       // Columns (Actions field omitted)
       const head = [["#", "Date", "Worker", "Work Type", "Type", "Bangles", "Thread", "Status"]];
-      
+
       const body = filtered.map((order, idx) => {
         const links = getChainLinks(order, allOrders);
         const isHalf = order.assignmentType === "half";
         const typeStr = links ? `Half (Leg ${links.legNumber})` : "Full";
-        
+
         let statusStr = "Pending";
         if (order.status === "Rejected") {
           const totalRejected = Math.max(0, order.finishedPieces - order.qualityOK);
@@ -546,12 +546,12 @@ export function WorkOrderFlowPageClient() {
                           ? key === "rejected"
                             ? "bg-rose-100 text-rose-800 border-rose-300"
                             : key === "complete"
-                            ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                            : key === "pending"
-                            ? "bg-amber-100 text-amber-800 border-amber-300"
-                            : key === "inprogress"
-                            ? "bg-orange-100 text-orange-800 border-orange-300"
-                            : "bg-indigo-100 text-indigo-800 border-indigo-300"
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                              : key === "pending"
+                                ? "bg-amber-100 text-amber-800 border-amber-300"
+                                : key === "inprogress"
+                                  ? "bg-orange-100 text-orange-800 border-orange-300"
+                                  : "bg-indigo-100 text-indigo-800 border-indigo-300"
                           : "bg-white border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300"
                       )}
                     >
@@ -629,15 +629,15 @@ export function WorkOrderFlowPageClient() {
               <p className="text-xs text-slate-500">
                 {hasActiveFilters
                   ? [
-                      entryTypes.size > 0
-                        ? `Types: ${Array.from(entryTypes).map((t) => ENTRY_TYPE_LABELS[t]).join(", ")}`
-                        : null,
-                      workerFilter ? `Worker: ${workerFilter}` : null,
-                      dateFrom ? `From ${dateFrom}` : null,
-                      dateTo ? `To ${dateTo}` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")
+                    entryTypes.size > 0
+                      ? `Types: ${Array.from(entryTypes).map((t) => ENTRY_TYPE_LABELS[t]).join(", ")}`
+                      : null,
+                    workerFilter ? `Worker: ${workerFilter}` : null,
+                    dateFrom ? `From ${dateFrom}` : null,
+                    dateTo ? `To ${dateTo}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
                   : "All orders"}
                 {" — "}Printed on {new Date().toLocaleDateString("en-IN")}
               </p>

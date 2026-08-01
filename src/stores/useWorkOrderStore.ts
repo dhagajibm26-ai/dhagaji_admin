@@ -138,17 +138,48 @@ export const useWorkOrderStore = create<WorkOrderDraftState>()((set, get) => ({
       allowReturn: assignmentType === "full" ? true : false,
     }),
 
-  setParentWorkOrder: (order) =>
+  setParentWorkOrder: (order) => {
+    if (!order) {
+      set({
+        parentWorkOrderId: null,
+        parentWorkOrderDetails: null,
+      });
+      return;
+    }
+
+    const bangles: BangleDenaItem[] = (order.banglesGiven || []).map((b) => ({
+      type: "bangle",
+      banglesStockId: b.banglesStockId,
+      size: b.size ?? "",
+      cutType: b.cutType,
+      cuts: b.cuts,
+      pieces: b.pieces,
+    }));
+
+    const threads: ThreadDenaItem[] = (order.threadItemsGiven || []).map((t) => ({
+      type: "thread",
+      threadStockId: t.threadStockId,
+      threadCode: t.threadCode ?? "",
+      threadColour: t.threadColour ?? "",
+      grams: t.grams,
+    }));
+
+    const rawmats: RawMatDenaItem[] = (order.rawMaterialsGiven || []).map((r) => ({
+      type: "rawmat",
+      rawMaterialId: r.rawMaterialId,
+      itemName: r.itemName ?? "",
+      units: r.qty,
+      unit: r.unit ?? "",
+      kind: r.kind ?? "",
+    }));
+
     set({
-      parentWorkOrderId: order?._id ?? null,
+      parentWorkOrderId: order._id,
       parentWorkOrderDetails: order,
-      // Auto-fill workType from parent (same product), but NOT perPieceRate — each worker has their own rate
-      ...(order
-        ? {
-            workType: order.workType,
-          }
-        : {}),
-    }),
+      workType: order.workType,
+      denaItems: [...bangles, ...threads, ...rawmats],
+    });
+  },
 
   setAllowReturn: (allowReturn) => set({ allowReturn }),
 

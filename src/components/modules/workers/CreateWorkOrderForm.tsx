@@ -154,7 +154,7 @@ function HalfWorkParentSelector({ locked }: { locked: boolean }) {
         <p className="text-xs text-slate-500">
           Worker: {getWorkerName(parentDetails)} · Rate: Rs {parentDetails.perPieceRate}
         </p>
-        <p className="text-[10px] text-amber-600 font-medium">🔒 Product details are locked from the original assignment</p>
+        <p className="text-[10px] text-amber-600 font-medium">Product details carried over from the original assignment</p>
       </div>
     );
   }
@@ -206,8 +206,6 @@ function Step1({ onNext, lockedParent }: { onNext: () => void; lockedParent: boo
     return Object.keys(e).length === 0;
   }
 
-  const isWorkTypeLocked = assignmentType === "half" && !!parentDetails;
-
   return (
     <div className="space-y-4">
       <AssignmentTypePicker />
@@ -253,11 +251,7 @@ function Step1({ onNext, lockedParent }: { onNext: () => void; lockedParent: boo
           value={workType}
           onChange={(e) => setWorkType(e.target.value)}
           error={errors.workType}
-          disabled={isWorkTypeLocked}
         />
-        {isWorkTypeLocked && (
-          <span className="absolute right-3 top-9 text-[10px] font-bold text-amber-600 bg-amber-100 rounded px-1.5 py-0.5">LOCKED</span>
-        )}
       </div>
 
       <Input
