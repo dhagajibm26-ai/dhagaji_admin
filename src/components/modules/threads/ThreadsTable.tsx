@@ -216,15 +216,18 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
               <th className="sticky left-0 z-10 min-w-[110px] bg-[#D32F2F] px-4 py-3 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]">
                 Thread Code
               </th>
-              <th className="min-w-[120px] whitespace-nowrap px-4 py-3">Date</th>
               <th className="min-w-[130px] whitespace-nowrap px-4 py-3">Thread Colour</th>
               <th className="min-w-[150px] whitespace-nowrap px-4 py-3">Company Name</th>
-              <th className="min-w-[110px] whitespace-nowrap px-4 py-3">HSN</th>
+              <th className="min-w-[100px] whitespace-nowrap px-4 py-3">HSN Code</th>
+              <th className="min-w-[80px] whitespace-nowrap px-4 py-3 text-center">GST %</th>
               <th className="min-w-[110px] whitespace-nowrap px-4 py-3 text-right">Stock (gram)</th>
-              <th className="min-w-[160px] whitespace-nowrap px-4 py-3 text-right">Total Purchase (₹)</th>
+              <th className="min-w-[140px] whitespace-nowrap px-4 py-3 text-right">Without GST (₹)</th>
+              <th className="min-w-[120px] whitespace-nowrap px-4 py-3 text-right">GST Paid (₹)</th>
+              <th className="min-w-[160px] whitespace-nowrap px-4 py-3 text-right">Total (With GST) (₹)</th>
               <th className="min-w-[120px] whitespace-nowrap px-4 py-3 text-right">1 gram Rate</th>
               <th className="min-w-[110px] whitespace-nowrap px-4 py-3 text-right">1 kg Rate</th>
               <th className="min-w-[100px] whitespace-nowrap px-4 py-3 text-center">Status</th>
+              <th className="min-w-[120px] whitespace-nowrap px-4 py-3">Last Updated</th>
               {isOwner && (
                 <th className="min-w-[130px] whitespace-nowrap px-4 py-3 text-center">Actions</th>
               )}
@@ -235,6 +238,9 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
               const st = getStatus(item);
               const isOut = st === "out";
               const totalPurchaseAmount = getTotalPurchaseAmount(item);
+              const gstPercentage = item.gstPercentage || 0;
+              const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / (100 + gstPercentage) : 0;
+              const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
               const rowBg = isOut
                 ? "bg-rose-50"
                 : index % 2 === 0
@@ -247,10 +253,6 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
                     className={`sticky left-0 z-10 whitespace-nowrap px-4 py-3 font-semibold text-[#1A1A1A] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)] ${rowBg}`}
                   >
                     {item.threadCode}
-                  </td>
-
-                  <td className="whitespace-nowrap px-4 py-3 text-slate-500 font-medium tabular-nums">
-                    {formatDateDMY(item.updatedAt)}
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3">
@@ -266,19 +268,19 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
 
                   <td className="whitespace-nowrap px-4 py-3 text-slate-600">{item.threadCompanyName}</td>
 
-                  {/* HSN */}
+                  {/* HSN Code */}
                   <td className="px-4 py-3 text-slate-600 font-mono text-xs">
                     <div className="flex items-center gap-1.5">
-                      {item.hsnCodes && item.hsnCodes.length > 0 ? (
-                        item.hsnCodes.length === 1 ? (
-                          <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
+                      {item.hsnCode ? (
+                        <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0.5">
+                          {item.hsnCode}
+                        </Badge>
+                      ) : item.hsnCodes && item.hsnCodes.length > 0 ? (
+                        <>
+                          <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0.5">
                             {item.hsnCodes[0]}
                           </Badge>
-                        ) : (
-                          <>
-                            <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
-                              {item.hsnCodes[0]}
-                            </Badge>
+                          {item.hsnCodes.length > 1 && (
                             <button
                               type="button"
                               onClick={() => setSelectedHsnItem(item)}
@@ -287,12 +289,17 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
                             >
                               +{item.hsnCodes.length - 1}
                             </button>
-                          </>
-                        )
+                          )}
+                        </>
                       ) : (
                         "—"
                       )}
                     </div>
+                  </td>
+
+                  {/* GST % */}
+                  <td className="whitespace-nowrap px-4 py-3 text-center text-slate-600 tabular-nums">
+                    {item.gstPercentage ? `${item.gstPercentage}%` : "—"}
                   </td>
 
                   <td
@@ -303,7 +310,15 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
                     {formatQty(item.closingStock)} gram
                   </td>
 
-                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700">
+                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-600">
+                    ₹{formatMoney(amountWithoutGst)}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-600">
+                    {gstPaidAmount > 0 ? `₹${formatMoney(gstPaidAmount)}` : "—"}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700 font-semibold">
                     ₹{formatMoney(totalPurchaseAmount)}
                   </td>
 
@@ -317,6 +332,10 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
 
                   <td className="whitespace-nowrap px-4 py-3 text-center">
                     <Badge variant={STATUS_BADGE[st].variant}>{STATUS_BADGE[st].label}</Badge>
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-500 font-medium tabular-nums">
+                    {formatDateDMY(item.updatedAt)}
                   </td>
 
                   {isOwner && (

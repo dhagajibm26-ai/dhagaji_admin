@@ -19,6 +19,8 @@ const patchSchema = z
     addQuantity: z.number().min(0).optional(),
     totalPurchaseAmount: z.number().min(0).optional(),
     pricePerPiece: z.number().min(0).optional(),
+    hsnCode: z.string().optional().nullable(),
+    gstPercentage: z.number().optional().nullable(),
     hsnCodes: z.array(z.string()).optional(),
   })
   .refine(
@@ -31,6 +33,8 @@ const patchSchema = z
       d.addQuantity !== undefined ||
       d.totalPurchaseAmount !== undefined ||
       d.pricePerPiece !== undefined ||
+      d.hsnCode !== undefined ||
+      d.gstPercentage !== undefined ||
       d.hsnCodes !== undefined,
     { message: "At least one field must be provided" }
   );
@@ -77,6 +81,8 @@ export async function PATCH(
       addQuantity,
       totalPurchaseAmount,
       pricePerPiece,
+      hsnCode,
+      gstPercentage,
       hsnCodes,
     } = parsed.data;
 
@@ -88,7 +94,17 @@ export async function PATCH(
     if (quantityAdd !== undefined) update.$set.quantityAdd = quantityAdd;
     if (netUsed !== undefined) update.$set.netUsed = netUsed;
     if (totalPurchaseAmount !== undefined) update.$set.totalPurchaseAmount = totalPurchaseAmount;
-    if (hsnCodes !== undefined) update.$set.hsnCodes = hsnCodes;
+    
+    if (hsnCode !== undefined) {
+      update.$set.hsnCode = hsnCode ?? "";
+      update.$set.hsnCodes = hsnCode ? [hsnCode] : [];
+    } else if (hsnCodes !== undefined) {
+      update.$set.hsnCodes = hsnCodes;
+      update.$set.hsnCode = hsnCodes.length > 0 ? hsnCodes[0] : "";
+    }
+    if (gstPercentage !== undefined) {
+      update.$set.gstPercentage = gstPercentage ?? 0;
+    }
 
     if (addNetUsed !== undefined && addNetUsed > 0) {
       update.$inc = { ...(update.$inc ?? {}), netUsed: addNetUsed };

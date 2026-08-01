@@ -117,18 +117,21 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
     <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
       <table className="min-w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <tr className="bg-[#D32F2F] text-left text-xs font-semibold uppercase tracking-wider text-white">
             <th className="px-4 py-3">Date</th>
             <th className="px-4 py-3">Size</th>
             <th className="px-4 py-3">Cut Type</th>
-            <th className="px-4 py-3">HSN</th>
+            <th className="px-4 py-3">HSN Code</th>
+            <th className="px-4 py-3 text-center">GST %</th>
             <th className="px-4 py-3 text-center">Peta</th>
             <th className="px-4 py-3 text-right">Qty Added</th>
             <th className="px-4 py-3 text-right">Total Pieces</th>
             {isOwner && <th className="px-4 py-3 text-right">Price/Pc (₹)</th>}
-            {isOwner && <th className="px-4 py-3 text-right">Total Value</th>}
+            {isOwner && <th className="px-4 py-3 text-right">Without GST (₹)</th>}
+            {isOwner && <th className="px-4 py-3 text-right">GST Paid (₹)</th>}
+            {isOwner && <th className="px-4 py-3 text-right">Total (With GST) (₹)</th>}
             <th className="px-4 py-3 text-right">Net Used</th>
-            <th className="px-4 py-3 text-right font-bold text-[#1A1A1A]">Closing</th>
+            <th className="px-4 py-3 text-right font-bold">Closing</th>
             <th className="px-4 py-3 text-center">Status</th>
             <th className="px-4 py-3">Give to Worker</th>
             {isOwner && <th className="px-4 py-3 text-center">Actions</th>}
@@ -139,6 +142,10 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
             const badgeInfo = STATUS_BADGE[item.status];
             const peta = PETA_MAP[item.cutType];
             const isLow = item.status !== "OK";
+            const totalPurchaseAmount = item.totalPurchaseAmount || 0;
+            const gstPercentage = item.gstPercentage || 0;
+            const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / (100 + gstPercentage) : 0;
+            const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
 
             return (
               <tr
@@ -151,7 +158,7 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
                 </td>
 
                 {/* Size */}
-                <td className="whitespace-nowrap px-4 py-3 font-medium text-[#1A1A1A]">
+                <td className="whitespace-nowrap px-4 py-3 font-semibold text-[#1A1A1A]">
                   {item.size}
                 </td>
 
@@ -160,19 +167,19 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
                   {item.cutType}
                 </td>
 
-                {/* HSN */}
+                {/* HSN Code */}
                 <td className="px-4 py-3 text-slate-600 font-mono text-xs">
                   <div className="flex items-center gap-1.5">
-                    {item.hsnCodes && item.hsnCodes.length > 0 ? (
-                      item.hsnCodes.length === 1 ? (
-                        <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
+                    {item.hsnCode ? (
+                      <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0.5">
+                        {item.hsnCode}
+                      </Badge>
+                    ) : item.hsnCodes && item.hsnCodes.length > 0 ? (
+                      <>
+                        <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0.5">
                           {item.hsnCodes[0]}
                         </Badge>
-                      ) : (
-                        <>
-                          <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
-                            {item.hsnCodes[0]}
-                          </Badge>
+                        {item.hsnCodes.length > 1 && (
                           <button
                             type="button"
                             onClick={() => setSelectedHsnItem(item)}
@@ -181,12 +188,17 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
                           >
                             +{item.hsnCodes.length - 1}
                           </button>
-                        </>
-                      )
+                        )}
+                      </>
                     ) : (
                       "—"
                     )}
                   </div>
+                </td>
+
+                {/* GST % */}
+                <td className="whitespace-nowrap px-4 py-3 text-center text-slate-600 tabular-nums">
+                  {item.gstPercentage ? `${item.gstPercentage}%` : "—"}
                 </td>
 
                 {/* Peta (auto from cut type) */}
@@ -211,10 +223,24 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
                   </td>
                 )}
 
-                {/* Total value (owner only) */}
+                {/* Without GST */}
                 {isOwner && (
-                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums font-medium text-gray-700">
-                    ₹{item.totalValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-600">
+                    ₹{amountWithoutGst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                )}
+
+                {/* GST Paid */}
+                {isOwner && (
+                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-600">
+                    {gstPaidAmount > 0 ? `₹${gstPaidAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                  </td>
+                )}
+
+                {/* Total (With GST) */}
+                {isOwner && (
+                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums font-semibold text-slate-700">
+                    ₹{totalPurchaseAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 )}
 
@@ -242,7 +268,7 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
                   <AddUsedCell item={item} />
                 </td>
 
-                {/* Owner: delete */}
+                {/* Owner: edit / delete */}
                 {isOwner && (
                   <td className="whitespace-nowrap px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">

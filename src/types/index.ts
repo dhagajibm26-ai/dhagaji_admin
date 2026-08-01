@@ -96,6 +96,8 @@ export interface IBanglesStock {
   pricePerPiece: number;
   totalPurchaseAmount?: number;
   netUsed: number;
+  hsnCode?: string;
+  gstPercentage?: number;
   hsnCodes?: string[];
   purchaseHistory?: IPurchaseEntry[];
   // virtuals
@@ -116,6 +118,8 @@ export const banglesStockSchema = z.object({
   pricePerPiece: z.number().min(0, "Price must be 0 or more"),
   totalPurchaseAmount: z.number().min(0, "Total purchase amount must be 0 or more").optional(),
   netUsed: z.number().min(0).default(0),
+  hsnCode: z.string().optional().nullable(),
+  gstPercentage: z.number().optional().nullable(),
   hsnCodes: z.array(z.string()).optional(),
   purchaseHistory: z.array(purchaseEntrySchema).optional(),
 });
@@ -147,6 +151,8 @@ export interface IThreadsStock {
   openingStock: number;
   netUsed: number;
   costPerUnit: number;
+  hsnCode?: string;
+  gstPercentage?: number;
   hsnCodes?: string[];
   purchaseHistory?: IPurchaseEntry[];
   // virtuals
@@ -166,6 +172,8 @@ export const threadsStockSchema = z.object({
   openingStock: z.number().min(0).default(0),
   netUsed: z.number().min(0).default(0),
   costPerUnit: z.number().min(0, "Cost must be 0 or more"),
+  hsnCode: z.string().optional().nullable(),
+  gstPercentage: z.number().optional().nullable(),
   hsnCodes: z.array(z.string()).optional(),
   purchaseHistory: z.array(purchaseEntrySchema).optional(),
 });

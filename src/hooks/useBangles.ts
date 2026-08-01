@@ -40,6 +40,8 @@ export interface PatchBanglesPayload {
   addQuantity?: number;
   totalPurchaseAmount?: number;
   pricePerPiece?: number;
+  hsnCode?: string;
+  gstPercentage?: number;
   hsnCodes?: string[];
 }
 

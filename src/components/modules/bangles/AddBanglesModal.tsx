@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useAddBangles, useBanglesStock, usePatchBangles } from "@/hooks/useBangles";
 import { useBangleSizes } from "@/hooks/useBangleSizes";
+import { useHsnCodes, useCreateHsnCode, useDeleteHsnCode } from "@/hooks/useHsnCodes";
+import { ManageHsnCodesModal } from "../hsn-codes/ManageHsnCodesModal";
 import { PurchaseHistoryPanel } from "@/components/ui/PurchaseHistoryPanel";
 import { formatPieceRate, resolvePurchaseHistory } from "@/lib/purchaseHistory";
 import { banglesStockSchema, type BanglesStockInput, type IBanglesStock } from "@/types";
@@ -32,6 +34,8 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
   const patchMutation = usePatchBangles();
   const { data: stockItems = [] } = useBanglesStock();
   const { data: sizes = [], isLoading: isSizesLoading } = useBangleSizes();
+  const { data: hsnList = [] } = useHsnCodes();
+  const [isManagingHsn, setIsManagingHsn] = useState(false);
   const isEdit = !!item;
 
   const [totalAmountInput, setTotalAmountInput] = useState<string>("");
@@ -55,6 +59,8 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
       cutType: "C1",
       quantityAdd: 0,
       pricePerPiece: 0,
+      hsnCode: "",
+      gstPercentage: 0,
       hsnCodes: [],
     },
   });
@@ -65,25 +71,9 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
   const pricePerPiece = useWatch({ control, name: "pricePerPiece" });
   const peta = cutType && cutType in PETA_MAP ? PETA_MAP[cutType as keyof typeof PETA_MAP] : null;
 
-  const [hsnInput, setHsnInput] = useState("");
-  const hsnCodes = useWatch({ control, name: "hsnCodes" }) || [];
-
-  const handleAddHsn = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = hsnInput.trim();
-    if (!trimmed) return;
-    if (hsnCodes.includes(trimmed)) {
-      setError("hsnCodes", { message: "HSN code already added" });
-      return;
-    }
-    setValue("hsnCodes", [...hsnCodes, trimmed], { shouldDirty: true });
-    setHsnInput("");
-    clearErrors("hsnCodes");
-  };
-
-  const handleRemoveHsn = (codeToRemove: string) => {
-    setValue("hsnCodes", hsnCodes.filter((c) => c !== codeToRemove), { shouldDirty: true });
-  };
+  const selectedHsnCode = useWatch({ control, name: "hsnCode" });
+  const gstPercentage = useWatch({ control, name: "gstPercentage" }) || 0;
+  const gstPct = Number(gstPercentage || 0);
 
   const previousRows = useMemo(() => {
     if (!selectedSize || !cutType) return [] as IBanglesStock[];
@@ -109,6 +99,10 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
   const addAmount = useMemo(() => {
     return Number(totalAmountInput || 0);
   }, [totalAmountInput]);
+
+  const calculatedGstPaid = useMemo(() => {
+    return gstPct > 0 ? (addAmount * gstPct) / (100 + gstPct) : 0;
+  }, [addAmount, gstPct]);
 
   const [isTotalFocused, setIsTotalFocused] = useState(false);
   const pricePerPieceVal = useWatch({ control, name: "pricePerPiece" });
@@ -163,6 +157,8 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
         cutType: item.cutType,
         quantityAdd: item.quantityAdd,
         pricePerPiece: item.pricePerPiece,
+        hsnCode: item.hsnCode || (item.hsnCodes && item.hsnCodes.length > 0 ? item.hsnCodes[0] : ""),
+        gstPercentage: item.gstPercentage || 0,
         hsnCodes: item.hsnCodes || [],
       });
     } else {
@@ -173,6 +169,8 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
         cutType: "C1",
         quantityAdd: 0,
         pricePerPiece: 0,
+        hsnCode: "",
+        gstPercentage: 0,
         hsnCodes: [],
       });
     }
@@ -205,7 +203,9 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
           quantityAdd: data.quantityAdd,
           pricePerPiece: Number(data.pricePerPiece || 0),
           totalPurchaseAmount: totalAmt,
-          hsnCodes: data.hsnCodes,
+          hsnCode: data.hsnCode || undefined,
+          gstPercentage: data.gstPercentage || 0,
+          hsnCodes: data.hsnCode ? [data.hsnCode] : [],
         },
         { onSuccess: () => onClose() }
       );
@@ -214,6 +214,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
         {
           ...data,
           totalPurchaseAmount: totalAmt,
+          hsnCodes: data.hsnCode ? [data.hsnCode] : [],
         },
         { onSuccess: () => onClose() }
       );
@@ -342,62 +343,50 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
           />
         </div>
 
-        {/* HSN Codes */}
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
-            HSN Codes (Optional)
-          </label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={hsnInput}
-                onChange={(e) => setHsnInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddHsn();
-                  }
-                }}
-                placeholder="Type and press Enter, e.g. 8471"
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]"
-              />
+        {/* HSN Code & GST Calculation */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="hsn-select" className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+                HSN Code (Optional)
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsManagingHsn(true)}
+                className="text-[11px] font-bold uppercase tracking-wider text-[#D32F2F] hover:text-red-800 transition-colors focus:outline-none cursor-pointer"
+              >
+                Manage
+              </button>
             </div>
-            <Button
-              type="button"
-              onClick={() => handleAddHsn()}
-              variant="secondary"
-              className="h-11 px-4 border border-slate-200 flex items-center gap-1"
+            <Select
+              id="hsn-select"
+              error={errors.hsnCode?.message}
+              {...register("hsnCode", {
+                onChange: (e) => {
+                  const code = e.target.value;
+                  const matched = hsnList.find((h) => h.code === code);
+                  const pct = matched ? matched.gstPercentage : 0;
+                  setValue("gstPercentage", pct, { shouldDirty: true });
+                }
+              })}
             >
-              <Plus size={16} /> Add
-            </Button>
-          </div>
-          
-          {errors.hsnCodes?.message && (
-            <p className="text-xs text-rose-600 font-medium">{errors.hsnCodes.message}</p>
-          )}
-
-          {hsnCodes.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
-              {hsnCodes.map((code) => (
-                <Badge
-                  key={code}
-                  variant="neutral"
-                  className="pl-3 pr-2 py-1 font-mono text-xs flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm hover:border-rose-200 transition-colors"
-                >
-                  <span>{code}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveHsn(code)}
-                    className="rounded-full p-0.5 hover:bg-rose-50 hover:text-rose-600 transition-colors focus:outline-none cursor-pointer"
-                    aria-label={`Remove HSN code ${code}`}
-                  >
-                    <X size={12} />
-                  </button>
-                </Badge>
+              <option value="">Select HSN Code…</option>
+              {hsnList.filter((h) => h.isActive || h.code === item?.hsnCode).map((h) => (
+                <option key={h._id} value={h.code}>
+                  {h.code} ({h.gstPercentage}%)
+                </option>
               ))}
-            </div>
-          )}
+            </Select>
+          </div>
+
+          <Input
+            label="GST Paid (₹)"
+            type="text"
+            readOnly
+            disabled
+            value={calculatedGstPaid > 0 ? `₹${calculatedGstPaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+            hint={selectedHsnCode && gstPct > 0 ? `${gstPct}% inclusive GST of total ₹${addAmount.toLocaleString("en-IN")}` : "Calculated when HSN & amount are selected"}
+          />
         </div>
 
         {(selectedSize && cutType && Number(quantityAdd) > 0) && (
@@ -450,6 +439,11 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
           </p>
         )}
       </form>
+
+      <ManageHsnCodesModal
+        isOpen={isManagingHsn}
+        onClose={() => setIsManagingHsn(false)}
+      />
     </Modal>
   );
 }

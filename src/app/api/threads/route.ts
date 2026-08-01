@@ -98,8 +98,11 @@ export async function POST(request: Request) {
     } catch {
       // Index doesn't exist or already dropped — ignore
     }
+    const { hsnCode, gstPercentage, ...rest } = parsed.data;
     const item = await ThreadsStock.create({
-      ...parsed.data,
+      ...rest,
+      hsnCode: hsnCode ?? undefined,
+      gstPercentage: gstPercentage ?? undefined,
       purchaseHistory:
         parsed.data.stockAdd > 0
           ? [buildDbPurchaseEntry(parsed.data.stockAdd, Number((parsed.data.stockAdd * parsed.data.costPerUnit).toFixed(2)))]

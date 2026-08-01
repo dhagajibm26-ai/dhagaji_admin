@@ -87,6 +87,8 @@ export interface PatchThreadsPayload {
   addStockQty?: number;
   totalPurchaseAmount?: number;
   costPerUnit?: number;
+  hsnCode?: string;
+  gstPercentage?: number;
   hsnCodes?: string[];
 }
 

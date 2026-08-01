@@ -37,11 +37,13 @@ export async function POST(request: Request) {
       );
     }
     await connectDB();
-    const { quantityAdd, cutType, pricePerPiece, totalPurchaseAmount, ...rest } = parsed.data;
+    const { quantityAdd, cutType, pricePerPiece, totalPurchaseAmount, hsnCode, gstPercentage, ...rest } = parsed.data;
     const pieces = quantityAdd * PETA_MAP[cutType];
     const finalAmount = totalPurchaseAmount ?? Number((pieces * pricePerPiece).toFixed(2));
     const item = await BanglesStock.create({
       ...rest,
+      hsnCode: hsnCode ?? undefined,
+      gstPercentage: gstPercentage ?? undefined,
       cutType,
       quantityAdd,
       pricePerPiece,

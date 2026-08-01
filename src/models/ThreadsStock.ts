@@ -21,6 +21,7 @@ export interface IThreadsStockDocument extends Document {
   netUsed: number;         // total consumed (grams)
   costPerUnit: number;     // cost per gram
   hsnCode?: string;
+  gstPercentage?: number;
   hsnCodes?: string[];
   purchaseHistory?: Array<{
     quantity: number;
@@ -48,6 +49,7 @@ const ThreadsStockSchema = new Schema<IThreadsStockDocument>(
     netUsed: { type: Number, default: 0, min: 0 },
     costPerUnit: { type: Number, required: true, min: 0 },
     hsnCode: { type: String, trim: true },
+    gstPercentage: { type: Number, default: 0 },
     hsnCodes: { type: [String], default: [] },
     purchaseHistory: { type: [PurchaseEntrySchema], default: [] },
     isDeleted: { type: Boolean, default: false },
@@ -60,7 +62,6 @@ const ThreadsStockSchema = new Schema<IThreadsStockDocument>(
         if (!ret.hsnCodes || ret.hsnCodes.length === 0) {
           ret.hsnCodes = ret.hsnCode ? [ret.hsnCode] : [];
         }
-        delete ret.hsnCode;
         return ret;
       }
     },
@@ -70,7 +71,6 @@ const ThreadsStockSchema = new Schema<IThreadsStockDocument>(
         if (!ret.hsnCodes || ret.hsnCodes.length === 0) {
           ret.hsnCodes = ret.hsnCode ? [ret.hsnCode] : [];
         }
-        delete ret.hsnCode;
         return ret;
       }
     },
