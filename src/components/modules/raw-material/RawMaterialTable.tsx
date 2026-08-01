@@ -231,11 +231,14 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
               </th>
               <th className="min-w-[120px] whitespace-nowrap px-4 py-3">Date</th>
               <th className="min-w-[150px] whitespace-nowrap px-4 py-3">Sub Category / Details</th>
-              <th className="min-w-[120px] whitespace-nowrap px-4 py-3">Category</th>
+              <th className="min-w-[130px] whitespace-nowrap px-4 py-3">Category</th>
               <th className="min-w-[100px] whitespace-nowrap px-4 py-3">HSN Code</th>
+              <th className="min-w-[80px] whitespace-nowrap px-4 py-3 text-center">GST %</th>
               <th className="min-w-[70px] whitespace-nowrap px-4 py-3">Unit</th>
               <th className="min-w-[110px] whitespace-nowrap px-4 py-3 text-right">Stock</th>
-              <th className="min-w-[160px] whitespace-nowrap px-4 py-3 text-right">Total Purchase (₹)</th>
+              <th className="min-w-[120px] whitespace-nowrap px-4 py-3 text-right">GST Paid (₹)</th>
+              <th className="min-w-[140px] whitespace-nowrap px-4 py-3 text-right">Without GST (₹)</th>
+              <th className="min-w-[160px] whitespace-nowrap px-4 py-3 text-right">Total (With GST) (₹)</th>
               <th className="min-w-[120px] whitespace-nowrap px-4 py-3 text-right">1 Unit Rate</th>
               <th className="min-w-[110px] whitespace-nowrap px-4 py-3 text-right">1 kg Rate</th>
               <th className="min-w-[130px] whitespace-nowrap px-4 py-3 text-right">Low Stock Alert</th>
@@ -251,6 +254,9 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
               const st = getStatus(item);
               const isLow = st !== "ok";
               const totalPurchaseAmount = getTotalPurchaseAmount(item);
+              const gstPercentage = item.gstPercentage || 0;
+              const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / (100 + gstPercentage) : 0;
+              const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
               const rowBg = isLow
                 ? "bg-rose-50"
                 : index % 2 === 0
@@ -274,19 +280,21 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
                   </td>
 
                   <td className="whitespace-nowrap px-4 py-3 text-slate-600">{item.category}</td>
-                  
+
                   <td className="px-4 py-3 text-slate-600 font-mono text-xs">
-                    <div className="flex items-center gap-1.5">
-                      {item.hsnCodes && item.hsnCodes.length > 0 ? (
-                        item.hsnCodes.length === 1 ? (
-                          <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
+                    <div className="flex flex-col gap-1">
+                      {item.hsnCode ? (
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0.5">
+                            {item.hsnCode}
+                          </Badge>
+                        </div>
+                      ) : item.hsnCodes && item.hsnCodes.length > 0 ? (
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0.5">
                             {item.hsnCodes[0]}
                           </Badge>
-                        ) : (
-                          <>
-                            <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0">
-                              {item.hsnCodes[0]}
-                            </Badge>
+                          {item.hsnCodes.length > 1 && (
                             <button
                               type="button"
                               onClick={() => setSelectedHsnItem(item)}
@@ -295,25 +303,39 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
                             >
                               +{item.hsnCodes.length - 1}
                             </button>
-                          </>
-                        )
+                          )}
+                        </div>
                       ) : (
                         "—"
                       )}
                     </div>
                   </td>
 
+                  <td className="whitespace-nowrap px-4 py-3 text-center text-slate-600 tabular-nums">
+                    {item.gstPercentage ? `${item.gstPercentage}%` : "—"}
+                  </td>
+
                   <td className="whitespace-nowrap px-4 py-3 capitalize text-slate-500">{item.unit}</td>
 
                   <td
-                    className={`whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums ${
-                      isLow ? "text-[#D32F2F]" : "text-[#1A1A1A]"
-                    }`}
+                    className={`whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums ${isLow ? "text-[#D32F2F]" : "text-[#1A1A1A]"
+                      }`}
                   >
                     {formatQty(item.closingStock)} {item.unit}
                   </td>
 
-                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700">
+                  {/* GST Paid */}
+                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-600">
+                    {gstPaidAmount > 0 ? `₹${formatMoney(gstPaidAmount)}` : "—"}
+                  </td>
+
+                  {/* Without GST */}
+                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-600">
+                    ₹{formatMoney(amountWithoutGst)}
+                  </td>
+
+                  {/* Total (With GST) */}
+                  <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700 font-semibold">
                     ₹{formatMoney(totalPurchaseAmount)}
                   </td>
 

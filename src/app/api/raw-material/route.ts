@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     }
 
     await connectDB();
-    const { purchasedQty, ratePerUnit, ...rest } = parsed.data;
+    const { purchasedQty, ratePerUnit, hsnCode, gstPercentage, ...rest } = parsed.data;
 
     const totalAmount = Number((purchasedQty * ratePerUnit).toFixed(2));
     const purchaseHistory =
@@ -108,6 +108,8 @@ export async function POST(request: Request) {
 
     const doc = await RawMaterial.create({
       ...rest,
+      hsnCode: hsnCode ?? undefined,
+      gstPercentage: gstPercentage ?? undefined,
       purchasedQty,
       ratePerUnit,
       purchaseHistory,

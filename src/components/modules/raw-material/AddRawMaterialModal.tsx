@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/Badge";
 import { useAddRawMaterial, usePatchRawMaterial } from "@/hooks/useRawMaterial";
 import { useMaterialCategories } from "@/hooks/useMaterialCategories";
 import { useRawMaterialUnits, useCreateRawMaterialUnit, useDeleteRawMaterialUnit } from "@/hooks/useRawMaterialUnits";
+import { useHsnCodes, useCreateHsnCode, useDeleteHsnCode } from "@/hooks/useHsnCodes";
 import { PurchaseHistoryPanel } from "@/components/ui/PurchaseHistoryPanel";
 import { formatGramRate, formatKgRateFromGramRate, resolvePurchaseHistory } from "@/lib/purchaseHistory";
 import type { IRawMaterial } from "@/types";
@@ -27,6 +28,8 @@ const formSchema = z.object({
   unitsPerPack: z.number().min(1, "Must be 1 or more").default(1),
   lowStockThreshold: z.number().min(0).default(10),
   supplier: z.string().optional(),
+  hsnCode: z.string().optional().default(""),
+  gstPercentage: z.number().optional().default(0),
   hsnCodes: z.array(z.string()).default([]),
 });
 
@@ -49,7 +52,9 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
   const patchMutation = usePatchRawMaterial();
   const { data: categories = [] } = useMaterialCategories();
   const { data: units = [] } = useRawMaterialUnits();
+  const { data: hsnList = [] } = useHsnCodes();
   const [isManagingUnits, setIsManagingUnits] = useState(false);
+  const [isManagingHsn, setIsManagingHsn] = useState(false);
   const isEdit = !!item;
 
   const {
@@ -76,29 +81,14 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       unitsPerPack: 1,
       lowStockThreshold: 10,
       supplier: "",
+      hsnCode: "",
+      gstPercentage: 0,
       hsnCodes: [],
     },
   });
 
-  const [hsnInput, setHsnInput] = useState("");
-  const hsnCodes = useWatch({ control, name: "hsnCodes" }) || [];
-
-  const handleAddHsn = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = hsnInput.trim();
-    if (!trimmed) return;
-    if (hsnCodes.includes(trimmed)) {
-      setError("hsnCodes", { message: "HSN code already added" });
-      return;
-    }
-    setValue("hsnCodes", [...hsnCodes, trimmed], { shouldDirty: true });
-    setHsnInput("");
-    clearErrors("hsnCodes");
-  };
-
-  const handleRemoveHsn = (codeToRemove: string) => {
-    setValue("hsnCodes", hsnCodes.filter((c) => c !== codeToRemove), { shouldDirty: true });
-  };
+  const selectedHsnCode = useWatch({ control, name: "hsnCode" });
+  const gstPercentage = useWatch({ control, name: "gstPercentage" }) || 0;
 
   const unit = useWatch({ control, name: "unit" }) as string | undefined;
   const quantity = useWatch({ control, name: "quantity" });
@@ -140,6 +130,8 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
         unitsPerPack: safeUnitsPerPack,
         lowStockThreshold: item.lowStockThreshold,
         supplier: item.supplier ?? "",
+        hsnCode: item.hsnCode || (rawHsnCodes.length > 0 ? rawHsnCodes[0] : ""),
+        gstPercentage: item.gstPercentage || 0,
         hsnCodes: rawHsnCodes,
       });
       return;
@@ -155,6 +147,8 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       unitsPerPack: 1,
       lowStockThreshold: 10,
       supplier: "",
+      hsnCode: "",
+      gstPercentage: 0,
       hsnCodes: [],
     });
   }, [isOpen, item, reset]);
@@ -165,6 +159,8 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
 
   const qtyNumber = Number(quantity || 0);
   const amountNumber = Number(totalAmount || 0);
+  const gstPct = Number(gstPercentage || 0);
+  const calculatedGstPaid = gstPct > 0 ? (amountNumber * gstPct) / (100 + gstPct) : 0;
   const perUnitRate = qtyNumber > 0 ? Number((amountNumber / qtyNumber).toFixed(4)) : 0;
   const perPieceRate = effectiveQty > 0 ? Number((amountNumber / effectiveQty).toFixed(4)) : 0;
   const perKgRate = unit === "gram" ? Number((computedRate * 1000).toFixed(2)) : null;
@@ -197,7 +193,9 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
       unitsPerPack: isPackUnit(data.unit) ? Number(data.unitsPerPack || 1) : 1,
       lowStockThreshold: data.lowStockThreshold,
       supplier: data.supplier?.trim() || undefined,
-      hsnCodes: data.hsnCodes,
+      hsnCode: data.hsnCode || undefined,
+      gstPercentage: data.gstPercentage || 0,
+      hsnCodes: data.hsnCode ? [data.hsnCode] : [],
     };
 
     if (item) {
@@ -433,61 +431,49 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
           />
         </div>
 
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
-            HSN Codes (Optional)
-          </label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={hsnInput}
-                onChange={(e) => setHsnInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddHsn();
-                  }
-                }}
-                placeholder="Type and press Enter, e.g. 8471"
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]/30 focus:border-[#D32F2F]"
-              />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="hsn-select" className="text-xs font-semibold uppercase tracking-wider text-slate-600">
+                HSN Code (Optional)
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsManagingHsn(true)}
+                className="text-[11px] font-bold uppercase tracking-wider text-rose-600 hover:text-rose-800 transition-colors focus:outline-none cursor-pointer"
+              >
+                Manage
+              </button>
             </div>
-            <Button
-              type="button"
-              onClick={() => handleAddHsn()}
-              variant="secondary"
-              className="h-11 px-4 border border-slate-200 flex items-center gap-1"
+            <Select
+              id="hsn-select"
+              error={errors.hsnCode?.message}
+              {...register("hsnCode", {
+                onChange: (e) => {
+                  const code = e.target.value;
+                  const matched = hsnList.find((h) => h.code === code);
+                  const pct = matched ? matched.gstPercentage : 0;
+                  setValue("gstPercentage", pct, { shouldDirty: true });
+                }
+              })}
             >
-              <Plus size={16} /> Add
-            </Button>
-          </div>
-          
-          {errors.hsnCodes?.message && (
-            <p className="text-xs text-rose-600 font-medium">{errors.hsnCodes.message}</p>
-          )}
-
-          {hsnCodes.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
-              {hsnCodes.map((code) => (
-                <Badge
-                  key={code}
-                  variant="neutral"
-                  className="pl-3 pr-2 py-1 font-mono text-xs flex items-center gap-1.5 bg-white border border-slate-200 shadow-sm hover:border-rose-200 transition-colors"
-                >
-                  <span>{code}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveHsn(code)}
-                    className="rounded-full p-0.5 hover:bg-rose-50 hover:text-rose-600 transition-colors focus:outline-none cursor-pointer"
-                    aria-label={`Remove HSN code ${code}`}
-                  >
-                    <X size={12} />
-                  </button>
-                </Badge>
+              <option value="">Select HSN Code…</option>
+              {hsnList.filter((h) => h.isActive || h.code === item?.hsnCode).map((h) => (
+                <option key={h._id} value={h.code}>
+                  {h.code} ({h.gstPercentage}%)
+                </option>
               ))}
-            </div>
-          )}
+            </Select>
+          </div>
+
+          <Input
+            label="GST Paid (₹)"
+            type="text"
+            readOnly
+            disabled
+            value={calculatedGstPaid > 0 ? `₹${calculatedGstPaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+            hint={selectedHsnCode && gstPct > 0 ? `${gstPct}% inclusive GST of total ₹${amountNumber.toLocaleString("en-IN")}` : "Calculated when HSN & amount are selected"}
+          />
         </div>
 
         {(addMutation.isError || patchMutation.isError) && (
@@ -499,6 +485,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     </Modal>
 
     <ManageUnitsModal isOpen={isManagingUnits} onClose={() => setIsManagingUnits(false)} />
+    <ManageHsnCodesModal isOpen={isManagingHsn} onClose={() => setIsManagingHsn(false)} />
   </>
 );
 }
@@ -562,6 +549,103 @@ function ManageUnitsModal({ isOpen, onClose }: ManageUnitsModalProps) {
                     onClick={() => {
                       if (confirm(`Are you sure you want to delete unit "${u.name}"?`)) {
                         deleteMutation.mutate(u._id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+interface ManageHsnCodesModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+function ManageHsnCodesModal({ isOpen, onClose }: ManageHsnCodesModalProps) {
+  const { data: hsnCodes = [], isLoading } = useHsnCodes();
+  const createMutation = useCreateHsnCode();
+  const deleteMutation = useDeleteHsnCode();
+  const [newCode, setNewCode] = useState("");
+  const [newGst, setNewGst] = useState<number | "">("");
+
+  const handleAdd = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const code = newCode.trim();
+    if (!code) return;
+    const gstPercentage = Number(newGst || 0);
+
+    createMutation.mutate({ code, gstPercentage, isActive: true }, {
+      onSuccess: () => {
+        setNewCode("");
+        setNewGst("");
+      },
+    });
+  };
+
+  const isPending = createMutation.isPending || deleteMutation.isPending;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Manage HSN Codes" size="md">
+      <div className="space-y-4">
+        <form onSubmit={handleAdd} className="grid grid-cols-1 gap-3 sm:grid-cols-3 items-end">
+          <div className="sm:col-span-1">
+            <Input
+              label="HSN Code"
+              placeholder="e.g. 8471"
+              value={newCode}
+              onChange={(e) => setNewCode(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <div className="sm:col-span-1">
+            <Input
+              label="GST Percentage (%)"
+              placeholder="e.g. 18"
+              type="number"
+              min="0"
+              max="100"
+              value={newGst}
+              onChange={(e) => setNewGst(e.target.value === "" ? "" : Number(e.target.value))}
+              autoComplete="off"
+            />
+          </div>
+          <div className="sm:col-span-1">
+            <Button type="submit" isLoading={createMutation.isPending} disabled={!newCode.trim() || newGst === ""}>
+              Add Code
+            </Button>
+          </div>
+        </form>
+
+        <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white">
+          {isLoading ? (
+            <p className="p-4 text-center text-sm text-slate-400">Loading HSN codes...</p>
+          ) : hsnCodes.length === 0 ? (
+            <p className="p-4 text-center text-sm text-slate-400">No HSN codes defined yet.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {hsnCodes.map((h) => (
+                <li key={h._id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                  <div className="flex flex-col">
+                    <span className="font-medium text-slate-700">{h.code}</span>
+                    <span className="text-xs text-slate-500">GST: {h.gstPercentage}%</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-600 hover:bg-red-50 hover:text-red-800 h-8 px-2"
+                    isLoading={deleteMutation.isPending && deleteMutation.variables === h._id}
+                    disabled={isPending}
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to delete HSN code "${h.code}"?`)) {
+                        deleteMutation.mutate(h._id);
                       }
                     }}
                   >

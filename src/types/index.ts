@@ -45,6 +45,8 @@ export interface IRawMaterial {
   itemName: string;
   category: RawMaterialCategory;
   colorType?: string;
+  hsnCode?: string;
+  gstPercentage?: number;
   hsnCodes?: string[];
   unit: RawMaterialUnit;
   unitsPerPack?: number;
@@ -67,6 +69,8 @@ export const rawMaterialSchema = z.object({
   itemName: z.string().min(1, "Item name required"),
   category: z.string().min(1, "Category required"),
   colorType: z.string().optional(),
+  hsnCode: z.string().optional().nullable(),
+  gstPercentage: z.number().optional().nullable(),
   hsnCodes: z.array(z.string()).optional(),
   unit: z.string().min(1, "Unit required"),
   unitsPerPack: z.number().min(1).default(1),
@@ -714,6 +718,23 @@ export const couponSchema = couponBaseSchema
     }
   );
 export type CouponInput = z.infer<typeof couponSchema>;
+
+// ─── HSN Code ────────────────────────────────────────────────────────────────
+export interface IHsnCode {
+  _id: string;
+  code: string;
+  gstPercentage: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export const hsnCodeSchema = z.object({
+  code: z.string().min(1, "HSN Code required"),
+  gstPercentage: z.number().min(0, "GST percentage must be 0 or more").max(100, "GST percentage cannot exceed 100"),
+  isActive: z.boolean().default(true),
+});
+export type HsnCodeInput = z.infer<typeof hsnCodeSchema>;
 
 // ─── API Response ─────────────────────────────────────────────────────────────
 export interface ApiResponse<T = unknown> {

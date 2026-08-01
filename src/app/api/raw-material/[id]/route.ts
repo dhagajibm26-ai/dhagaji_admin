@@ -22,6 +22,8 @@ const patchSchema = z
     ratePerUnit: z.number().min(0).optional(),
     lowStockThreshold: z.number().min(0).optional(),
     supplier: z.string().optional(),
+    hsnCode: z.string().optional().nullable(),
+    gstPercentage: z.number().optional().nullable(),
     hsnCodes: z.array(z.string()).optional(),
     lastPurchaseDate: z.string().optional(),
   })
@@ -40,6 +42,8 @@ const patchSchema = z
       d.ratePerUnit !== undefined ||
       d.lowStockThreshold !== undefined ||
       d.supplier !== undefined ||
+      d.hsnCode !== undefined ||
+      d.gstPercentage !== undefined ||
       d.hsnCodes !== undefined ||
       d.lastPurchaseDate !== undefined,
     { message: "At least one field must be provided" }
@@ -98,9 +102,15 @@ export async function PATCH(
       update.$set.lowStockThreshold = directFields.lowStockThreshold;
     if (directFields.supplier !== undefined) update.$set.supplier = directFields.supplier;
     
-    if (directFields.hsnCodes !== undefined) {
+    if (directFields.hsnCode !== undefined) {
+      update.$set.hsnCode = directFields.hsnCode ?? "";
+      update.$set.hsnCodes = directFields.hsnCode ? [directFields.hsnCode] : [];
+    } else if (directFields.hsnCodes !== undefined) {
       update.$set.hsnCodes = directFields.hsnCodes;
       update.$set.hsnCode = directFields.hsnCodes.length > 0 ? directFields.hsnCodes[0] : "";
+    }
+    if (directFields.gstPercentage !== undefined) {
+      update.$set.gstPercentage = directFields.gstPercentage ?? 0;
     }
 
     if (addPurchasedQty !== undefined && addPurchasedQty > 0) {

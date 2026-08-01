@@ -19,6 +19,7 @@ export interface IRawMaterialDocument extends Document {
   category: RawMaterialCategory;
   colorType?: string;
   hsnCode?: string;
+  gstPercentage?: number;
   hsnCodes?: string[];
   unit: RawMaterialUnit;
   unitsPerPack?: number;
@@ -54,6 +55,7 @@ const RawMaterialSchema = new Schema<IRawMaterialDocument>(
     },
     colorType: { type: String, trim: true },
     hsnCode: { type: String, trim: true },
+    gstPercentage: { type: Number, default: 0 },
     hsnCodes: { type: [String], default: [] },
     unit: {
       type: String,
@@ -79,7 +81,6 @@ const RawMaterialSchema = new Schema<IRawMaterialDocument>(
         if (!ret.hsnCodes || ret.hsnCodes.length === 0) {
           ret.hsnCodes = ret.hsnCode ? [ret.hsnCode] : [];
         }
-        delete ret.hsnCode;
         return ret;
       }
     },
@@ -89,7 +90,6 @@ const RawMaterialSchema = new Schema<IRawMaterialDocument>(
         if (!ret.hsnCodes || ret.hsnCodes.length === 0) {
           ret.hsnCodes = ret.hsnCode ? [ret.hsnCode] : [];
         }
-        delete ret.hsnCode;
         return ret;
       }
     },
