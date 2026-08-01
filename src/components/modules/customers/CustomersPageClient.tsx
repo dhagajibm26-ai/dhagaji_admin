@@ -100,12 +100,12 @@ export function CustomersPageClient() {
         <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-100 text-left">
-                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Name</th>
-                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Mobile Number(s)</th>
-                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Email</th>
-                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Address</th>
-                <th className="px-5 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Actions</th>
+              <tr className="bg-[#D32F2F] border-b border-slate-100 text-left text-white">
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-white">Name</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-white">Mobile Number(s)</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-white">Email</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-white">Address</th>
+                <th className="px-5 py-4 text-center text-xs font-bold uppercase tracking-wider text-white">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">

@@ -165,18 +165,18 @@ export function SalarySummary({ workers }: SalarySummaryProps) {
       <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400 min-w-[120px]">Worker</th>
-              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">OK Pieces</th>
-              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Rejected</th>
-              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Pending</th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Gross Earnings</th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Rejection Cut</th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400 bg-green-50">Net Payable</th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Paid</th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Balance</th>
-              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Action</th>
+            <tr className="bg-[#D32F2F] border-b border-slate-100 text-white">
+              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white min-w-[120px]">Worker</th>
+              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">OK Pieces</th>
+              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Rejected</th>
+              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Pending</th>
+              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Gross Earnings</th>
+              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Rejection Cut</th>
+              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Net Payable</th>
+              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Paid</th>
+              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Balance</th>
+              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Status</th>
+              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">

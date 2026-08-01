@@ -457,14 +457,14 @@ export function WorkersPageClient() {
             <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Worker</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Work Type</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Bangles Issued</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Rate/Piece</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Status</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Action</th>
+                  <tr className="bg-[#D32F2F] border-b border-slate-100 text-white">
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Worker</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Work Type</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Bangles Issued</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Rate/Piece</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Status</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">

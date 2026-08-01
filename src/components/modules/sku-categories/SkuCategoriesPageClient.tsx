@@ -240,13 +240,13 @@ export function SkuCategoriesPageClient() {
         <div className="relative w-full overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                <th className="px-4 py-3 min-w-[200px]">Category Name</th>
-                <th className="px-4 py-3 text-center">Type</th>
-                <th className="px-4 py-3">Parent Category</th>
-                <th className="px-4 py-3 text-center">Size Field</th>
-                <th className="px-4 py-3 text-center">Status</th>
-                {isOwner && <th className="px-4 py-3 text-center">Actions</th>}
+              <tr className="bg-[#D32F2F] border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wider text-white">
+                <th className="px-4 py-3 min-w-[200px] text-white">Category Name</th>
+                <th className="px-4 py-3 text-center text-white">Type</th>
+                <th className="px-4 py-3 text-white">Parent Category</th>
+                <th className="px-4 py-3 text-center text-white">Size Field</th>
+                <th className="px-4 py-3 text-center text-white">Status</th>
+                {isOwner && <th className="px-4 py-3 text-center text-white">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

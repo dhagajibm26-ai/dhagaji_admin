@@ -73,17 +73,17 @@ export function WorkerLedger({ workerId, workerName }: WorkerLedgerProps) {
       <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Date</th>
-              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-400">Work Type</th>
-              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">OK Pcs</th>
-              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Rejected</th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Gross</th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Kat (50%)</th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-green-600">Net Pay</th>
-              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Paid</th>
-              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Status</th>
-              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">Action</th>
+            <tr className="bg-[#D32F2F] border-b border-slate-100 text-white">
+              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Date</th>
+              <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-white">Work Type</th>
+              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">OK Pcs</th>
+              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Rejected</th>
+              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Gross</th>
+              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Kat (50%)</th>
+              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Net Pay</th>
+              <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Paid</th>
+              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Status</th>
+              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">

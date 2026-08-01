@@ -69,10 +69,10 @@ export function MaterialCategoriesPageClient() {
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table className="min-w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-              <th className="px-4 py-3">Category Name</th>
-              <th className="px-4 py-3 text-center">Status</th>
-              <th className="px-4 py-3 text-center">Actions</th>
+            <tr className="border-b border-slate-200 bg-[#D32F2F] text-left text-xs font-semibold uppercase tracking-wider text-white">
+              <th className="px-4 py-3 text-white">Category Name</th>
+              <th className="px-4 py-3 text-center text-white">Status</th>
+              <th className="px-4 py-3 text-center text-white">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

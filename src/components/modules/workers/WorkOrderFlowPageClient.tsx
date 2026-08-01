@@ -312,13 +312,13 @@ export function WorkOrderFlowPageClient() {
       y += 24; // space below header card
 
       // Columns (Actions field omitted)
-      const head = [["#", "Date", "Worker", "Work Type", "Type", "Bangles", "Thread", "Status"]];
-
+      const head = [["#", "Date", "Worker", "Work Type", "Type", "Bangles", "Thread", "Raw Materials", "Status"]];
+      
       const body = filtered.map((order, idx) => {
         const links = getChainLinks(order, allOrders);
         const isHalf = order.assignmentType === "half";
         const typeStr = links ? `Half (Leg ${links.legNumber})` : "Full";
-
+        
         let statusStr = "Pending";
         if (order.status === "Rejected") {
           const totalRejected = Math.max(0, order.finishedPieces - order.qualityOK);
@@ -331,6 +331,10 @@ export function WorkOrderFlowPageClient() {
           statusStr = order.status === "Completed" ? "Completed" : "Returned";
         }
 
+        const rmStr = order.rawMaterialsGiven && order.rawMaterialsGiven.length > 0
+          ? order.rawMaterialsGiven.map((rm) => `${rm.itemName}: ${rm.qty}${rm.unit || ""}`).join(", ")
+          : "—";
+
         return [
           String(idx + 1),
           formatDateDMY(order.date),
@@ -339,6 +343,7 @@ export function WorkOrderFlowPageClient() {
           typeStr,
           String(getTotalGivenPieces(order)),
           `${order.threadsGiven}g`,
+          rmStr,
           statusStr
         ];
       });
@@ -647,30 +652,31 @@ export function WorkOrderFlowPageClient() {
             <div className="overflow-x-auto rounded-xl border border-slate-100">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-left text-xs font-bold uppercase tracking-wider text-slate-500">
-                    <th className="px-3 py-3 text-center w-10">#</th>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Worker</th>
-                    <th className="px-4 py-3">Work Type</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3 text-right">Bangles</th>
-                    <th className="px-4 py-3 text-right">Thread</th>
-                    <th className="px-4 py-3 text-center">Status</th>
-                    <th className="px-4 py-3 text-center no-print">Action</th>
+                  <tr className="bg-[#D32F2F] border-b border-slate-100 text-left text-xs font-bold uppercase tracking-wider text-white">
+                    <th className="px-3 py-3 text-center w-10 text-white">#</th>
+                    <th className="px-4 py-3 text-white">Date</th>
+                    <th className="px-4 py-3 text-white">Worker</th>
+                    <th className="px-4 py-3 text-white">Work Type</th>
+                    <th className="px-4 py-3 text-white">Type</th>
+                    <th className="px-4 py-3 text-right text-white">Bangles</th>
+                    <th className="px-4 py-3 text-right text-white">Thread</th>
+                    <th className="px-4 py-3 text-right text-white">Raw Materials</th>
+                    <th className="px-4 py-3 text-center text-white">Status</th>
+                    <th className="px-4 py-3 text-center no-print text-white">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {ordersLoading ? (
                     Array.from({ length: 6 }).map((_, i) => (
                       <tr key={i}>
-                        <td className="px-4 py-3" colSpan={9}>
+                        <td className="px-4 py-3" colSpan={10}>
                           <div className="h-9 skeleton rounded-lg" />
                         </td>
                       </tr>
                     ))
                   ) : filtered.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-8 text-center text-slate-500" colSpan={9}>
+                      <td className="px-4 py-8 text-center text-slate-500" colSpan={10}>
                         {hasActiveFilters ? "No orders match your filters." : "No orders yet."}
                       </td>
                     </tr>
@@ -742,6 +748,14 @@ export function WorkOrderFlowPageClient() {
 
                           <td className="px-4 py-3 text-right text-slate-700">
                             {order.threadsGiven}g
+                          </td>
+
+                          <td className="px-4 py-3 text-right text-slate-700 text-xs whitespace-pre-line max-w-[200px]">
+                            {order.rawMaterialsGiven && order.rawMaterialsGiven.length > 0 ? (
+                              order.rawMaterialsGiven.map((rm) => `${rm.itemName}: ${rm.qty}${rm.unit || ""}`).join(", ")
+                            ) : (
+                              "—"
+                            )}
                           </td>
 
                           {/* Status cell */}

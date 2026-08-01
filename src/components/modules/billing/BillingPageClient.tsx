@@ -204,13 +204,13 @@ export function BillingPageClient() {
           <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-100 text-left">
-                  <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Bill Number</th>
-                  <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Date</th>
-                  <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Customer Name</th>
-                  <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Source</th>
-                  <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Payment</th>
-                  <th className="px-5 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-400">Total Amount</th>
+                <tr className="bg-[#D32F2F] border-b border-slate-100 text-left text-white">
+                  <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-white">Bill Number</th>
+                  <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-white">Date</th>
+                  <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-white">Customer Name</th>
+                  <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-white">Source</th>
+                  <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-white">Payment</th>
+                  <th className="px-5 py-4 text-right text-xs font-bold uppercase tracking-wider text-white">Total Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
