@@ -331,6 +331,8 @@ export function ReturnMaterialForm({
     }
   }, [isSizeEnabled, state.newCategory]);
 
+
+
   // Fetch all orders (Open + Rejected) — no status filter
   const { data: allOrders = [] } = useWorkOrders(workerId ? { workerId } : {});
 
@@ -347,6 +349,17 @@ export function ReturnMaterialForm({
 
   const selectedOrderId = state.workOrderId || preSelectedOrderId || "";
   const selectedOrder = selectableOrders.find((o) => o._id === selectedOrderId);
+
+  // Pre-populate bangle size from the selected work order
+  useEffect(() => {
+    if (!selectedOrder) return;
+    const bangles = selectedOrder.banglesGiven ?? [];
+    const firstSize = bangles.find((b) => b.size)?.size ?? "";
+    if (firstSize) {
+      setState((s) => ({ ...s, newSize: firstSize }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?._id]);
 
   // ── Mode detection ────────────────────────────────────────────────────────
   /** True when the selected order has already been returned but has rejected pieces to resolve */
