@@ -472,6 +472,7 @@ export interface IWorkOrder {
   perPieceRate: number;
   amountPaid: number;
   status: "Open" | "Returned" | "Completed" | "Rejected";
+  isHold?: boolean;
   /** How many of the originally rejected pieces have been resolved via rework */
   rejectedResolved: number;
   // virtuals

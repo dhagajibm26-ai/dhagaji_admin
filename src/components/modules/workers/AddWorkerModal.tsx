@@ -78,6 +78,11 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
         joiningDate: worker.joiningDate ? new Date(worker.joiningDate).toISOString().slice(0, 10) : "",
         photoDataUrl: worker.photoDataUrl ?? "",
         isActive: worker.isActive,
+        bankDetails: {
+          accountNo: worker.bankDetails?.accountNo ?? "",
+          bankName: worker.bankDetails?.bankName ?? "",
+          ifsc: worker.bankDetails?.ifsc ?? "",
+        },
       }
       : {
         name: "",
@@ -96,6 +101,11 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
         joiningDate: "",
         photoDataUrl: "",
         isActive: true,
+        bankDetails: {
+          accountNo: "",
+          bankName: "",
+          ifsc: "",
+        },
       },
   });
 
@@ -137,6 +147,11 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
         joiningDate: worker.joiningDate ? new Date(worker.joiningDate).toISOString().slice(0, 10) : "",
         photoDataUrl: worker.photoDataUrl ?? "",
         isActive: worker.isActive,
+        bankDetails: {
+          accountNo: worker.bankDetails?.accountNo ?? "",
+          bankName: worker.bankDetails?.bankName ?? "",
+          ifsc: worker.bankDetails?.ifsc ?? "",
+        },
       });
     } else {
       const raw = window.localStorage.getItem(DRAFT_KEY);
@@ -169,6 +184,11 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
         joiningDate: "",
         photoDataUrl: "",
         isActive: true,
+        bankDetails: {
+          accountNo: "",
+          bankName: "",
+          ifsc: "",
+        },
       });
     }
   }, [isOpen, worker, reset]);
@@ -444,6 +464,15 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
               error={errors.aadhaarNumber?.message}
             />
             <Input label="Designation / Work Type" autoComplete="off" {...register("designation")} />
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">Bank Details (Optional)</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Input label="Account Number" placeholder="Account No" autoComplete="off" {...register("bankDetails.accountNo")} />
+              <Input label="Bank Name" placeholder="Bank Name" autoComplete="off" {...register("bankDetails.bankName")} />
+              <Input label="IFSC Code" placeholder="IFSC Code" autoComplete="off" {...register("bankDetails.ifsc")} />
+            </div>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-[#1A1A1A] cursor-pointer select-none">

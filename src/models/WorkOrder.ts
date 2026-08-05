@@ -100,6 +100,7 @@ export interface IWorkOrderDocument extends Document {
   amountPaid: number;
 
   status: WorkOrderStatus;
+  isHold?: boolean;
 
   /** How many of the originally rejected pieces have been resolved through rework (used when status = "Rejected") */
   rejectedResolved: number;
@@ -262,6 +263,7 @@ const WorkOrderSchema = new Schema<IWorkOrderDocument>(
       enum: ["Open", "Returned", "Completed", "Rejected"],
       default: "Open",
     },
+    isHold: { type: Boolean, default: false },
 
     /** Tracks re-worked pieces when status = "Rejected" */
     rejectedResolved: { type: Number, default: 0, min: 0 },

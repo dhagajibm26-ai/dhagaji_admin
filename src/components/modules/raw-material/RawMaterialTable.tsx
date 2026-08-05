@@ -295,7 +295,7 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
                           </div>
                           {hsnLabelMap[item.hsnCode] && (
                             <span className="text-[10px] text-slate-400 font-sans pl-0.5 truncate max-w-[120px]" title={hsnLabelMap[item.hsnCode]}>
-                              {hsnLabelMap[item.hsnCode]}
+                              ({hsnLabelMap[item.hsnCode]})
                             </span>
                           )}
                         </>
@@ -318,7 +318,7 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
                           </div>
                           {hsnLabelMap[item.hsnCodes[0]] && (
                             <span className="text-[10px] text-slate-400 font-sans pl-0.5 truncate max-w-[120px]" title={hsnLabelMap[item.hsnCodes[0]]}>
-                              {hsnLabelMap[item.hsnCodes[0]]}
+                              ({hsnLabelMap[item.hsnCodes[0]]})
                             </span>
                           )}
                         </>

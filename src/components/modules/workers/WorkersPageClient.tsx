@@ -85,7 +85,6 @@ async function downloadPdf(worker: IWorker) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   doc.setTextColor(210, 158, 113); // Gold-ish color accent
-  doc.text("WORKER IDENTITY CARD", 48, 11.7);
 
   // Draw Photo Frame
   const photoX = 8;

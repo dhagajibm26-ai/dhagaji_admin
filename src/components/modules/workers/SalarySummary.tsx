@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FileText } from "lucide-react";
 import { useWorkOrders } from "@/hooks/useWorkOrders";
 import { useRecordPayment } from "@/hooks/useWorkOrders";
 import { Badge } from "@/components/ui/Badge";
@@ -28,11 +29,24 @@ interface WorkerStat {
 function WorkerSalaryRow({ worker }: { worker: IWorker }) {
   const { data: orders = [], isLoading } = useWorkOrders({ workerId: worker._id });
   const [payOrder, setPayOrder] = useState<IWorkOrder | null>(null);
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    setIsPdfGenerating(true);
+    try {
+      const { generateWorkerSalaryPdf } = await import("@/lib/pdf/workerSalaryPdf");
+      await generateWorkerSalaryPdf(worker, orders);
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+    } finally {
+      setIsPdfGenerating(false);
+    }
+  };
 
   if (isLoading) {
     return (
       <tr>
-        <td colSpan={8} className="px-4 py-3">
+        <td colSpan={12} className="px-4 py-3">
           <div className="h-4 skeleton rounded w-full" />
         </td>
       </tr>
@@ -110,6 +124,19 @@ function WorkerSalaryRow({ worker }: { worker: IWorker }) {
           </Badge>
         </td>
         <td className="px-4 py-3 text-center">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDownloadPdf}
+            disabled={isPdfGenerating}
+            title="Download Salary PDF Statement"
+            className="inline-flex items-center gap-1 border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-red-700"
+          >
+            <FileText className="w-4 h-4 text-red-600" />
+            <span>{isPdfGenerating ? "..." : "PDF"}</span>
+          </Button>
+        </td>
+        <td className="px-4 py-3 text-center">
           {unpaidOrder ? (
             <Button size="sm" variant="primary" onClick={() => setPayOrder(unpaidOrder)}>
               Pay Now
@@ -176,6 +203,7 @@ export function SalarySummary({ workers }: SalarySummaryProps) {
               <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Paid</th>
               <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-white">Balance</th>
               <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Status</th>
+              <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Download</th>
               <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-white">Action</th>
             </tr>
           </thead>
@@ -202,7 +230,7 @@ export function SalarySummary({ workers }: SalarySummaryProps) {
               <td className="px-4 py-3 text-right font-black text-rose-600">
                 ₹{activeWorkers.reduce((s, w) => s + (w.balance ?? 0), 0).toLocaleString("en-IN")}
               </td>
-              <td colSpan={2} />
+              <td colSpan={3} />
             </tr>
           </tfoot>
         </table>

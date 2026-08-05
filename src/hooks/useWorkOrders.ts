@@ -74,7 +74,7 @@ export function useCreateWorkOrder() {
     mutationFn: createWorkOrder,
     onSuccess: () => {
       // Invalidate work orders + all stock caches (bangles, threads, raw material deducted)
-      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.lists() });
+      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.all() });
       qc.invalidateQueries({ queryKey: BANGLES_KEYS.lists() });
       qc.invalidateQueries({ queryKey: THREADS_KEYS.lists() });
       qc.invalidateQueries({ queryKey: RAW_MATERIAL_KEYS.lists() });
@@ -91,8 +91,7 @@ export function useReturnWorkOrder() {
     mutationFn: ({ id, data }: { id: string; data: WorkOrderReturnInput }) =>
       returnWorkOrder(id, data),
     onSuccess: (_, { id }) => {
-      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.lists() });
-      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.detail(id) });
+      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.all() });
       qc.invalidateQueries({ queryKey: WORKERS_KEYS.lists() });
       // Returned bangles/threads/raw-materials go back to stock; finished product readyStock incremented
       qc.invalidateQueries({ queryKey: BANGLES_KEYS.lists() });
@@ -111,11 +110,63 @@ export function useRecordPayment() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: PaymentInput }) =>
       recordPayment(id, data),
-    onSuccess: (_, { id }) => {
-      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.lists() });
-      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.detail(id) });
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.all() });
       qc.invalidateQueries({ queryKey: WORKERS_KEYS.lists() });
       addToast({ type: "success", message: "Payment recorded successfully" });
+    },
+    onError: (err: Error) => addToast({ type: "error", message: err.message }),
+  });
+}
+
+async function toggleHoldWorkOrder(id: string, isHold: boolean): Promise<IWorkOrder> {
+  const res = await fetch(`/api/work-orders/${id}/hold`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isHold }),
+  });
+  const json: ApiResponse<IWorkOrder> = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "Failed to toggle hold status");
+  return json.data!;
+}
+
+export function useToggleHoldWorkOrder() {
+  const qc = useQueryClient();
+  const addToast = useUIStore((s) => s.addToast);
+  return useMutation({
+    mutationFn: ({ id, isHold }: { id: string; isHold: boolean }) =>
+      toggleHoldWorkOrder(id, isHold),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.all() });
+      addToast({
+        type: "info",
+        message: data.isHold ? "Payment put on hold" : "Payment released from hold",
+      });
+    },
+    onError: (err: Error) => addToast({ type: "error", message: err.message }),
+  });
+}
+
+async function recordBulkPayment(orderIds: string[], totalAmount: number, paymentMethod: string): Promise<void> {
+  const res = await fetch(`/api/work-orders/bulk-payment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderIds, totalAmount, paymentMethod }),
+  });
+  const json: ApiResponse = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "Failed to record bulk payment");
+}
+
+export function useRecordBulkPayment() {
+  const qc = useQueryClient();
+  const addToast = useUIStore((s) => s.addToast);
+  return useMutation({
+    mutationFn: ({ orderIds, totalAmount, paymentMethod }: { orderIds: string[]; totalAmount: number; paymentMethod: string }) =>
+      recordBulkPayment(orderIds, totalAmount, paymentMethod),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.all() });
+      qc.invalidateQueries({ queryKey: WORKERS_KEYS.lists() });
+      addToast({ type: "success", message: "Bulk payment recorded successfully" });
     },
     onError: (err: Error) => addToast({ type: "error", message: err.message }),
   });
@@ -156,9 +207,8 @@ export function useResolveRejected() {
         notes?: string;
       };
     }) => resolveRejectedWorkOrder(id, data),
-    onSuccess: (_, { id }) => {
-      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.lists() });
-      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.detail(id) });
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: WORK_ORDER_KEYS.all() });
       qc.invalidateQueries({ queryKey: WORKERS_KEYS.lists() });
       qc.invalidateQueries({ queryKey: FINISHED_STOCK_KEYS.lists() });
       addToast({ type: "success", message: "All pieces resolved. Stock & earnings updated." });

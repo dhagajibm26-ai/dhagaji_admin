@@ -29,16 +29,16 @@ export const dynamic = "force-dynamic";
 function parseDateRange(url: string): { from: Date; to: Date; fromStr: string; toStr: string } {
   const sp = new URL(url).searchParams;
   const fromStr = sp.get("from") ?? "";
-  const toStr   = sp.get("to")   ?? "";
+  const toStr = sp.get("to") ?? "";
 
-  const to   = toStr   ? new Date(toStr   + "T23:59:59.999Z") : new Date();
-  const raw  = fromStr ? new Date(fromStr + "T00:00:00.000Z") : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const to = toStr ? new Date(toStr + "T23:59:59.999Z") : new Date();
+  const raw = fromStr ? new Date(fromStr + "T00:00:00.000Z") : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   return {
-    from:    raw,
+    from: raw,
     to,
     fromStr: fromStr || raw.toISOString().split("T")[0],
-    toStr:   toStr   || to.toISOString().split("T")[0],
+    toStr: toStr || to.toISOString().split("T")[0],
   };
 }
 
@@ -61,17 +61,17 @@ async function salesReport(from: Date, to: Date): Promise<Omit<ReportData, "gene
   const bills = await Bill.find({ billDate: { $gte: from, $lte: to } }).sort({ billDate: -1 });
 
   const columns: ReportColumn[] = [
-    { key: "billNumber",  label: "Bill #",      type: "text" },
-    { key: "date",        label: "Date",         type: "date" },
-    { key: "customer",    label: "Customer",     type: "text" },
-    { key: "phone",       label: "Phone",        type: "text" },
-    { key: "source",      label: "Source",       type: "badge" },
-    { key: "items",       label: "Items",        type: "number" },
-    { key: "subtotal",    label: "Subtotal",     type: "currency", isSummable: true },
-    { key: "discount",    label: "Discount",     type: "currency", isSummable: true },
-    { key: "tax",         label: "Tax",          type: "currency", isSummable: true },
-    { key: "grandTotal",  label: "Grand Total",  type: "currency", isSummable: true },
-    { key: "payment",     label: "Payment",      type: "badge" },
+    { key: "billNumber", label: "Bill #", type: "text" },
+    { key: "date", label: "Date", type: "date" },
+    { key: "customer", label: "Customer", type: "text" },
+    { key: "phone", label: "Phone", type: "text" },
+    { key: "source", label: "Source", type: "badge" },
+    { key: "items", label: "Items", type: "number" },
+    { key: "subtotal", label: "Subtotal", type: "currency", isSummable: true },
+    { key: "discount", label: "Discount", type: "currency", isSummable: true },
+    { key: "tax", label: "Tax", type: "currency", isSummable: true },
+    { key: "grandTotal", label: "Grand Total", type: "currency", isSummable: true },
+    { key: "payment", label: "Payment", type: "badge" },
   ];
 
   const rows: ReportRow[] = bills.map((b) => {
@@ -81,16 +81,16 @@ async function salesReport(from: Date, to: Date): Promise<Omit<ReportData, "gene
     };
     return {
       billNumber: b.billNumber,
-      date:       new Date(b.billDate).toISOString().split("T")[0],
-      customer:   b.customerName,
-      phone:      b.customerPhone ?? "",
-      source:     b.salesSource,
-      items:      b.items.length,
-      subtotal:   j.subtotal,
-      discount:   j.discountTotal,
-      tax:        j.taxAmount,
+      date: new Date(b.billDate).toISOString().split("T")[0],
+      customer: b.customerName,
+      phone: b.customerPhone ?? "",
+      source: b.salesSource,
+      items: b.items.length,
+      subtotal: j.subtotal,
+      discount: j.discountTotal,
+      tax: j.taxAmount,
       grandTotal: j.grandTotal,
-      payment:    b.paymentMethod,
+      payment: b.paymentMethod,
     };
   });
 
@@ -103,20 +103,20 @@ async function rawMaterialReport(): Promise<Omit<ReportData, "generatedAt" | "da
   const mats = await RawMaterial.find({ isDeleted: { $ne: true } }).sort({ itemName: 1 });
 
   const columns: ReportColumn[] = [
-    { key: "name",              label: "Item Name",           type: "text" },
-    { key: "category",          label: "Category",            type: "badge" },
-    { key: "unit",              label: "Unit",                type: "text" },
-    { key: "date",              label: "Purchase Date",       type: "date" },
-    { key: "hsnCode",           label: "HSN Code",            type: "text" },
-    { key: "gstRate",           label: "GST %",               type: "percent",   align: "center" },
-    { key: "qty",               label: "Purchased Qty",       type: "number",     isSummable: true },
-    { key: "rate",              label: "Rate (₹)",            type: "currency" },
-    { key: "amountWithoutGst",  label: "Without GST (₹)",     type: "currency",   isSummable: true },
-    { key: "gstPaidAmount",     label: "GST Paid (₹)",        type: "currency",   isSummable: true },
-    { key: "amount",            label: "Total (With GST) (₹)",type: "currency",   isSummable: true },
-    { key: "closing",           label: "Current Closing",     type: "number" },
-    { key: "threshold",         label: "Min Stock",           type: "number" },
-    { key: "status",            label: "Status",              type: "badge" },
+    { key: "name", label: "Item Name", type: "text" },
+    { key: "category", label: "Category", type: "badge" },
+    { key: "unit", label: "Unit", type: "text" },
+    { key: "date", label: "Purchase Date", type: "date" },
+    { key: "hsnCode", label: "HSN Code", type: "text" },
+    { key: "gstRate", label: "GST %", type: "percent", align: "center" },
+    { key: "qty", label: "Purchased Qty", type: "number", isSummable: true },
+    { key: "rate", label: "Rate (₹)", type: "currency" },
+    { key: "amountWithoutGst", label: "Without GST (₹)", type: "currency", isSummable: true },
+    { key: "gstPaidAmount", label: "GST Paid (₹)", type: "currency", isSummable: true },
+    { key: "amount", label: "Total (With GST) (₹)", type: "currency", isSummable: true },
+    { key: "closing", label: "Current Closing", type: "number" },
+    { key: "threshold", label: "Min Stock", type: "number" },
+    { key: "status", label: "Status", type: "badge" },
   ];
 
   const rows: ReportRow[] = [];
@@ -130,20 +130,20 @@ async function rawMaterialReport(): Promise<Omit<ReportData, "generatedAt" | "da
       const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / 100 : 0;
       const amountWithoutGst = amount - gstPaidAmount;
       rows.push({
-        name:             m.itemName,
-        category:         m.category,
-        unit:             m.unit,
-        date:             m.lastPurchaseDate ? new Date(m.lastPurchaseDate).toISOString().split("T")[0] : "—",
-        hsnCode:          m.hsnCode || "—",
-        gstRate:          gstPercentage,
-        qty:              m.openingStock + m.purchasedQty,
-        rate:             m.ratePerUnit,
+        name: m.itemName,
+        category: m.category,
+        unit: m.unit,
+        date: m.lastPurchaseDate ? new Date(m.lastPurchaseDate).toISOString().split("T")[0] : "—",
+        hsnCode: m.hsnCode || "—",
+        gstRate: gstPercentage,
+        qty: m.openingStock + m.purchasedQty,
+        rate: m.ratePerUnit,
         amountWithoutGst,
         gstPaidAmount,
         amount,
         closing,
-        threshold:        m.lowStockThreshold,
-        status:           closing <= m.lowStockThreshold ? "Low Stock" : "OK",
+        threshold: m.lowStockThreshold,
+        status: closing <= m.lowStockThreshold ? "Low Stock" : "OK",
       });
     } else {
       history.forEach((h) => {
@@ -151,20 +151,20 @@ async function rawMaterialReport(): Promise<Omit<ReportData, "generatedAt" | "da
         const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / 100 : 0;
         const amountWithoutGst = amount - gstPaidAmount;
         rows.push({
-          name:             m.itemName,
-          category:         m.category,
-          unit:             m.unit,
-          date:             h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
-          hsnCode:          m.hsnCode || "—",
-          gstRate:          gstPercentage,
-          qty:              h.quantity,
-          rate:             h.ratePerUnit,
+          name: m.itemName,
+          category: m.category,
+          unit: m.unit,
+          date: h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
+          hsnCode: m.hsnCode || "—",
+          gstRate: gstPercentage,
+          qty: h.quantity,
+          rate: h.ratePerUnit,
           amountWithoutGst,
           gstPaidAmount,
           amount,
           closing,
-          threshold:        m.lowStockThreshold,
-          status:           closing <= m.lowStockThreshold ? "Low Stock" : "OK",
+          threshold: m.lowStockThreshold,
+          status: closing <= m.lowStockThreshold ? "Low Stock" : "OK",
         });
       });
     }
@@ -179,33 +179,33 @@ async function finishedStockReport(): Promise<Omit<ReportData, "generatedAt" | "
   const products = await FinishedProduct.find({}).sort({ designName: 1 });
 
   const columns: ReportColumn[] = [
-    { key: "designName",   label: "Design",        type: "text" },
-    { key: "code",         label: "Code",          type: "text" },
-    { key: "size",         label: "Size",          type: "text" },
-    { key: "barcode",      label: "Barcode",       type: "text" },
-    { key: "makingCost",   label: "Making Cost",   type: "currency" },
-    { key: "otherCost",    label: "Other Cost",    type: "currency" },
-    { key: "totalCost",    label: "Total Cost",    type: "currency" },
-    { key: "MRP",          label: "MRP",           type: "currency" },
+    { key: "designName", label: "Design", type: "text" },
+    { key: "code", label: "Code", type: "text" },
+    { key: "size", label: "Size", type: "text" },
+    { key: "barcode", label: "Barcode", type: "text" },
+    { key: "makingCost", label: "Making Cost", type: "currency" },
+    { key: "otherCost", label: "Other Cost", type: "currency" },
+    { key: "totalCost", label: "Total Cost", type: "currency" },
+    { key: "MRP", label: "MRP", type: "currency" },
     { key: "sellingPrice", label: "Selling Price", type: "currency" },
-    { key: "readyStock",   label: "Ready Stock",   type: "number",  isSummable: true },
-    { key: "totalSold",    label: "Total Sold",    type: "number",  isSummable: true },
-    { key: "stockValue",   label: "Stock Value",   type: "currency", isSummable: true },
+    { key: "readyStock", label: "Ready Stock", type: "number", isSummable: true },
+    { key: "totalSold", label: "Total Sold", type: "number", isSummable: true },
+    { key: "stockValue", label: "Stock Value", type: "currency", isSummable: true },
   ];
 
   const rows: ReportRow[] = products.map((p) => ({
-    designName:   p.designName,
-    code:         p.designCode,
-    size:         p.size,
-    barcode:      p.barcodeId,
-    makingCost:   p.makingCostPerPc,
-    otherCost:    p.otherCostPerPc,
-    totalCost:    p.makingCostPerPc + p.otherCostPerPc,
-    MRP:          p.MRP,
+    designName: p.designName,
+    code: p.designCode,
+    size: p.size,
+    barcode: p.barcodeId,
+    makingCost: p.makingCostPerPc,
+    otherCost: p.otherCostPerPc,
+    totalCost: p.makingCostPerPc + p.otherCostPerPc,
+    MRP: p.MRP,
     sellingPrice: p.sellingPrice,
-    readyStock:   p.readyStock,
-    totalSold:    p.totalSold,
-    stockValue:   p.readyStock * p.sellingPrice,
+    readyStock: p.readyStock,
+    totalSold: p.totalSold,
+    stockValue: p.readyStock * p.sellingPrice,
   }));
 
   return { title: REPORT_LABELS["finished-stock"], columns, rows, summary: sumCols(columns, rows) };
@@ -228,22 +228,22 @@ async function workerPaymentReport(workerId?: string | null): Promise<Omit<Repor
   const workers = await Worker.find(query).sort({ name: 1 });
 
   const columns: ReportColumn[] = [
-    { key: "name",        label: "Worker",       type: "text" },
-    { key: "phone",       label: "Phone",        type: "text" },
-    { key: "status",      label: "Status",       type: "badge" },
+    { key: "name", label: "Worker", type: "text" },
+    { key: "phone", label: "Phone", type: "text" },
+    { key: "status", label: "Status", type: "badge" },
     { key: "totalEarned", label: "Total Earned", type: "currency", isSummable: true },
-    { key: "totalPaid",   label: "Total Paid",   type: "currency", isSummable: true },
-    { key: "balance",     label: "Balance",      type: "currency", isSummable: true },
+    { key: "totalPaid", label: "Total Paid", type: "currency", isSummable: true },
+    { key: "balance", label: "Balance", type: "currency", isSummable: true },
   ];
 
   const rows: ReportRow[] = workers.map((w) => {
     const balance = w.totalEarned - w.totalPaid;
     return {
-      name:        w.name,
-      phone:       w.phone ?? "",
-      status:      w.isActive ? "Active" : "Inactive",
+      name: w.name,
+      phone: w.phone ?? "",
+      status: w.isActive ? "Active" : "Inactive",
       totalEarned: w.totalEarned,
-      totalPaid:   w.totalPaid,
+      totalPaid: w.totalPaid,
       balance,
     };
   });
@@ -263,17 +263,17 @@ async function workOrdersReport(from: Date, to: Date): Promise<Omit<ReportData, 
     .sort({ date: -1 });
 
   const columns: ReportColumn[] = [
-    { key: "date",          label: "Date",          type: "date" },
-    { key: "worker",        label: "Worker",        type: "text" },
-    { key: "workType",      label: "Work Type",     type: "text" },
-    { key: "finished",      label: "Finished Pcs",  type: "number" },
-    { key: "qualityOK",     label: "Quality OK",    type: "number" },
-    { key: "rejected",      label: "Rejected",      type: "number" },
-    { key: "ratePerPc",     label: "Rate/Pc",       type: "currency" },
-    { key: "amountDue",     label: "Amount Due",    type: "currency", isSummable: true },
-    { key: "amountPaid",    label: "Amount Paid",   type: "currency", isSummable: true },
-    { key: "balance",       label: "Balance",       type: "currency", isSummable: true },
-    { key: "paymentStatus", label: "Status",        type: "badge" },
+    { key: "date", label: "Date", type: "date" },
+    { key: "worker", label: "Worker", type: "text" },
+    { key: "workType", label: "Work Type", type: "text" },
+    { key: "finished", label: "Finished Pcs", type: "number" },
+    { key: "qualityOK", label: "Quality OK", type: "number" },
+    { key: "rejected", label: "Rejected", type: "number" },
+    { key: "ratePerPc", label: "Rate/Pc", type: "currency" },
+    { key: "amountDue", label: "Amount Due", type: "currency", isSummable: true },
+    { key: "amountPaid", label: "Amount Paid", type: "currency", isSummable: true },
+    { key: "balance", label: "Balance", type: "currency", isSummable: true },
+    { key: "paymentStatus", label: "Status", type: "badge" },
   ];
 
   const rows: ReportRow[] = orders.map((o) => {
@@ -285,16 +285,16 @@ async function workOrdersReport(from: Date, to: Date): Promise<Omit<ReportData, 
         ? (o.workerId as Pick<IWorkerDocument, "name">).name
         : "Unknown";
     return {
-      date:          new Date(o.date).toISOString().split("T")[0],
-      worker:        workerName,
-      workType:      o.workType,
-      finished:      o.finishedPieces,
-      qualityOK:     o.qualityOK,
-      rejected:      j.rejected,
-      ratePerPc:     o.perPieceRate,
-      amountDue:     j.amountDue,
-      amountPaid:    o.amountPaid,
-      balance:       j.balance,
+      date: new Date(o.date).toISOString().split("T")[0],
+      worker: workerName,
+      workType: o.workType,
+      finished: o.finishedPieces,
+      qualityOK: o.qualityOK,
+      rejected: j.rejected,
+      ratePerPc: o.perPieceRate,
+      amountDue: j.amountDue,
+      amountPaid: o.amountPaid,
+      balance: j.balance,
       paymentStatus: j.paymentStatus,
     };
   });
@@ -346,21 +346,21 @@ async function profitLossReport(from: Date, to: Date): Promise<Omit<ReportData, 
   }
 
   const columns: ReportColumn[] = [
-    { key: "date",        label: "Date",           type: "date" },
-    { key: "revenue",     label: "Revenue",        type: "currency", isSummable: true },
-    { key: "cogs",        label: "Cost of Goods",  type: "currency", isSummable: true },
-    { key: "grossProfit", label: "Gross Profit",   type: "currency", isSummable: true },
-    { key: "expenses",    label: "Expenses",       type: "currency", isSummable: true },
-    { key: "netProfit",   label: "Net Profit",     type: "currency", isSummable: true },
-    { key: "margin",      label: "Margin %",       type: "percent" },
+    { key: "date", label: "Date", type: "date" },
+    { key: "revenue", label: "Revenue", type: "currency", isSummable: true },
+    { key: "cogs", label: "Cost of Goods", type: "currency", isSummable: true },
+    { key: "grossProfit", label: "Gross Profit", type: "currency", isSummable: true },
+    { key: "expenses", label: "Expenses", type: "currency", isSummable: true },
+    { key: "netProfit", label: "Net Profit", type: "currency", isSummable: true },
+    { key: "margin", label: "Margin %", type: "percent" },
   ];
 
   const rows: ReportRow[] = [...byDate.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, d]) => {
       const grossProfit = d.revenue - d.cogs;
-      const netProfit   = grossProfit - d.expenses;
-      const margin      = d.revenue > 0 ? (netProfit / d.revenue) * 100 : 0;
+      const netProfit = grossProfit - d.expenses;
+      const margin = d.revenue > 0 ? (netProfit / d.revenue) * 100 : 0;
       return { date, revenue: d.revenue, cogs: d.cogs, grossProfit, expenses: d.expenses, netProfit, margin };
     });
 
@@ -373,19 +373,19 @@ async function expensesReport(from: Date, to: Date): Promise<Omit<ReportData, "g
   const expenses = await Expense.find({ date: { $gte: from, $lte: to } }).sort({ date: -1 });
 
   const columns: ReportColumn[] = [
-    { key: "date",        label: "Date",        type: "date" },
-    { key: "category",    label: "Category",    type: "badge" },
+    { key: "date", label: "Date", type: "date" },
+    { key: "category", label: "Category", type: "badge" },
     { key: "description", label: "Description", type: "text" },
-    { key: "amount",      label: "Amount",      type: "currency", isSummable: true },
-    { key: "paidBy",      label: "Paid By",     type: "text" },
+    { key: "amount", label: "Amount", type: "currency", isSummable: true },
+    { key: "paidBy", label: "Paid By", type: "text" },
   ];
 
   const rows: ReportRow[] = expenses.map((e) => ({
-    date:        new Date(e.date).toISOString().split("T")[0],
-    category:    e.category,
+    date: new Date(e.date).toISOString().split("T")[0],
+    category: e.category,
     description: e.description,
-    amount:      e.amount,
-    paidBy:      e.paidBy,
+    amount: e.amount,
+    paidBy: e.paidBy,
   }));
 
   return { title: REPORT_LABELS.expenses, columns, rows, summary: sumCols(columns, rows) };
@@ -404,11 +404,11 @@ async function customersReport(from: Date, to: Date): Promise<Omit<ReportData, "
     const dateStr = new Date(bill.billDate).toISOString().split("T")[0];
     if (!map.has(key)) {
       map.set(key, {
-        name:         bill.customerName,
-        phone:        bill.customerPhone ?? "",
-        source:       bill.salesSource,
-        billCount:    0,
-        totalSpent:   0,
+        name: bill.customerName,
+        phone: bill.customerPhone ?? "",
+        source: bill.salesSource,
+        billCount: 0,
+        totalSpent: 0,
         lastPurchase: dateStr,
       });
     }
@@ -422,12 +422,12 @@ async function customersReport(from: Date, to: Date): Promise<Omit<ReportData, "
   }
 
   const columns: ReportColumn[] = [
-    { key: "name",         label: "Customer",       type: "text" },
-    { key: "phone",        label: "Phone",          type: "text" },
-    { key: "source",       label: "Channel",        type: "badge" },
-    { key: "billCount",    label: "Orders",         type: "number", isSummable: true },
-    { key: "totalSpent",   label: "Total Spent",    type: "currency", isSummable: true },
-    { key: "lastPurchase", label: "Last Purchase",  type: "date" },
+    { key: "name", label: "Customer", type: "text" },
+    { key: "phone", label: "Phone", type: "text" },
+    { key: "source", label: "Channel", type: "badge" },
+    { key: "billCount", label: "Orders", type: "number", isSummable: true },
+    { key: "totalSpent", label: "Total Spent", type: "currency", isSummable: true },
+    { key: "lastPurchase", label: "Last Purchase", type: "date" },
   ];
 
   const rows: ReportRow[] = [...map.values()].sort((a, b) => b.totalSpent - a.totalSpent);
@@ -444,36 +444,36 @@ async function inventoryReport(): Promise<Omit<ReportData, "generatedAt" | "date
   ]);
 
   const columns: ReportColumn[] = [
-    { key: "type",      label: "Type",        type: "badge" },
-    { key: "name",      label: "Item",        type: "text" },
-    { key: "variant",   label: "Variant",     type: "text" },
-    { key: "qty",       label: "Qty",         type: "number" },
-    { key: "unit",      label: "Unit",        type: "text" },
-    { key: "rate",      label: "Rate",        type: "currency" },
-    { key: "value",     label: "Total Value", type: "currency", isSummable: true },
+    { key: "type", label: "Type", type: "badge" },
+    { key: "name", label: "Item", type: "text" },
+    { key: "variant", label: "Variant", type: "text" },
+    { key: "qty", label: "Qty", type: "number" },
+    { key: "unit", label: "Unit", type: "text" },
+    { key: "rate", label: "Rate", type: "currency" },
+    { key: "value", label: "Total Value", type: "currency", isSummable: true },
   ];
 
   const rawRows: ReportRow[] = rawMats.map((m) => {
     const closing = m.openingStock + m.purchasedQty - m.usedQty;
     return {
-      type:    "Raw Material",
-      name:    m.itemName,
+      type: "Raw Material",
+      name: m.itemName,
       variant: m.category,
-      qty:     closing,
-      unit:    m.unit,
-      rate:    m.ratePerUnit,
-      value:   closing * m.ratePerUnit,
+      qty: closing,
+      unit: m.unit,
+      rate: m.ratePerUnit,
+      value: closing * m.ratePerUnit,
     };
   });
 
   const finishedRows: ReportRow[] = products.map((p) => ({
-    type:    "Finished Stock",
-    name:    p.designName,
+    type: "Finished Stock",
+    name: p.designName,
     variant: `${p.designCode} / ${p.size}`,
-    qty:     p.readyStock,
-    unit:    "pcs",
-    rate:    p.sellingPrice,
-    value:   p.readyStock * p.sellingPrice,
+    qty: p.readyStock,
+    unit: "pcs",
+    rate: p.sellingPrice,
+    value: p.readyStock * p.sellingPrice,
   }));
 
   const rows = [...rawRows, ...finishedRows];
@@ -487,20 +487,20 @@ async function banglesStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
   const docs = await BanglesStock.find({ isDeleted: { $ne: true } }).sort({ size: 1, cutType: 1 });
 
   const columns: ReportColumn[] = [
-    { key: "size",                label: "Size",               type: "text" },
-    { key: "cutType",             label: "Cut Type",           type: "text" },
-    { key: "peta",                label: "Peta",               type: "number",   align: "center" },
-    { key: "date",                label: "Purchase Date",      type: "date" },
-    { key: "hsnCode",             label: "HSN Code",           type: "text" },
-    { key: "gstRate",             label: "GST %",              type: "percent",  align: "center" },
-    { key: "quantityAdd",         label: "Qty Purchased (sets)",type: "number",   align: "right", isSummable: true },
-    { key: "totalPieces",         label: "Total Pieces",       type: "number",   align: "right", isSummable: true },
-    { key: "pricePerPiece",       label: "Price/Pc (₹)",       type: "currency", align: "right" },
-    { key: "amountWithoutGst",    label: "Without GST (₹)",    type: "currency", align: "right", isSummable: true },
-    { key: "gstPaidAmount",       label: "GST Paid (₹)",       type: "currency", align: "right", isSummable: true },
-    { key: "totalPurchaseAmount", label: "Total (With GST) (₹)",type: "currency", align: "right", isSummable: true },
-    { key: "closingStock",        label: "Current Closing",     type: "number",   align: "right", isSummable: true },
-    { key: "status",              label: "Status",             type: "badge",    align: "center" },
+    { key: "size", label: "Size", type: "text" },
+    { key: "cutType", label: "Cut Type", type: "text" },
+    { key: "peta", label: "Peta", type: "number", align: "center" },
+    { key: "date", label: "Purchase Date", type: "date" },
+    { key: "hsnCode", label: "HSN Code", type: "text" },
+    { key: "gstRate", label: "GST %", type: "percent", align: "center" },
+    { key: "quantityAdd", label: "Qty Purchased (sets)", type: "number", align: "right", isSummable: true },
+    { key: "totalPieces", label: "Total Pieces", type: "number", align: "right", isSummable: true },
+    { key: "pricePerPiece", label: "Price/Pc (₹)", type: "currency", align: "right" },
+    { key: "amountWithoutGst", label: "Without GST (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "gstPaidAmount", label: "GST Paid (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "totalPurchaseAmount", label: "Total (With GST) (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "closingStock", label: "Current Closing", type: "number", align: "right", isSummable: true },
+    { key: "status", label: "Status", type: "badge", align: "center" },
   ];
 
   const rows: ReportRow[] = [];
@@ -516,20 +516,20 @@ async function banglesStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
       const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / 100 : 0;
       const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
       rows.push({
-        size:                b.size,
-        cutType:             b.cutType,
+        size: b.size,
+        cutType: b.cutType,
         peta,
-        date:                b.updatedAt ? new Date(b.updatedAt).toISOString().split("T")[0] : "—",
-        hsnCode:             b.hsnCode || "—",
-        gstRate:             gstPercentage,
-        quantityAdd:         b.quantityAdd,
+        date: b.updatedAt ? new Date(b.updatedAt).toISOString().split("T")[0] : "—",
+        hsnCode: b.hsnCode || "—",
+        gstRate: gstPercentage,
+        quantityAdd: b.quantityAdd,
         totalPieces,
-        pricePerPiece:       b.pricePerPiece,
+        pricePerPiece: b.pricePerPiece,
         amountWithoutGst,
         gstPaidAmount,
         totalPurchaseAmount,
         closingStock,
-        status:              b.status,
+        status: b.status,
       });
     } else {
       history.forEach((h) => {
@@ -538,20 +538,20 @@ async function banglesStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
         const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / 100 : 0;
         const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
         rows.push({
-          size:                b.size,
-          cutType:             b.cutType,
+          size: b.size,
+          cutType: b.cutType,
           peta,
-          date:                h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
-          hsnCode:             b.hsnCode || "—",
-          gstRate:             gstPercentage,
-          quantityAdd:         hQuantitySets,
-          totalPieces:         h.quantity,
-          pricePerPiece:       h.ratePerUnit,
+          date: h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
+          hsnCode: b.hsnCode || "—",
+          gstRate: gstPercentage,
+          quantityAdd: hQuantitySets,
+          totalPieces: h.quantity,
+          pricePerPiece: h.ratePerUnit,
           amountWithoutGst,
           gstPaidAmount,
           totalPurchaseAmount,
           closingStock,
-          status:              b.status,
+          status: b.status,
         });
       });
     }
@@ -566,19 +566,19 @@ async function threadsStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
   const docs = await ThreadsStock.find({ isDeleted: { $ne: true } }).sort({ threadCode: 1 });
 
   const columns: ReportColumn[] = [
-    { key: "code",             label: "Thread Code",         type: "text" },
-    { key: "colour",           label: "Thread Colour",       type: "text" },
-    { key: "company",          label: "Company",             type: "text" },
-    { key: "date",             label: "Purchase Date",       type: "date" },
-    { key: "hsnCode",          label: "HSN Code",            type: "text" },
-    { key: "gstRate",          label: "GST %",               type: "percent",  align: "center" },
-    { key: "added",            label: "Qty Added (g)",       type: "number",   align: "right", isSummable: true },
-    { key: "rate",             label: "Rate/g (₹)",          type: "currency", align: "right" },
-    { key: "amountWithoutGst", label: "Without GST (₹)",     type: "currency", align: "right", isSummable: true },
-    { key: "gstPaidAmount",    label: "GST Paid (₹)",        type: "currency", align: "right", isSummable: true },
-    { key: "amount",           label: "Total (With GST) (₹)",type: "currency", align: "right", isSummable: true },
-    { key: "closing",          label: "Current Closing",     type: "number",   align: "right", isSummable: true },
-    { key: "status",           label: "Status",              type: "badge",    align: "center" },
+    { key: "code", label: "Thread Code", type: "text" },
+    { key: "colour", label: "Thread Colour", type: "text" },
+    { key: "company", label: "Company", type: "text" },
+    { key: "date", label: "Purchase Date", type: "date" },
+    { key: "hsnCode", label: "HSN Code", type: "text" },
+    { key: "gstRate", label: "GST %", type: "percent", align: "center" },
+    { key: "added", label: "Qty Added (g)", type: "number", align: "right", isSummable: true },
+    { key: "rate", label: "Rate/g (₹)", type: "currency", align: "right" },
+    { key: "amountWithoutGst", label: "Without GST (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "gstPaidAmount", label: "GST Paid (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "amount", label: "Total (With GST) (₹)", type: "currency", align: "right", isSummable: true },
+    { key: "closing", label: "Current Closing", type: "number", align: "right", isSummable: true },
+    { key: "status", label: "Status", type: "badge", align: "center" },
   ];
 
   const rows: ReportRow[] = [];
@@ -592,19 +592,19 @@ async function threadsStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
       const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / 100 : 0;
       const amountWithoutGst = amount - gstPaidAmount;
       rows.push({
-        code:             t.threadCode,
-        colour:           t.threadColour,
-        company:          t.threadCompanyName,
-        date:             t.updatedAt ? new Date(t.updatedAt).toISOString().split("T")[0] : "—",
-        hsnCode:          t.hsnCode || "—",
-        gstRate:          gstPercentage,
-        added:            t.stockAdd,
-        rate:             t.costPerUnit,
+        code: t.threadCode,
+        colour: t.threadColour,
+        company: t.threadCompanyName,
+        date: t.updatedAt ? new Date(t.updatedAt).toISOString().split("T")[0] : "—",
+        hsnCode: t.hsnCode || "—",
+        gstRate: gstPercentage,
+        added: t.stockAdd,
+        rate: t.costPerUnit,
         amountWithoutGst,
         gstPaidAmount,
         amount,
         closing,
-        status:           closing <= 0 ? "Out of Stock" : "OK",
+        status: closing <= 0 ? "Out of Stock" : "OK",
       });
     } else {
       history.forEach((h) => {
@@ -612,19 +612,19 @@ async function threadsStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
         const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / 100 : 0;
         const amountWithoutGst = amount - gstPaidAmount;
         rows.push({
-          code:             t.threadCode,
-          colour:           t.threadColour,
-          company:          t.threadCompanyName,
-          date:             h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
-          hsnCode:          t.hsnCode || "—",
-          gstRate:          gstPercentage,
-          added:            h.quantity,
-          rate:             h.ratePerUnit,
+          code: t.threadCode,
+          colour: t.threadColour,
+          company: t.threadCompanyName,
+          date: h.purchasedAt ? new Date(h.purchasedAt).toISOString().split("T")[0] : "—",
+          hsnCode: t.hsnCode || "—",
+          gstRate: gstPercentage,
+          added: h.quantity,
+          rate: h.ratePerUnit,
           amountWithoutGst,
           gstPaidAmount,
           amount,
           closing,
-          status:           closing <= 0 ? "Out of Stock" : "OK",
+          status: closing <= 0 ? "Out of Stock" : "OK",
         });
       });
     }
@@ -669,22 +669,22 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const workerId = searchParams.get("workerId");
     const generatedAt = new Date().toLocaleString("en-IN");
-    const dateRange   = { from: fromStr, to: toStr };
+    const dateRange = { from: fromStr, to: toStr };
 
     let partial: Omit<ReportData, "generatedAt" | "dateRange">;
 
     switch (reportType) {
-      case "sales":           partial = await salesReport(from, to);           break;
-      case "raw-material":    partial = await rawMaterialReport();              break;
-      case "finished-stock":  partial = await finishedStockReport();            break;
-      case "worker-payment":  partial = await workerPaymentReport(workerId);    break;
-      case "work-orders":     partial = await workOrdersReport(from, to);      break;
-      case "profit-loss":     partial = await profitLossReport(from, to);      break;
-      case "expenses":        partial = await expensesReport(from, to);        break;
-      case "customers":       partial = await customersReport(from, to);       break;
-      case "inventory":       partial = await inventoryReport();               break;
-      case "bangles-stock":   partial = await banglesStockReport();            break;
-      case "threads-stock":   partial = await threadsStockReport();            break;
+      case "sales": partial = await salesReport(from, to); break;
+      case "raw-material": partial = await rawMaterialReport(); break;
+      case "finished-stock": partial = await finishedStockReport(); break;
+      case "worker-payment": partial = await workerPaymentReport(workerId); break;
+      case "work-orders": partial = await workOrdersReport(from, to); break;
+      case "profit-loss": partial = await profitLossReport(from, to); break;
+      case "expenses": partial = await expensesReport(from, to); break;
+      case "customers": partial = await customersReport(from, to); break;
+      case "inventory": partial = await inventoryReport(); break;
+      case "bangles-stock": partial = await banglesStockReport(); break;
+      case "threads-stock": partial = await threadsStockReport(); break;
     }
 
     const data: ReportData = { ...partial, generatedAt, dateRange };
