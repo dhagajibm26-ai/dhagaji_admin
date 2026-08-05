@@ -161,7 +161,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
   const qtyNumber = Number(quantity || 0);
   const amountNumber = Number(totalAmount || 0);
   const gstPct = Number(gstPercentage || 0);
-  const calculatedGstPaid = gstPct > 0 ? (amountNumber * gstPct) / (100 + gstPct) : 0;
+  const calculatedGstPaid = gstPct > 0 ? (amountNumber * gstPct) / 100 : 0;
   const perUnitRate = qtyNumber > 0 ? Number((amountNumber / qtyNumber).toFixed(4)) : 0;
   const perPieceRate = effectiveQty > 0 ? Number((amountNumber / effectiveQty).toFixed(4)) : 0;
   const perKgRate = unit === "gram" ? Number((computedRate * 1000).toFixed(2)) : null;
@@ -473,7 +473,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
             readOnly
             disabled
             value={calculatedGstPaid > 0 ? `₹${calculatedGstPaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
-            hint={selectedHsnCode && gstPct > 0 ? `${gstPct}% inclusive GST of total ₹${amountNumber.toLocaleString("en-IN")}` : "Calculated when HSN & amount are selected"}
+            hint={selectedHsnCode && gstPct > 0 ? `${gstPct}% GST of total ₹${amountNumber.toLocaleString("en-IN")}` : "Calculated when HSN & amount are selected"}
           />
         </div>
 

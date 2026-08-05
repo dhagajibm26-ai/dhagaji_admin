@@ -101,7 +101,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
   }, [totalAmountInput]);
 
   const calculatedGstPaid = useMemo(() => {
-    return gstPct > 0 ? (addAmount * gstPct) / (100 + gstPct) : 0;
+    return gstPct > 0 ? (addAmount * gstPct) / 100 : 0;
   }, [addAmount, gstPct]);
 
   const [isTotalFocused, setIsTotalFocused] = useState(false);
@@ -385,7 +385,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
             readOnly
             disabled
             value={calculatedGstPaid > 0 ? `₹${calculatedGstPaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
-            hint={selectedHsnCode && gstPct > 0 ? `${gstPct}% inclusive GST of total ₹${addAmount.toLocaleString("en-IN")}` : "Calculated when HSN & amount are selected"}
+            hint={selectedHsnCode && gstPct > 0 ? `${gstPct}% GST of total ₹${addAmount.toLocaleString("en-IN")}` : "Calculated when HSN & amount are selected"}
           />
         </div>
 

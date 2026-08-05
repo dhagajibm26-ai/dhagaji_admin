@@ -144,7 +144,7 @@ export function BanglesTable({ items, isLoading, isError, error, onAddNew, onEdi
             const isLow = item.status !== "OK";
             const totalPurchaseAmount = item.totalPurchaseAmount || 0;
             const gstPercentage = item.gstPercentage || 0;
-            const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / (100 + gstPercentage) : 0;
+            const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / 100 : 0;
             const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
 
             return (

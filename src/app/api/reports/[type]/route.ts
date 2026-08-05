@@ -127,7 +127,7 @@ async function rawMaterialReport(): Promise<Omit<ReportData, "generatedAt" | "da
 
     if (history.length === 0) {
       const amount = (m.openingStock + m.purchasedQty) * m.ratePerUnit;
-      const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / (100 + gstPercentage) : 0;
+      const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / 100 : 0;
       const amountWithoutGst = amount - gstPaidAmount;
       rows.push({
         name:             m.itemName,
@@ -148,7 +148,7 @@ async function rawMaterialReport(): Promise<Omit<ReportData, "generatedAt" | "da
     } else {
       history.forEach((h) => {
         const amount = h.totalAmount;
-        const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / (100 + gstPercentage) : 0;
+        const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / 100 : 0;
         const amountWithoutGst = amount - gstPaidAmount;
         rows.push({
           name:             m.itemName,
@@ -513,7 +513,7 @@ async function banglesStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
 
     if (history.length === 0) {
       const totalPurchaseAmount = b.totalPurchaseAmount ?? (totalPieces * b.pricePerPiece);
-      const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / (100 + gstPercentage) : 0;
+      const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / 100 : 0;
       const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
       rows.push({
         size:                b.size,
@@ -535,7 +535,7 @@ async function banglesStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
       history.forEach((h) => {
         const hQuantitySets = peta > 0 ? h.quantity / peta : 0;
         const totalPurchaseAmount = h.totalAmount;
-        const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / (100 + gstPercentage) : 0;
+        const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / 100 : 0;
         const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
         rows.push({
           size:                b.size,
@@ -589,7 +589,7 @@ async function threadsStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
 
     if (history.length === 0) {
       const amount = t.stockAdd * t.costPerUnit;
-      const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / (100 + gstPercentage) : 0;
+      const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / 100 : 0;
       const amountWithoutGst = amount - gstPaidAmount;
       rows.push({
         code:             t.threadCode,
@@ -609,7 +609,7 @@ async function threadsStockReport(): Promise<Omit<ReportData, "generatedAt" | "d
     } else {
       history.forEach((h) => {
         const amount = h.totalAmount;
-        const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / (100 + gstPercentage) : 0;
+        const gstPaidAmount = gstPercentage > 0 ? (amount * gstPercentage) / 100 : 0;
         const amountWithoutGst = amount - gstPaidAmount;
         rows.push({
           code:             t.threadCode,

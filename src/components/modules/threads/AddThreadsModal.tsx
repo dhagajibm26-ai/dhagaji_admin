@@ -84,7 +84,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
   const perGramRate = grams > 0 ? Number((amount / grams).toFixed(4)) : 0;
 
   const calculatedGstPaid = useMemo(() => {
-    return gstPct > 0 ? (amount * gstPct) / (100 + gstPct) : 0;
+    return gstPct > 0 ? (amount * gstPct) / 100 : 0;
   }, [amount, gstPct]);
 
   const purchaseHistory = useMemo(() => {
@@ -311,7 +311,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
             readOnly
             disabled
             value={calculatedGstPaid > 0 ? `₹${calculatedGstPaid.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
-            hint={selectedHsnCode && gstPct > 0 ? `${gstPct}% inclusive GST of total ₹${amount.toLocaleString("en-IN")}` : "Calculated when HSN & amount are selected"}
+            hint={selectedHsnCode && gstPct > 0 ? `${gstPct}% GST of total ₹${amount.toLocaleString("en-IN")}` : "Calculated when HSN & amount are selected"}
           />
         </div>
 

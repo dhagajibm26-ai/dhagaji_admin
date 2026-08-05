@@ -258,7 +258,7 @@ export function RawMaterialTable({ onAddNew, onEdit }: RawMaterialTableProps) {
               const isLow = st !== "ok";
               const totalPurchaseAmount = getTotalPurchaseAmount(item);
               const gstPercentage = item.gstPercentage || 0;
-              const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / (100 + gstPercentage) : 0;
+              const gstPaidAmount = gstPercentage > 0 ? (totalPurchaseAmount * gstPercentage) / 100 : 0;
               const amountWithoutGst = totalPurchaseAmount - gstPaidAmount;
               const rowBg = isLow
                 ? "bg-rose-50"
