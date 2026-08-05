@@ -85,7 +85,7 @@ export function Sidebar() {
       <aside
         className={cn(
           "fixed left-0 top-0 z-30 flex h-full w-[256px] flex-col",
-          "bg-[#11271d] text-white",
+          "bg-[#1e3a2a] text-white",
           "transition-transform duration-300 ease-out",
           sidebarOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0"

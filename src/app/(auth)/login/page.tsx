@@ -67,9 +67,9 @@ export default function LoginPage() {
 
   return (
     <main
-      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#11271d] px-4 py-12 bg-cover bg-center"
+      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#1e3a2a] px-4 py-12 bg-cover bg-center"
       style={{
-        backgroundImage: "linear-gradient(to bottom, rgba(17, 39, 29, 0.93), rgba(17, 39, 29, 0.96)), url('/work-order-bg.jpg')",
+        backgroundImage: "linear-gradient(to bottom, rgba(30, 58, 42, 0.88), rgba(30, 58, 42, 0.92)), url('/work-order-bg.jpg')",
       }}
     >
       {/* Background glows */}

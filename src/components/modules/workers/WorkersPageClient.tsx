@@ -139,7 +139,7 @@ async function downloadPdf(worker: IWorker) {
   doc.setFontSize(8.5);
   doc.setTextColor(17, 39, 29); // Dark Green value #11271d
   doc.text(worker.name, textX + 22, textY);
-  
+
   if (worker.nameGu) {
     textY += 3.5;
     doc.setFont("helvetica", "normal");
@@ -215,7 +215,7 @@ async function downloadPdf(worker: IWorker) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(5.5);
   doc.setTextColor(46, 67, 57); // Dark Green label #2e4339
-  
+
   // DOB
   doc.text("DOB", 10, metaY);
   doc.setFont("helvetica", "bold");
@@ -619,8 +619,6 @@ export function WorkersPageClient() {
                     alt="Dhagaji Creation Logo"
                     className="h-9 w-auto object-contain"
                   />
-                  <span className="text-[#d29e71]">|</span>
-                  <p className="text-xs font-bold text-[#d29e71] tracking-wider uppercase">Worker Identity Card</p>
                 </div>
               </div>
 

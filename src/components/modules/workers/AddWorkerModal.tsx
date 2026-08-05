@@ -61,42 +61,42 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
     resolver: zodResolver(workerSchema),
     defaultValues: worker
       ? {
-          name: worker.name,
-          nameGu: worker.nameGu ?? "",
-          fatherOrHusbandName: worker.fatherOrHusbandName ?? "",
-          fatherOrHusbandNameGu: worker.fatherOrHusbandNameGu ?? "",
-          dateOfBirth: worker.dateOfBirth ? new Date(worker.dateOfBirth).toISOString().slice(0, 10) : "",
-          gender: worker.gender,
-          bloodGroup: worker.bloodGroup ?? "",
-          mobile: worker.mobile ?? worker.phone ?? "",
-          emergencyContact: worker.emergencyContact ?? "",
-          phone: worker.phone ?? "",
-          address: worker.address ?? "",
-          addressGu: worker.addressGu ?? "",
-          aadhaarNumber: worker.aadhaarNumber ?? "",
-          designation: worker.designation ?? "",
-          joiningDate: worker.joiningDate ? new Date(worker.joiningDate).toISOString().slice(0, 10) : "",
-          photoDataUrl: worker.photoDataUrl ?? "",
-          isActive: worker.isActive,
-        }
+        name: worker.name,
+        nameGu: worker.nameGu ?? "",
+        fatherOrHusbandName: worker.fatherOrHusbandName ?? "",
+        fatherOrHusbandNameGu: worker.fatherOrHusbandNameGu ?? "",
+        dateOfBirth: worker.dateOfBirth ? new Date(worker.dateOfBirth).toISOString().slice(0, 10) : "",
+        gender: worker.gender,
+        bloodGroup: worker.bloodGroup ?? "",
+        mobile: worker.mobile ?? worker.phone ?? "",
+        emergencyContact: worker.emergencyContact ?? "",
+        phone: worker.phone ?? "",
+        address: worker.address ?? "",
+        addressGu: worker.addressGu ?? "",
+        aadhaarNumber: worker.aadhaarNumber ?? "",
+        designation: worker.designation ?? "",
+        joiningDate: worker.joiningDate ? new Date(worker.joiningDate).toISOString().slice(0, 10) : "",
+        photoDataUrl: worker.photoDataUrl ?? "",
+        isActive: worker.isActive,
+      }
       : {
-          name: "",
-          nameGu: "",
-          fatherOrHusbandName: "",
-          fatherOrHusbandNameGu: "",
-          dateOfBirth: "",
-          bloodGroup: "",
-          mobile: "",
-          emergencyContact: "",
-          phone: "",
-          address: "",
-          addressGu: "",
-          aadhaarNumber: "",
-          designation: "",
-          joiningDate: "",
-          photoDataUrl: "",
-          isActive: true,
-        },
+        name: "",
+        nameGu: "",
+        fatherOrHusbandName: "",
+        fatherOrHusbandNameGu: "",
+        dateOfBirth: "",
+        bloodGroup: "",
+        mobile: "",
+        emergencyContact: "",
+        phone: "",
+        address: "",
+        addressGu: "",
+        aadhaarNumber: "",
+        designation: "",
+        joiningDate: "",
+        photoDataUrl: "",
+        isActive: true,
+      },
   });
 
   const name = watch("name") ?? "";
@@ -458,7 +458,6 @@ export function AddWorkerModal({ isOpen, onClose, worker }: AddWorkerModalProps)
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] tracking-[0.15em] text-slate-500">DHAGAJI CREATION</p>
-                <p className="text-base font-bold text-slate-900">Worker Identity Card</p>
               </div>
               {photoDataUrl ? (
                 <img src={photoDataUrl} alt="Worker" className="h-16 w-16 rounded-xl border border-slate-200 object-cover" />
