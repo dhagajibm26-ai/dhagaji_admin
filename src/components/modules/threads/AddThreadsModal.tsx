@@ -42,7 +42,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
   "use no memo";
   const addMutation = useAddThread();
   const patchMutation = usePatchThread();
-  const { data: hsnList = [] } = useHsnCodes();
+  const { data: hsnList = [] } = useHsnCodes("threads");
   const [isManagingHsn, setIsManagingHsn] = useState(false);
   const isEdit = !!item;
 
@@ -299,7 +299,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
               <option value="">Select HSN Code…</option>
               {hsnList.filter((h) => h.isActive || h.code === item?.hsnCode).map((h) => (
                 <option key={h._id} value={h.code}>
-                  {h.code} ({h.gstPercentage}%)
+                  {h.code}{h.label ? ` (${h.label})` : ""} — {h.gstPercentage}%
                 </option>
               ))}
             </Select>
@@ -347,6 +347,7 @@ export function AddThreadsModal({ isOpen, onClose, item }: AddThreadsModalProps)
       <ManageHsnCodesModal
         isOpen={isManagingHsn}
         onClose={() => setIsManagingHsn(false)}
+        scope="threads"
       />
     </Modal>
   );

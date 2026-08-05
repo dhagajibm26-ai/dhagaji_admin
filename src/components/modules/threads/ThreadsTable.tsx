@@ -11,6 +11,7 @@ import {
   THREADS_PAGE_SIZES,
   type ThreadsPageSize,
 } from "@/hooks/useThreads";
+import { useHsnCodes } from "@/hooks/useHsnCodes";
 import { useIsOwner } from "@/stores/useAuthStore";
 import { formatGramRate, formatKgRateFromGramRate } from "@/lib/purchaseHistory";
 import { formatDateDMY } from "@/lib/utils";
@@ -143,6 +144,8 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
   const deleteMutation = useDeleteThread();
   const isOwner = useIsOwner();
   const [selectedHsnItem, setSelectedHsnItem] = useState<IThreadsStock | null>(null);
+  const { data: hsnList = [] } = useHsnCodes("threads");
+  const hsnLabelMap = Object.fromEntries(hsnList.map((h) => [h.code, h.label]));
 
   const items = data?.items ?? [];
   const pagination = data?.pagination ?? { page: 1, limit, total: 0, totalPages: 1 };
@@ -270,25 +273,41 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
 
                   {/* HSN Code */}
                   <td className="px-4 py-3 text-slate-600 font-mono text-xs">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-col gap-0.5">
                       {item.hsnCode ? (
-                        <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0.5">
-                          {item.hsnCode}
-                        </Badge>
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0.5 whitespace-nowrap">
+                              {item.hsnCode}
+                            </Badge>
+                          </div>
+                          {hsnLabelMap[item.hsnCode] && (
+                            <span className="text-[10px] text-slate-400 font-sans pl-0.5 truncate max-w-[120px]" title={hsnLabelMap[item.hsnCode]}>
+                              {hsnLabelMap[item.hsnCode]}
+                            </span>
+                          )}
+                        </>
                       ) : item.hsnCodes && item.hsnCodes.length > 0 ? (
                         <>
-                          <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0.5">
-                            {item.hsnCodes[0]}
-                          </Badge>
-                          {item.hsnCodes.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => setSelectedHsnItem(item)}
-                              className="inline-flex items-center rounded-full bg-red-50 hover:bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-[#D32F2F] ring-1 ring-inset ring-[#D32F2F]/20 cursor-pointer transition-colors"
-                              title="View all HSN codes"
-                            >
-                              +{item.hsnCodes.length - 1}
-                            </button>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="neutral" className="font-mono text-[10px] px-1.5 py-0.5 whitespace-nowrap">
+                              {item.hsnCodes[0]}
+                            </Badge>
+                            {item.hsnCodes.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedHsnItem(item)}
+                                className="inline-flex items-center rounded-full bg-red-50 hover:bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-[#D32F2F] ring-1 ring-inset ring-[#D32F2F]/20 cursor-pointer transition-colors"
+                                title="View all HSN codes"
+                              >
+                                +{item.hsnCodes.length - 1}
+                              </button>
+                            )}
+                          </div>
+                          {hsnLabelMap[item.hsnCodes[0]] && (
+                            <span className="text-[10px] text-slate-400 font-sans pl-0.5 truncate max-w-[120px]" title={hsnLabelMap[item.hsnCodes[0]]}>
+                              {hsnLabelMap[item.hsnCodes[0]]}
+                            </span>
                           )}
                         </>
                       ) : (
@@ -409,7 +428,7 @@ export function ThreadsTable({ search, onAddNew, onEdit }: ThreadsTableProps) {
                   variant="neutral"
                   className="font-mono text-sm px-2.5 py-1 bg-white border border-slate-200 shadow-sm"
                 >
-                  {code}
+                  {code}{hsnLabelMap[code] ? ` (${hsnLabelMap[code]})` : ""}
                 </Badge>
               ))}
             </div>

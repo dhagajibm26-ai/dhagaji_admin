@@ -9,21 +9,22 @@ const DEFAULT_HSN_CODES = [
   { code: "TEST-HSN", gstPercentage: 10, isActive: true },
 ];
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json<ApiResponse>({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const scope = searchParams.get("scope");
+
     await connectDB();
 
-    let docs = await HsnCode.find({ isDeleted: { $ne: true } }).sort({ code: 1 });
+    const filter: Record<string, unknown> = { isDeleted: { $ne: true } };
+    if (scope) filter.scope = scope;
 
-    if (docs.length === 0) {
-      await HsnCode.insertMany(DEFAULT_HSN_CODES);
-      docs = await HsnCode.find({ isDeleted: { $ne: true } }).sort({ code: 1 });
-    }
+    const docs = await HsnCode.find(filter).sort({ code: 1 });
 
     return NextResponse.json<ApiResponse>({ success: true, data: docs.map((d) => d.toJSON()) });
   } catch {
@@ -51,18 +52,22 @@ export async function POST(request: Request) {
 
     const existing = await HsnCode.findOne({
       code: new RegExp(`^${parsed.data.code.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+      scope: parsed.data.scope ?? null,
       isDeleted: { $ne: true },
     });
 
     if (existing) {
       existing.gstPercentage = parsed.data.gstPercentage;
       existing.isActive = parsed.data.isActive;
+      if (parsed.data.label !== undefined) existing.label = parsed.data.label;
       await existing.save();
       return NextResponse.json<ApiResponse>({ success: true, data: existing.toJSON() }, { status: 200 });
     }
 
     const doc = await HsnCode.create({
       code: parsed.data.code.trim(),
+      label: parsed.data.label?.trim() || undefined,
+      scope: parsed.data.scope || undefined,
       gstPercentage: parsed.data.gstPercentage,
       isActive: parsed.data.isActive,
     });

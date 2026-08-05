@@ -53,7 +53,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
   const patchMutation = usePatchRawMaterial();
   const { data: categories = [] } = useMaterialCategories();
   const { data: units = [] } = useRawMaterialUnits();
-  const { data: hsnList = [] } = useHsnCodes();
+  const { data: hsnList = [] } = useHsnCodes("raw-material");
   const [isManagingUnits, setIsManagingUnits] = useState(false);
   const [isManagingHsn, setIsManagingHsn] = useState(false);
   const isEdit = !!item;
@@ -461,7 +461,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
               <option value="">Select HSN Code…</option>
               {hsnList.filter((h) => h.isActive || h.code === item?.hsnCode).map((h) => (
                 <option key={h._id} value={h.code}>
-                  {h.code} ({h.gstPercentage}%)
+                  {h.code}{h.label ? ` (${h.label})` : ""} — {h.gstPercentage}%
                 </option>
               ))}
             </Select>
@@ -486,7 +486,7 @@ export function AddRawMaterialModal({ isOpen, onClose, item }: AddRawMaterialMod
     </Modal>
 
     <ManageUnitsModal isOpen={isManagingUnits} onClose={() => setIsManagingUnits(false)} />
-    <ManageHsnCodesModal isOpen={isManagingHsn} onClose={() => setIsManagingHsn(false)} />
+    <ManageHsnCodesModal isOpen={isManagingHsn} onClose={() => setIsManagingHsn(false)} scope="raw-material" />
   </>
 );
 }

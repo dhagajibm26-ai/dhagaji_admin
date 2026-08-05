@@ -731,6 +731,8 @@ export type CouponInput = z.infer<typeof couponSchema>;
 export interface IHsnCode {
   _id: string;
   code: string;
+  label?: string;
+  scope?: string;
   gstPercentage: number;
   isActive: boolean;
   createdAt: Date;
@@ -739,6 +741,8 @@ export interface IHsnCode {
 
 export const hsnCodeSchema = z.object({
   code: z.string().min(1, "HSN Code required"),
+  label: z.string().optional(),
+  scope: z.string().optional(),
   gstPercentage: z.number().min(0, "GST percentage must be 0 or more").max(100, "GST percentage cannot exceed 100"),
   isActive: z.boolean().default(true),
 });

@@ -9,13 +9,21 @@ import { useHsnCodes, useCreateHsnCode, useDeleteHsnCode } from "@/hooks/useHsnC
 interface ManageHsnCodesModalProps {
   isOpen: boolean;
   onClose: () => void;
+  scope?: string;
 }
 
-export function ManageHsnCodesModal({ isOpen, onClose }: ManageHsnCodesModalProps) {
-  const { data: hsnCodes = [], isLoading } = useHsnCodes();
-  const createMutation = useCreateHsnCode();
-  const deleteMutation = useDeleteHsnCode();
+const SCOPE_LABELS: Record<string, string> = {
+  bangles: "Bangles",
+  "raw-material": "Raw Material",
+  threads: "Threads",
+};
+
+export function ManageHsnCodesModal({ isOpen, onClose, scope }: ManageHsnCodesModalProps) {
+  const { data: hsnCodes = [], isLoading } = useHsnCodes(scope);
+  const createMutation = useCreateHsnCode(scope);
+  const deleteMutation = useDeleteHsnCode(scope);
   const [newCode, setNewCode] = useState("");
+  const [newLabel, setNewLabel] = useState("");
   const [newGst, setNewGst] = useState<number | "">("");
 
   const handleAdd = (e?: React.FormEvent) => {
@@ -24,9 +32,10 @@ export function ManageHsnCodesModal({ isOpen, onClose }: ManageHsnCodesModalProp
     if (!code) return;
     const gstPercentage = Number(newGst || 0);
 
-    createMutation.mutate({ code, gstPercentage, isActive: true }, {
+    createMutation.mutate({ code, label: newLabel.trim() || undefined, gstPercentage, isActive: true }, {
       onSuccess: () => {
         setNewCode("");
+        setNewLabel("");
         setNewGst("");
       },
     });
@@ -35,15 +44,24 @@ export function ManageHsnCodesModal({ isOpen, onClose }: ManageHsnCodesModalProp
   const isPending = createMutation.isPending || deleteMutation.isPending;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Manage HSN Codes" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title={scope ? `Manage HSN Codes — ${SCOPE_LABELS[scope] ?? scope}` : "Manage HSN Codes"} size="md">
       <div className="space-y-4">
-        <form onSubmit={handleAdd} className="grid grid-cols-1 gap-3 sm:grid-cols-3 items-end">
+        <form onSubmit={handleAdd} className="grid grid-cols-1 gap-3 sm:grid-cols-4 items-end">
           <div className="sm:col-span-1">
             <Input
               label="HSN Code"
               placeholder="e.g. 8471"
               value={newCode}
               onChange={(e) => setNewCode(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <div className="sm:col-span-1">
+            <Input
+              label="HSN Label"
+              placeholder="e.g. Bangles"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
               autoComplete="off"
             />
           </div>
@@ -76,7 +94,12 @@ export function ManageHsnCodesModal({ isOpen, onClose }: ManageHsnCodesModalProp
               {hsnCodes.map((h) => (
                 <li key={h._id} className="flex items-center justify-between px-4 py-2.5 text-sm">
                   <div className="flex flex-col">
-                    <span className="font-medium text-slate-700">{h.code}</span>
+                    <span className="font-medium text-slate-700">
+                      {h.code}
+                      {h.label && (
+                        <span className="ml-1.5 text-slate-500 font-normal">({h.label})</span>
+                      )}
+                    </span>
                     <span className="text-xs text-slate-500">GST: {h.gstPercentage}%</span>
                   </div>
                   <Button
@@ -102,3 +125,4 @@ export function ManageHsnCodesModal({ isOpen, onClose }: ManageHsnCodesModalProp
     </Modal>
   );
 }
+

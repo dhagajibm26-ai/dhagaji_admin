@@ -30,6 +30,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     const updateFields: Record<string, any> = {};
     if (parsed.data.code !== undefined) updateFields.code = parsed.data.code.trim();
+    if (parsed.data.label !== undefined) updateFields.label = parsed.data.label.trim() || undefined;
+    if (parsed.data.scope !== undefined) updateFields.scope = parsed.data.scope || undefined;
     if (parsed.data.gstPercentage !== undefined) updateFields.gstPercentage = parsed.data.gstPercentage;
     if (parsed.data.isActive !== undefined) updateFields.isActive = parsed.data.isActive;
 

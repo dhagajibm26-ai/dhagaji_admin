@@ -8,11 +8,12 @@ import type {
 
 export const HSN_CODE_KEYS = {
   all: () => ["hsn-codes"] as const,
-  lists: () => [...HSN_CODE_KEYS.all(), "list"] as const,
+  lists: (scope?: string) => [...HSN_CODE_KEYS.all(), "list", scope ?? "all"] as const,
 };
 
-async function fetchHsnCodes(): Promise<IHsnCode[]> {
-  const res = await fetch("/api/hsn-codes");
+async function fetchHsnCodes(scope?: string): Promise<IHsnCode[]> {
+  const url = scope ? `/api/hsn-codes?scope=${encodeURIComponent(scope)}` : "/api/hsn-codes";
+  const res = await fetch(url);
   const json: ApiResponse<IHsnCode[]> = await res.json();
   if (!res.ok) throw new Error(json.error ?? "Failed to fetch HSN codes");
   return json.data ?? [];
@@ -49,21 +50,21 @@ async function deleteHsnCode(id: string): Promise<void> {
   if (!res.ok) throw new Error(json.error ?? "Failed to delete HSN code");
 }
 
-export function useHsnCodes() {
+export function useHsnCodes(scope?: string) {
   return useQuery({
-    queryKey: HSN_CODE_KEYS.lists(),
-    queryFn: fetchHsnCodes,
+    queryKey: HSN_CODE_KEYS.lists(scope),
+    queryFn: () => fetchHsnCodes(scope),
     staleTime: 1000 * 60 * 5,
   });
 }
 
-export function useCreateHsnCode() {
+export function useCreateHsnCode(scope?: string) {
   const qc = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
   return useMutation({
-    mutationFn: createHsnCode,
+    mutationFn: (data: HsnCodeInput) => createHsnCode({ ...data, scope: scope ?? data.scope }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: HSN_CODE_KEYS.lists() });
+      qc.invalidateQueries({ queryKey: HSN_CODE_KEYS.lists(scope) });
       addToast({ type: "success", message: "HSN Code saved" });
     },
     onError: (err: Error) => addToast({ type: "error", message: err.message }),
@@ -84,13 +85,13 @@ export function useUpdateHsnCode() {
   });
 }
 
-export function useDeleteHsnCode() {
+export function useDeleteHsnCode(scope?: string) {
   const qc = useQueryClient();
   const addToast = useUIStore((s) => s.addToast);
   return useMutation({
     mutationFn: deleteHsnCode,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: HSN_CODE_KEYS.lists() });
+      qc.invalidateQueries({ queryKey: HSN_CODE_KEYS.lists(scope) });
       addToast({ type: "success", message: "HSN Code deleted" });
     },
     onError: (err: Error) => addToast({ type: "error", message: err.message }),

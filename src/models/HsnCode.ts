@@ -2,6 +2,8 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 
 export interface IHsnCodeDocument extends Document {
   code: string;
+  label?: string;
+  scope?: string;
   gstPercentage: number;
   isActive: boolean;
   isDeleted?: boolean;
@@ -12,6 +14,8 @@ export interface IHsnCodeDocument extends Document {
 const HsnCodeSchema = new Schema<IHsnCodeDocument>(
   {
     code: { type: String, required: true, trim: true },
+    label: { type: String, trim: true },
+    scope: { type: String, trim: true, index: true },
     gstPercentage: { type: Number, required: true, min: 0, max: 100 },
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false, index: true },

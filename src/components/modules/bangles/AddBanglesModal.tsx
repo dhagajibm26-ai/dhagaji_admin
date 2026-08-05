@@ -34,7 +34,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
   const patchMutation = usePatchBangles();
   const { data: stockItems = [] } = useBanglesStock();
   const { data: sizes = [], isLoading: isSizesLoading } = useBangleSizes();
-  const { data: hsnList = [] } = useHsnCodes();
+  const { data: hsnList = [] } = useHsnCodes("bangles");
   const [isManagingHsn, setIsManagingHsn] = useState(false);
   const isEdit = !!item;
 
@@ -373,7 +373,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
               <option value="">Select HSN Code…</option>
               {hsnList.filter((h) => h.isActive || h.code === item?.hsnCode).map((h) => (
                 <option key={h._id} value={h.code}>
-                  {h.code} ({h.gstPercentage}%)
+                  {h.code}{h.label ? ` (${h.label})` : ""} — {h.gstPercentage}%
                 </option>
               ))}
             </Select>
@@ -443,6 +443,7 @@ export function AddBanglesModal({ isOpen, onClose, item }: AddBanglesModalProps)
       <ManageHsnCodesModal
         isOpen={isManagingHsn}
         onClose={() => setIsManagingHsn(false)}
+        scope="bangles"
       />
     </Modal>
   );
