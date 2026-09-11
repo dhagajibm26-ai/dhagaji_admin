@@ -2,11 +2,15 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { PenLine, Package, Plus } from "lucide-react";
 import { useFinishedStock, lookupBarcode } from "@/hooks/useFinishedStock";
 import { BarcodeScanner } from "@/components/modules/finished-stock";
 import { useUIStore } from "@/stores/useUIStore";
 import {
   useBillingStore,
+  useBillingMode,
+  useManualAmount,
+  useManualNotes,
   useBillItems,
   useCustomerId,
   useCustomerName,
@@ -16,7 +20,12 @@ import {
   useSalesSource,
   usePaymentMethod,
   useGSTEnabled,
+  useGSTType,
   useGSTRate,
+  useCGSTRate,
+  useSGSTRate,
+  useCGSTAmount,
+  useSGSTAmount,
   useGSTNumber,
   useAppliedCoupon,
   useBillDiscount,
@@ -84,7 +93,12 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
   const paymentMethod = usePaymentMethod();
   const items = useBillItems();
   const gstEnabled = useGSTEnabled();
+  const gstType = useGSTType();
   const gstRate = useGSTRate();
+  const cgstRate = useCGSTRate();
+  const sgstRate = useSGSTRate();
+  const cgstAmount = useCGSTAmount();
+  const sgstAmount = useSGSTAmount();
   const gstNumber = useGSTNumber();
   const appliedCoupon = useAppliedCoupon();
   const discount = useBillDiscount();
@@ -92,6 +106,16 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
   const taxAmount = useTaxAmount();
   const grandTotal = useGrandTotal();
   const actions = useBillingActions();
+  const billingMode = useBillingMode();
+  const manualAmount = useManualAmount();
+  const manualNotes = useManualNotes();
+
+  // ─── Manual item state ───────────────────────────────────────────────────
+  const [showManualItemForm, setShowManualItemForm] = useState(false);
+  const [manualItemName, setManualItemName] = useState("");
+  const [manualItemPrice, setManualItemPrice] = useState("");
+  const [manualItemQty, setManualItemQty] = useState("1");
+  const [manualItemHsn, setManualItemHsn] = useState("");
 
   // ─── Searchable customer state ────────────────────────────────────────────
   const { data: customers = [] } = useCustomers();
@@ -258,6 +282,35 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
     addToast({ type: "success", message: `Coupon "${coupon.code}" applied!` });
   }, [couponInputText, coupons, customerId, actions, addToast]);
 
+  const handleAddManualItem = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!manualItemName.trim()) {
+        addToast({ type: "error", message: "Item description required" });
+        return;
+      }
+      const price = Number(manualItemPrice);
+      if (isNaN(price) || price < 0) {
+        addToast({ type: "error", message: "Enter a valid price" });
+        return;
+      }
+      const qty = Number(manualItemQty) || 1;
+      actions.addManualItem({
+        designName: manualItemName.trim(),
+        sellingPrice: price,
+        qty,
+        hsnCode: manualItemHsn.trim() || undefined,
+      });
+      setManualItemName("");
+      setManualItemPrice("");
+      setManualItemQty("1");
+      setManualItemHsn("");
+      setShowManualItemForm(false);
+      addToast({ type: "success", message: `Added "${manualItemName.trim()}"` });
+    },
+    [manualItemName, manualItemPrice, manualItemQty, manualItemHsn, actions, addToast]
+  );
+
   const handleSave = useCallback(async () => {
     if (!isCustomCustomer && !customerId) {
       addToast({ type: "error", message: "Customer selection is required" });
@@ -267,13 +320,28 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
       addToast({ type: "error", message: "Customer name is required" });
       return;
     }
-    if (items.length === 0) {
-      addToast({ type: "error", message: "Add at least one item" });
+    if (billingMode === "product" && items.length === 0) {
+      addToast({ type: "error", message: "Add at least one product item" });
       return;
     }
-    if (gstEnabled && (gstRate === null || gstRate === undefined || isNaN(gstRate))) {
-      addToast({ type: "error", message: "Enter a valid GST rate" });
+    if (
+      billingMode === "manual" &&
+      items.length === 0 &&
+      (!manualAmount || manualAmount <= 0)
+    ) {
+      addToast({ type: "error", message: "Enter a bill amount or add at least one line item" });
       return;
+    }
+    if (gstEnabled) {
+      if (gstType === "cgst_sgst") {
+        if (cgstRate === null || isNaN(cgstRate) || sgstRate === null || isNaN(sgstRate)) {
+          addToast({ type: "error", message: "Enter valid CGST and SGST rates" });
+          return;
+        }
+      } else if (gstRate === null || isNaN(gstRate)) {
+        addToast({ type: "error", message: "Enter a valid GST rate" });
+        return;
+      }
     }
 
     if (isCustomCustomer && saveToDirectory) {
@@ -306,10 +374,19 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
       salesSource,
       paymentMethod,
       gstEnabled,
-      gstRate: gstEnabled ? gstRate : null,
+      gstType: gstEnabled ? gstType : undefined,
+      gstRate: gstEnabled
+        ? gstType === "cgst_sgst"
+          ? (cgstRate ?? 0) + (sgstRate ?? 0)
+          : gstRate
+        : null,
+      cgstRate: gstEnabled && gstType === "cgst_sgst" ? cgstRate : null,
+      sgstRate: gstEnabled && gstType === "cgst_sgst" ? sgstRate : null,
       gstNumber: gstEnabled && gstNumber ? gstNumber : undefined,
       billDate: new Date().toISOString(),
       billDiscount: discount > 0 ? discount : undefined,
+      manualAmount: billingMode === "manual" && items.length === 0 ? manualAmount : undefined,
+      manualNotes: billingMode === "manual" && manualNotes ? manualNotes : undefined,
       items: items.map((item) => ({
         finishedProductId: item.finishedProductId,
         designName: item.designName,
@@ -327,6 +404,11 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
       actions.clearBill();
       setIsCustomCustomer(false);
       setCouponInputText("");
+      setShowManualItemForm(false);
+      setManualItemName("");
+      setManualItemPrice("");
+      setManualItemQty("1");
+      setManualItemHsn("");
       onBillSaved(bill);
     } catch {
       // error handled by mutation onError
@@ -346,6 +428,9 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
     gstNumber,
     discount,
     items,
+    billingMode,
+    manualAmount,
+    manualNotes,
     createBill,
     actions,
     onBillSaved,
@@ -521,80 +606,250 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
         </div>
       </div>
 
-      {/* ── Section 2: Scan + Search + Items ─────────────────────────────── */}
+      {/* ── Section 2: Flow Switch + Items / Products ──────────────────── */}
       <div className="flex-1 px-4 py-3 space-y-3">
-        {/* Scan + Search row */}
-        <div className="flex gap-2">
+        {/* Flow selection tabs */}
+        <div className="grid grid-cols-2 p-1 bg-slate-100/90 rounded-xl border border-slate-200">
           <button
-            onClick={() => setScannerOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-[#1A1A1A] text-white px-4 py-2.5 text-sm font-medium active:bg-[#333] flex-shrink-0"
+            type="button"
+            onClick={() => actions.setBillingMode("manual")}
+            className={cn(
+              "flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer",
+              billingMode === "manual"
+                ? "bg-white text-[#D32F2F] shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            )}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12v.01M4 16v.01M4 20v.01M4 4h4v4H4V4zm12 0h4v4h-4V4zm-12 12h4v4H4v-4z"
-              />
-            </svg>
-            Scan
+            <PenLine size={13} />
+            <span>Create Bill Manually</span>
           </button>
+          <button
+            type="button"
+            onClick={() => actions.setBillingMode("product")}
+            className={cn(
+              "flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer",
+              billingMode === "product"
+                ? "bg-white text-[#D32F2F] shadow-sm"
+                : "text-slate-600 hover:text-slate-900"
+            )}
+          >
+            <Package size={13} />
+            <span>Add Products</span>
+          </button>
+        </div>
 
-          <div className="relative flex-1">
-            <input
-              ref={searchRef}
-              type="text"
-              placeholder="Search product by name or code…"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setShowDropdown(true);
-              }}
-              onFocus={() => setShowDropdown(true)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
-            />
-            {/* Search dropdown */}
-            {showDropdown && filtered.length > 0 && (
-              <div
-                ref={dropdownRef}
-                className="absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden"
+        {/* ── Flow A: Manual Bill Section ── */}
+        {billingMode === "manual" && (
+          <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                <p className="text-xs font-bold text-slate-800 uppercase tracking-wide">Manual Billing</p>
+                <p className="text-[11px] text-slate-500">No inventory product required. Enter amount or custom items.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowManualItemForm(!showManualItemForm)}
+                className="text-xs font-bold text-[#D32F2F] hover:text-[#B71C1C] flex items-center gap-1 cursor-pointer bg-red-50 hover:bg-red-100/70 px-2.5 py-1 rounded-lg border border-red-100 transition-colors"
               >
-                {filtered.map((p) => (
-                  <button
-                    key={p._id}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      handleSelectProduct(p);
-                    }}
-                    className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0"
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-medium text-[#1A1A1A]">{p.designName}</p>
-                        <p className="text-xs text-gray-500">{p.designCode} · Size {p.size}</p>
-                      </div>
-                      <div className="text-right flex-shrink-0 ml-2">
-                        <p className="text-sm font-semibold text-[#D32F2F]">
-                          {formatINR(p.sellingPrice)}
-                        </p>
-                        <p className="text-xs text-gray-400">{p.readyStock} left</p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                <Plus size={13} />
+                {showManualItemForm ? "Close Item Form" : "+ Add Custom Item"}
+              </button>
+            </div>
+
+            {/* Direct Bill Amount and Notes (when no items) */}
+            {items.length === 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Bill Amount (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="e.g. 1500"
+                      value={manualAmount || ""}
+                      onChange={(e) => actions.setManualAmount(Number(e.target.value))}
+                      className="w-full rounded-lg border border-slate-300 bg-white pl-7 pr-3 py-2 text-sm font-semibold text-[#1A1A1A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Description / Service (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Custom tailoring / Order"
+                    value={manualNotes}
+                    onChange={(e) => actions.setManualNotes(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-[#1A1A1A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F]"
+                  />
+                </div>
               </div>
             )}
+
+            {/* Expandable Manual Line Item Form */}
+            {showManualItemForm && (
+              <form
+                onSubmit={handleAddManualItem}
+                className="p-3 bg-white rounded-lg border border-slate-200 shadow-sm space-y-2.5 animate-in fade-in duration-150"
+              >
+                <div className="text-xs font-bold text-slate-700">Add Custom Line Item</div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Item Description *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Silk Thread Bangles Set"
+                      value={manualItemName}
+                      onChange={(e) => setManualItemName(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-[#D32F2F]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Price (₹) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      required
+                      placeholder="0"
+                      value={manualItemPrice}
+                      onChange={(e) => setManualItemPrice(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-[#D32F2F]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Qty *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={manualItemQty}
+                      onChange={(e) => setManualItemQty(e.target.value)}
+                      className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-[#D32F2F]"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <input
+                    type="text"
+                    placeholder="Optional HSN code (e.g. 6217)"
+                    value={manualItemHsn}
+                    onChange={(e) => setManualItemHsn(e.target.value)}
+                    className="w-48 rounded-md border border-slate-300 px-2 py-1 text-[11px] focus:ring-1 focus:ring-[#D32F2F]"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowManualItemForm(false)}
+                      className="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="bg-[#D32F2F] hover:bg-[#B71C1C] text-white px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Add Item
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
           </div>
-        </div>
+        )}
+
+        {/* ── Flow B: Product-Based Scan & Search row ── */}
+        {billingMode === "product" && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setScannerOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-[#1A1A1A] text-white px-4 py-2.5 text-sm font-medium active:bg-[#333] flex-shrink-0 cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12v.01M4 16v.01M4 20v.01M4 4h4v4H4V4zm12 0h4v4h-4V4zm-12 12h4v4H4v-4z"
+                />
+              </svg>
+              Scan
+            </button>
+
+            <div className="relative flex-1">
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder="Search product by name or code…"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+              />
+              {/* Search dropdown */}
+              {showDropdown && filtered.length > 0 && (
+                <div
+                  ref={dropdownRef}
+                  className="absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg overflow-hidden"
+                >
+                  {filtered.map((p) => (
+                    <button
+                      key={p._id}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelectProduct(p);
+                      }}
+                      className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-medium text-[#1A1A1A]">{p.designName}</p>
+                          <p className="text-xs text-gray-500">{p.designCode} · Size {p.size}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-2">
+                          <p className="text-sm font-semibold text-[#D32F2F]">
+                            {formatINR(p.sellingPrice)}
+                          </p>
+                          <p className="text-xs text-gray-400">{p.readyStock} left</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Items list */}
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center text-gray-400">
-            <svg className="w-10 h-10 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-            <p className="text-sm">No items added yet</p>
-            <p className="text-xs mt-0.5">Scan a barcode or search above</p>
-          </div>
+          billingMode === "manual" ? (
+            <div className="flex flex-col items-center justify-center py-6 text-center text-gray-500 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              <PenLine className="w-8 h-8 mb-2 text-slate-400" />
+              <p className="text-sm font-semibold text-slate-700">Manual Billing Mode</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {manualAmount > 0
+                  ? `Direct bill amount of ${formatINR(manualAmount)} set.`
+                  : "Enter a bill amount above or add custom line items."}
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center text-gray-400">
+              <svg className="w-10 h-10 mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                />
+              </svg>
+              <p className="text-sm">No items added yet</p>
+              <p className="text-xs mt-0.5">Scan a barcode or search above</p>
+            </div>
+          )
         ) : (
           <ul className="space-y-2">
             {items.map((item) => {
@@ -607,7 +862,11 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
                   <div className="flex items-center gap-2 w-full">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[#1A1A1A] truncate">{item.designName}</p>
-                      <p className="text-xs text-gray-500">{item.designCode} · {item.size}</p>
+                      <p className="text-xs text-gray-500">
+                        {item.designCode && item.designCode !== "MANUAL"
+                          ? `${item.designCode} · ${item.size}`
+                          : "Manual Line Item"}
+                      </p>
                       {overStock && (
                         <p className="text-xs text-amber-600 font-medium">Max stock reached</p>
                       )}
@@ -764,30 +1023,109 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
             </div>
 
             {gstEnabled && (
-              <div className="grid grid-cols-2 gap-3 mt-2 bg-slate-50/50 p-3 rounded-xl border border-slate-200 transition-all duration-200 animate-in fade-in slide-in-from-top-1 duration-150">
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                    GST Rate (%)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      placeholder="0.0"
-                      value={gstRate ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value === "" ? null : Number(e.target.value);
-                        actions.setGSTRate(val);
-                      }}
-                      className="w-full rounded-lg border border-slate-300 bg-white pl-2.5 pr-7 py-2 text-sm text-[#1A1A1A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent transition-shadow"
-                    />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 select-none">
-                      %
-                    </span>
-                  </div>
+              <div className="space-y-3 mt-2 bg-slate-50/50 p-3 rounded-xl border border-slate-200 transition-all duration-200 animate-in fade-in slide-in-from-top-1 duration-150">
+                {/* GST Tax Type Switcher */}
+                <div className="grid grid-cols-2 p-0.5 bg-slate-200/70 rounded-lg text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => actions.setGSTType("cgst_sgst")}
+                    className={cn(
+                      "py-1.5 px-2 rounded-md transition-all cursor-pointer text-center",
+                      gstType === "cgst_sgst"
+                        ? "bg-white text-[#D32F2F] shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    )}
+                  >
+                    CGST + SGST (Intra-State)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => actions.setGSTType("igst")}
+                    className={cn(
+                      "py-1.5 px-2 rounded-md transition-all cursor-pointer text-center",
+                      gstType === "igst"
+                        ? "bg-white text-[#D32F2F] shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    )}
+                  >
+                    IGST (Inter-State)
+                  </button>
                 </div>
 
+                {/* Rates input */}
+                {gstType === "cgst_sgst" ? (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                        CGST Rate (%)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0.0"
+                          value={cgstRate ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? null : Number(e.target.value);
+                            actions.setCGSTRate(val);
+                          }}
+                          className="w-full rounded-lg border border-slate-300 bg-white pl-2.5 pr-7 py-2 text-sm text-[#1A1A1A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 select-none">
+                          %
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                        SGST Rate (%)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0.0"
+                          value={sgstRate ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? null : Number(e.target.value);
+                            actions.setSGSTRate(val);
+                          }}
+                          className="w-full rounded-lg border border-slate-300 bg-white pl-2.5 pr-7 py-2 text-sm text-[#1A1A1A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 select-none">
+                          %
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                      IGST Rate (%)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="0.0"
+                        value={gstRate ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value === "" ? null : Number(e.target.value);
+                          actions.setGSTRate(val);
+                        }}
+                        className="w-full rounded-lg border border-slate-300 bg-white pl-2.5 pr-7 py-2 text-sm text-[#1A1A1A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 select-none">
+                        %
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* GSTIN input */}
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide">
                     GSTIN
@@ -797,12 +1135,12 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
                     placeholder="22AAAAA1111A1Z1"
                     value={gstNumber}
                     onChange={(e) => actions.setGSTNumber(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-[#1A1A1A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent uppercase transition-shadow"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-sm text-[#1A1A1A] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D32F2F] focus:border-transparent uppercase"
                   />
                 </div>
 
                 {/* Quick select pills */}
-                <div className="col-span-2 flex flex-wrap items-center gap-1.5 pt-1">
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                     Quick select:
                   </span>
@@ -812,13 +1150,13 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
                       type="button"
                       onClick={() => actions.setGSTRate(rate)}
                       className={cn(
-                        "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all duration-150 active:scale-95",
-                        gstRate === rate
+                        "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all duration-150 active:scale-95 cursor-pointer",
+                        (gstType === "cgst_sgst" ? ((cgstRate ?? 0) + (sgstRate ?? 0) === rate) : gstRate === rate)
                           ? "bg-red-50 border-red-500 text-red-700 shadow-sm"
                           : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
                       )}
                     >
-                      {rate}%
+                      {rate}% {gstType === "cgst_sgst" ? `(${rate / 2}% + ${rate / 2}%)` : ""}
                     </button>
                   ))}
                 </div>
@@ -827,9 +1165,24 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
           </div>
 
           {gstEnabled && taxAmount > 0 && (
-            <div className="flex justify-between text-blue-700 text-xs">
-              <span>GST ({gstRate}%)</span>
-              <span>{formatINR(taxAmount)}</span>
+            <div className="space-y-0.5 pt-1 border-t border-slate-100 text-xs">
+              {gstType === "cgst_sgst" ? (
+                <>
+                  <div className="flex justify-between text-blue-700">
+                    <span>CGST ({cgstRate ?? (gstRate ? gstRate / 2 : 0)}%)</span>
+                    <span>{formatINR(cgstAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-blue-700">
+                    <span>SGST ({sgstRate ?? (gstRate ? gstRate / 2 : 0)}%)</span>
+                    <span>{formatINR(sgstAmount)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between text-blue-700">
+                  <span>IGST ({gstRate}%)</span>
+                  <span>{formatINR(taxAmount)}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -865,7 +1218,12 @@ export function BillBuilder({ onBillSaved }: BillBuilderProps) {
           className="w-full text-base"
           onClick={handleSave}
           isLoading={isPending}
-          disabled={isPending || items.length === 0}
+          disabled={
+            isPending ||
+            (billingMode === "product"
+              ? items.length === 0
+              : items.length === 0 && (!manualAmount || manualAmount <= 0))
+          }
         >
           {isPending ? "Saving…" : "Save Bill"}
         </Button>

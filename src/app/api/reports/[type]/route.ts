@@ -314,7 +314,11 @@ async function profitLossReport(from: Date, to: Date): Promise<Omit<ReportData, 
   // Get all product costs for COGS calculation
   const productIds = [
     ...new Set(
-      bills.flatMap((b) => b.items.map((i) => (i.finishedProductId as Types.ObjectId).toString()))
+      bills.flatMap((b) =>
+        b.items
+          .filter((i) => i.finishedProductId)
+          .map((i) => (i.finishedProductId as Types.ObjectId).toString())
+      )
     ),
   ];
   const products = productIds.length
@@ -334,7 +338,9 @@ async function profitLossReport(from: Date, to: Date): Promise<Omit<ReportData, 
     const day = byDate.get(dateKey)!;
     day.revenue += j.grandTotal;
     for (const item of bill.items) {
-      const cost = costMap.get((item.finishedProductId as Types.ObjectId).toString()) ?? 0;
+      const cost = item.finishedProductId
+        ? costMap.get((item.finishedProductId as Types.ObjectId).toString()) ?? 0
+        : 0;
       day.cogs += cost * item.qty;
     }
   }

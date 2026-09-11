@@ -66,112 +66,146 @@ export async function POST(request: Request) {
 
     await connectDB();
 
-    // 1. Validate stock availability for all items and resolve raw material HSN codes
+    // 1. Prepare items (if empty but manualAmount provided, synthesize a line item)
+    const rawItems =
+      parsed.data.items && parsed.data.items.length > 0
+        ? parsed.data.items
+        : parsed.data.manualAmount && parsed.data.manualAmount > 0
+        ? [
+            {
+              designName: parsed.data.manualNotes?.trim() || "Manual Bill",
+              qty: 1,
+              sellingPrice: parsed.data.manualAmount,
+              discount: 0,
+              lineTotal: parsed.data.manualAmount,
+              barcodeId: `MAN-${Date.now()}`,
+              hsnCodes: [],
+            },
+          ]
+        : [];
+
+    // 2. Validate stock availability for product items and resolve raw material HSN codes
     const updatedItems = [];
-    for (const item of parsed.data.items) {
-      const product = await FinishedProduct.findById(item.finishedProductId).select(
-        "readyStock designName"
-      );
-      if (!product) {
-        return NextResponse.json<ApiResponse>(
-          { success: false, error: `Product not found: ${item.designName}` },
-          { status: 404 }
+    const stockOps = [];
+
+    for (const item of rawItems) {
+      if (item.finishedProductId) {
+        const product = await FinishedProduct.findById(item.finishedProductId).select(
+          "readyStock designName"
         );
-      }
-      if (product.readyStock < item.qty) {
-        return NextResponse.json<ApiResponse>(
-          {
-            success: false,
-            error: `Insufficient stock for "${item.designName}" (only ${product.readyStock} available)`,
+        if (!product) {
+          return NextResponse.json<ApiResponse>(
+            { success: false, error: `Product not found: ${item.designName}` },
+            { status: 404 }
+          );
+        }
+        if (product.readyStock < item.qty) {
+          return NextResponse.json<ApiResponse>(
+            {
+              success: false,
+              error: `Insufficient stock for "${item.designName}" (only ${product.readyStock} available)`,
+            },
+            { status: 409 }
+          );
+        }
+
+        // Find all work orders that produced this finished product
+        const workOrders = await WorkOrder.find({ finishedProductId: item.finishedProductId });
+        
+        // Extract component IDs
+        const rawMaterialIds = workOrders.flatMap((wo) => [
+          ...(wo.rawMaterialsGiven || []).map((rm) => rm.rawMaterialId.toString()),
+          ...(wo.rawMaterialsReturned || []).map((rm) => rm.rawMaterialId.toString()),
+        ]);
+        const uniqueRmIds = Array.from(new Set(rawMaterialIds));
+
+        const bangleStockIds = workOrders.flatMap((wo) => [
+          ...(wo.banglesGiven || []).map((bg) => bg.banglesStockId.toString()),
+        ]);
+        const uniqueBangleIds = Array.from(new Set(bangleStockIds));
+
+        const threadStockIds = workOrders.flatMap((wo) => [
+          ...(wo.threadItemsGiven || []).map((tg) => tg.threadStockId.toString()),
+        ]);
+        const uniqueThreadIds = Array.from(new Set(threadStockIds));
+
+        const hsnCodesSet = new Set<string>();
+
+        // Fetch raw materials to get HSN codes
+        const rawMaterials = await RawMaterial.find({ _id: { $in: uniqueRmIds } }).select("hsnCodes hsnCode");
+        for (const rm of rawMaterials) {
+          if (rm.hsnCodes && rm.hsnCodes.length > 0) {
+            rm.hsnCodes.forEach((code) => {
+              if (code) hsnCodesSet.add(code);
+            });
+          } else if (rm.hsnCode) {
+            hsnCodesSet.add(rm.hsnCode);
+          }
+        }
+
+        // Fetch bangles to get HSN codes
+        const bangles = await BanglesStock.find({ _id: { $in: uniqueBangleIds } }).select("hsnCodes hsnCode");
+        for (const bs of bangles) {
+          const doc = bs as any;
+          if (doc.hsnCodes && doc.hsnCodes.length > 0) {
+            doc.hsnCodes.forEach((code: string) => {
+              if (code) hsnCodesSet.add(code);
+            });
+          } else if (doc.hsnCode) {
+            hsnCodesSet.add(doc.hsnCode);
+          }
+        }
+
+        // Fetch threads to get HSN codes
+        const threads = await ThreadsStock.find({ _id: { $in: uniqueThreadIds } }).select("hsnCodes hsnCode");
+        for (const ts of threads) {
+          const doc = ts as any;
+          if (doc.hsnCodes && doc.hsnCodes.length > 0) {
+            doc.hsnCodes.forEach((code: string) => {
+              if (code) hsnCodesSet.add(code);
+            });
+          } else if (doc.hsnCode) {
+            hsnCodesSet.add(doc.hsnCode);
+          }
+        }
+
+        let finalHsnCodes = Array.from(hsnCodesSet);
+        if (item.hsnCodes && Array.isArray(item.hsnCodes)) {
+          finalHsnCodes = item.hsnCodes.filter((code) => hsnCodesSet.has(code));
+        }
+
+        stockOps.push({
+          updateOne: {
+            filter: { _id: item.finishedProductId },
+            update: { $inc: { readyStock: -item.qty, totalSold: item.qty } },
           },
-          { status: 409 }
-        );
+        });
+
+        updatedItems.push({
+          ...item,
+          hsnCodes: finalHsnCodes,
+        });
+      } else {
+        // Manual item (no product link / no inventory deduction)
+        updatedItems.push({
+          ...item,
+          barcodeId:
+            item.barcodeId ||
+            `MAN-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+          hsnCodes: item.hsnCodes || [],
+        });
       }
-
-      // Find all work orders that produced this finished product
-      const workOrders = await WorkOrder.find({ finishedProductId: item.finishedProductId });
-      
-      // Extract component IDs
-      const rawMaterialIds = workOrders.flatMap((wo) => [
-        ...(wo.rawMaterialsGiven || []).map((rm) => rm.rawMaterialId.toString()),
-        ...(wo.rawMaterialsReturned || []).map((rm) => rm.rawMaterialId.toString()),
-      ]);
-      const uniqueRmIds = Array.from(new Set(rawMaterialIds));
-
-      const bangleStockIds = workOrders.flatMap((wo) => [
-        ...(wo.banglesGiven || []).map((bg) => bg.banglesStockId.toString()),
-      ]);
-      const uniqueBangleIds = Array.from(new Set(bangleStockIds));
-
-      const threadStockIds = workOrders.flatMap((wo) => [
-        ...(wo.threadItemsGiven || []).map((tg) => tg.threadStockId.toString()),
-      ]);
-      const uniqueThreadIds = Array.from(new Set(threadStockIds));
-
-      const hsnCodesSet = new Set<string>();
-
-      // Fetch raw materials to get HSN codes
-      const rawMaterials = await RawMaterial.find({ _id: { $in: uniqueRmIds } }).select("hsnCodes hsnCode");
-      for (const rm of rawMaterials) {
-        if (rm.hsnCodes && rm.hsnCodes.length > 0) {
-          rm.hsnCodes.forEach((code) => {
-            if (code) hsnCodesSet.add(code);
-          });
-        } else if (rm.hsnCode) {
-          hsnCodesSet.add(rm.hsnCode);
-        }
-      }
-
-      // Fetch bangles to get HSN codes
-      const bangles = await BanglesStock.find({ _id: { $in: uniqueBangleIds } }).select("hsnCodes hsnCode");
-      for (const bs of bangles) {
-        const doc = bs as any;
-        if (doc.hsnCodes && doc.hsnCodes.length > 0) {
-          doc.hsnCodes.forEach((code: string) => {
-            if (code) hsnCodesSet.add(code);
-          });
-        } else if (doc.hsnCode) {
-          hsnCodesSet.add(doc.hsnCode);
-        }
-      }
-
-      // Fetch threads to get HSN codes
-      const threads = await ThreadsStock.find({ _id: { $in: uniqueThreadIds } }).select("hsnCodes hsnCode");
-      for (const ts of threads) {
-        const doc = ts as any;
-        if (doc.hsnCodes && doc.hsnCodes.length > 0) {
-          doc.hsnCodes.forEach((code: string) => {
-            if (code) hsnCodesSet.add(code);
-          });
-        } else if (doc.hsnCode) {
-          hsnCodesSet.add(doc.hsnCode);
-        }
-      }
-
-      let finalHsnCodes = Array.from(hsnCodesSet);
-      if (item.hsnCodes && Array.isArray(item.hsnCodes)) {
-        finalHsnCodes = item.hsnCodes.filter((code) => hsnCodesSet.has(code));
-      }
-
-      updatedItems.push({
-        ...item,
-        hsnCodes: finalHsnCodes,
-      });
     }
 
-    // 2. Deduct stock atomically via bulkWrite
-    const stockOps = parsed.data.items.map((item) => ({
-      updateOne: {
-        filter: { _id: item.finishedProductId },
-        update: { $inc: { readyStock: -item.qty, totalSold: item.qty } },
-      },
-    }));
-    await FinishedProduct.bulkWrite(stockOps);
+    // 3. Deduct stock atomically if there are product items
+    if (stockOps.length > 0) {
+      await FinishedProduct.bulkWrite(stockOps);
+    }
 
-    // 3. Atomically generate bill number
+    // 4. Atomically generate bill number
     const billNumber = await nextBillNumber();
 
-    // 4. Create the bill (billNumber already set → pre-save hook skips)
+    // 5. Create the bill (billNumber already set → pre-save hook skips)
     const bill = await Bill.create({ ...parsed.data, items: updatedItems, billNumber });
 
     return NextResponse.json<ApiResponse<IBill>>(

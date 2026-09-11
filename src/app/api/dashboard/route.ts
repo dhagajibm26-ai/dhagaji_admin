@@ -126,7 +126,9 @@ export async function GET() {
     const allProductIds = [
       ...new Set(
         todayBills.flatMap((b) =>
-          b.items.map((i) => (i.finishedProductId as Types.ObjectId).toString())
+          b.items
+            .filter((i) => i.finishedProductId)
+            .map((i) => (i.finishedProductId as Types.ObjectId).toString())
         )
       ),
     ];
@@ -147,7 +149,9 @@ export async function GET() {
     let todayCost = 0;
     for (const bill of todayBills) {
       for (const item of bill.items) {
-        const costPerPc = costMap.get((item.finishedProductId as Types.ObjectId).toString()) ?? 0;
+        const costPerPc = item.finishedProductId
+          ? costMap.get((item.finishedProductId as Types.ObjectId).toString()) ?? 0
+          : 0;
         todayCost += costPerPc * item.qty;
       }
     }

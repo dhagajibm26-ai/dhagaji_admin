@@ -182,9 +182,32 @@ export async function POST(request: Request) {
       );
     }
     await connectDB();
-    const item = await FinishedProduct.create(parsed.data);
+
+    // Check for existing product with identical designCode and size
+    const existing = await FinishedProduct.findOne({
+      designCode: { $regex: new RegExp(`^${parsed.data.designCode.trim()}$`, "i") },
+      size: parsed.data.size.trim(),
+    });
+
+    if (existing) {
+      return NextResponse.json<ApiResponse>(
+        {
+          success: false,
+          error: `Product with design code "${parsed.data.designCode}" and size "${parsed.data.size}" already exists.`,
+        },
+        { status: 409 }
+      );
+    }
+
+    const item = await FinishedProduct.create({
+      ...parsed.data,
+      designCode: parsed.data.designCode.trim(),
+      designName: parsed.data.designName.trim(),
+      size: parsed.data.size.trim(),
+    });
     return NextResponse.json<ApiResponse>({ success: true, data: item.toJSON() }, { status: 201 });
-  } catch {
+  } catch (err) {
+    console.error("Create finished product API error:", err);
     return NextResponse.json<ApiResponse>({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

@@ -544,15 +544,17 @@ export type SalesSource = "Offline" | "Instagram" | "WhatsApp" | "Exhibition";
 export type PaymentMethod = "Cash" | "UPI" | "Card";
 
 export interface IBillItem {
-  finishedProductId: string;
+  finishedProductId?: string;
   designName: string;
-  barcodeId: string;
+  barcodeId?: string;
   qty: number;
   sellingPrice: number;
   discount: number;
   lineTotal: number;
   hsnCodes?: string[];
 }
+
+export type GSTType = "cgst_sgst" | "igst";
 
 export interface IBill {
   _id: string;
@@ -563,8 +565,13 @@ export interface IBill {
   customerEmail?: string;
   salesSource: SalesSource;
   items: IBillItem[];
+  manualAmount?: number;
+  manualNotes?: string;
   gstEnabled: boolean;
+  gstType?: GSTType;
   gstRate?: number | null;
+  cgstRate?: number | null;
+  sgstRate?: number | null;
   gstNumber?: string;
   paymentMethod: PaymentMethod;
   billDate: Date;
@@ -573,6 +580,8 @@ export interface IBill {
   // virtuals
   subtotal: number;
   discountTotal: number;
+  cgstAmount: number;
+  sgstAmount: number;
   taxAmount: number;
   grandTotal: number;
   createdAt: Date;
@@ -580,9 +589,9 @@ export interface IBill {
 }
 
 export const billItemSchema = z.object({
-  finishedProductId: z.string().min(1),
-  designName: z.string().min(1),
-  barcodeId: z.string().min(1),
+  finishedProductId: z.string().optional(),
+  designName: z.string().min(1, "Item description required"),
+  barcodeId: z.string().optional(),
   qty: z.number().min(1),
   sellingPrice: z.number().min(0),
   discount: z.number().min(0).default(0),
@@ -590,24 +599,40 @@ export const billItemSchema = z.object({
   hsnCodes: z.array(z.string()).optional(),
 });
 
-export const billSchema = z.object({
-  customerName: z.string().min(1, "Customer name required"),
-  customerPhone: z.string().optional(),
-  customerAddress: z.string().optional(),
-  customerEmail: z.string().optional(),
-  salesSource: z.enum(["Offline", "Instagram", "WhatsApp", "Exhibition"]),
-  items: z.array(billItemSchema).min(1, "At least one item required"),
-  gstEnabled: z.boolean().default(false),
-  gstRate: z
-    .number()
-    .nullable()
-    .optional(),
-  gstNumber: z.string().optional(),
-  paymentMethod: z.enum(["Cash", "UPI", "Card"]),
-  billDate: z.string().optional(),
-  notes: z.string().optional(),
-  billDiscount: z.number().min(0).default(0).optional(),
-});
+export const billSchema = z
+  .object({
+    customerName: z.string().min(1, "Customer name required"),
+    customerPhone: z.string().optional(),
+    customerAddress: z.string().optional(),
+    customerEmail: z.string().optional(),
+    salesSource: z.enum(["Offline", "Instagram", "WhatsApp", "Exhibition"]),
+    items: z.array(billItemSchema).default([]),
+    manualAmount: z.number().min(0).optional(),
+    manualNotes: z.string().optional(),
+    gstEnabled: z.boolean().default(false),
+    gstType: z.enum(["cgst_sgst", "igst"]).default("cgst_sgst").optional(),
+    gstRate: z
+      .number()
+      .nullable()
+      .optional(),
+    cgstRate: z
+      .number()
+      .nullable()
+      .optional(),
+    sgstRate: z
+      .number()
+      .nullable()
+      .optional(),
+    gstNumber: z.string().optional(),
+    paymentMethod: z.enum(["Cash", "UPI", "Card"]),
+    billDate: z.string().optional(),
+    notes: z.string().optional(),
+    billDiscount: z.number().min(0).default(0).optional(),
+  })
+  .refine(
+    (data) => (data.items && data.items.length > 0) || ((data.manualAmount ?? 0) > 0),
+    { message: "Either add items or enter a bill amount", path: ["items"] }
+  );
 export type BillInput = z.infer<typeof billSchema>;
 
 // ─── Expense ──────────────────────────────────────────────────────────────────

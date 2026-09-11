@@ -96,12 +96,25 @@ export async function generateBillPDF(bill: IBill) {
 
   // Items Table
   const tableHead = [["Item Description", "Qty", "Rate", "Total"]];
-  const tableBody = bill.items.map((item) => [
-    item.designName + (item.hsnCodes && item.hsnCodes.length > 0 ? `\nHSN: ${item.hsnCodes.join(", ")}` : ""),
-    String(item.qty),
-    `Rs.${item.sellingPrice.toFixed(2)}`,
-    `Rs.${(item.sellingPrice * item.qty).toFixed(2)}`,
-  ]);
+  const tableBody =
+    bill.items && bill.items.length > 0
+      ? bill.items.map((item) => [
+          item.designName +
+            (item.hsnCodes && item.hsnCodes.length > 0
+              ? `\nHSN: ${item.hsnCodes.join(", ")}`
+              : ""),
+          String(item.qty),
+          `Rs.${item.sellingPrice.toFixed(2)}`,
+          `Rs.${(item.sellingPrice * item.qty).toFixed(2)}`,
+        ])
+      : [
+          [
+            bill.manualNotes || "Manual Bill Amount",
+            "1",
+            `Rs.${(bill.subtotal || 0).toFixed(2)}`,
+            `Rs.${(bill.subtotal || 0).toFixed(2)}`,
+          ],
+        ];
 
   autoTable(doc, {
     head: tableHead,
@@ -158,11 +171,27 @@ export async function generateBillPDF(bill: IBill) {
   doc.setDrawColor(220, 220, 220);
   doc.setLineWidth(0.3);
   
+  const isCgstSgst = bill.gstType === "cgst_sgst" || (bill.cgstRate != null && bill.sgstRate != null);
+  const cgstRate = bill.cgstRate ?? (bill.gstRate ? bill.gstRate / 2 : 0);
+  const sgstRate = bill.sgstRate ?? (bill.gstRate ? bill.gstRate / 2 : 0);
+  const cgstAmt = bill.cgstAmount ?? (bill.taxAmount / 2);
+  const sgstAmt = bill.sgstAmount ?? (bill.taxAmount / 2);
+
+  const taxRows: [string, string][] =
+    bill.gstEnabled && bill.taxAmount > 0
+      ? isCgstSgst
+        ? [
+            [`CGST (${cgstRate}%)`, `Rs.${cgstAmt.toFixed(2)}`],
+            [`SGST (${sgstRate}%)`, `Rs.${sgstAmt.toFixed(2)}`],
+          ]
+        : [[`GST (${bill.gstRate}%)`, `Rs.${bill.taxAmount.toFixed(2)}`]]
+      : [];
+
   const totalsRows = [
     ["Subtotal", `Rs.${bill.subtotal.toFixed(2)}`],
     ...(bill.discountTotal > 0 ? [["Item Discounts", `-Rs.${bill.discountTotal.toFixed(2)}`]] : []),
     ...((bill.billDiscount ?? 0) > 0 ? [["Bill Discount", `-Rs.${(bill.billDiscount ?? 0).toFixed(2)}`]] : []),
-    ...(bill.gstEnabled && bill.taxAmount > 0 ? [[`GST (${bill.gstRate}%)`, `Rs.${bill.taxAmount.toFixed(2)}`]] : []),
+    ...taxRows,
     ["Grand Total", `Rs.${bill.grandTotal.toFixed(2)}`],
   ];
 

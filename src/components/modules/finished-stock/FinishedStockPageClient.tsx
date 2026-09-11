@@ -124,9 +124,9 @@ export function FinishedStockPageClient() {
             </Button>
           )}
           {isOwner && (
-            <Button size="sm" onClick={() => setAddOpen(true)}>
+            <Button size="sm" onClick={() => setAddOpen(true)} className="bg-[#D32F2F] hover:bg-[#B71C1C] text-white font-bold">
               <Plus size={14} className="mr-1" />
-              Add Product
+              Add Final Product
             </Button>
           )}
         </div>
@@ -218,7 +218,7 @@ export function FinishedStockPageClient() {
           </p>
           {isOwner && products.length === 0 && (
             <Button size="sm" className="mt-4" onClick={() => setAddOpen(true)}>
-              <Plus size={14} className="mr-1" /> Add Product
+              <Plus size={14} className="mr-1" /> Add Final Product
             </Button>
           )}
         </div>

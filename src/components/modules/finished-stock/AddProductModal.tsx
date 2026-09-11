@@ -242,7 +242,7 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
       <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={isEdit ? "Edit Product" : "Add Finished Product"}
+      title={isEdit ? "Edit Final Product" : "Add Final Product"}
       size="lg"
       footer={
         <div className="flex justify-end gap-3">
@@ -254,7 +254,7 @@ export function AddProductModal({ isOpen, onClose, product }: AddProductModalPro
             onClick={handleSubmit(onSubmit)}
             isLoading={isPending}
           >
-            {isEdit ? "Save Changes" : "Add Product"}
+            {isEdit ? "Save Changes" : "Create Final Product"}
           </Button>
         </div>
       }

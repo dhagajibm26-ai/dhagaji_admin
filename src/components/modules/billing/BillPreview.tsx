@@ -136,23 +136,34 @@ export function BillPreview({ bill, onClose }: BillPreviewProps) {
               </tr>
             </thead>
             <tbody>
-              {bill.items.map((item, i) => (
-                <tr key={i} className="border-b border-gray-100">
-                  <td className="py-1.5 px-1.5">
-                    <div>{item.designName}</div>
-                    {item.hsnCodes && item.hsnCodes.length > 0 && (
-                      <div className="text-[10px] text-gray-500 font-mono mt-0.5">
-                        HSN: {item.hsnCodes.join(", ")}
-                      </div>
-                    )}
+              {bill.items && bill.items.length > 0 ? (
+                bill.items.map((item, i) => (
+                  <tr key={i} className="border-b border-gray-100">
+                    <td className="py-1.5 px-1.5">
+                      <div>{item.designName}</div>
+                      {item.hsnCodes && item.hsnCodes.length > 0 && (
+                        <div className="text-[10px] text-gray-500 font-mono mt-0.5">
+                          HSN: {item.hsnCodes.join(", ")}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-1.5 px-1.5 text-center">{item.qty}</td>
+                    <td className="py-1.5 px-1.5 text-right">{fmt(item.sellingPrice)}</td>
+                    <td className="py-1.5 px-1.5 text-right font-medium">
+                      {fmt(item.sellingPrice * item.qty)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr className="border-b border-gray-100">
+                  <td className="py-2 px-1.5 text-gray-700 italic">
+                    {bill.manualNotes || "Manual Bill"}
                   </td>
-                  <td className="py-1.5 px-1.5 text-center">{item.qty}</td>
-                  <td className="py-1.5 px-1.5 text-right">{fmt(item.sellingPrice)}</td>
-                  <td className="py-1.5 px-1.5 text-right font-medium">
-                    {fmt(item.sellingPrice * item.qty)}
-                  </td>
+                  <td className="py-2 px-1.5 text-center">1</td>
+                  <td className="py-2 px-1.5 text-right">{fmt(bill.subtotal)}</td>
+                  <td className="py-2 px-1.5 text-right font-medium">{fmt(bill.subtotal)}</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
 
@@ -175,10 +186,23 @@ export function BillPreview({ bill, onClose }: BillPreviewProps) {
               </div>
             )}
             {bill.gstEnabled && bill.taxAmount > 0 && (
-              <div className="flex justify-between text-blue-700">
-                <span>GST ({bill.gstRate}%)</span>
-                <span>{fmt(bill.taxAmount)}</span>
-              </div>
+              (bill.gstType === "cgst_sgst" || (bill.cgstRate != null && bill.sgstRate != null)) ? (
+                <>
+                  <div className="flex justify-between text-blue-700">
+                    <span>CGST ({bill.cgstRate ?? (bill.gstRate ? bill.gstRate / 2 : 0)}%)</span>
+                    <span>{fmt(bill.cgstAmount ?? (bill.taxAmount / 2))}</span>
+                  </div>
+                  <div className="flex justify-between text-blue-700">
+                    <span>SGST ({bill.sgstRate ?? (bill.gstRate ? bill.gstRate / 2 : 0)}%)</span>
+                    <span>{fmt(bill.sgstAmount ?? (bill.taxAmount / 2))}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between text-blue-700">
+                  <span>GST ({bill.gstRate}%)</span>
+                  <span>{fmt(bill.taxAmount)}</span>
+                </div>
+              )
             )}
             <div className="flex justify-between font-bold text-sm border-t border-gray-300 pt-1.5 mt-1">
               <span>GRAND TOTAL</span>
