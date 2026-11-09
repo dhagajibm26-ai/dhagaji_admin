@@ -31,6 +31,8 @@ export async function connectDB(): Promise<typeof mongoose> {
   if (!cached.promise) {
     cached.promise = mongoose.connect(getMongoUri(), {
       bufferCommands: false,
+      // Keep pools small on serverless (Vercel) to avoid Atlas connection exhaustion
+      maxPoolSize: 10,
     });
   }
 

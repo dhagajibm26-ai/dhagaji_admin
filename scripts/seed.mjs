@@ -18,11 +18,17 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
+if (!process.env.OWNER_PASSWORD) {
+  console.error("❌ OWNER_PASSWORD is required. Refusing weak/default password.");
+  console.error('   Example: OWNER_PASSWORD="StrongPass@123" node scripts/seed.mjs');
+  process.exit(1);
+}
+
 // ── Owner credentials (change password after first login) ────────────────────
 const OWNER = {
   name: process.env.OWNER_NAME || "Dhagaji Owner",
   email: process.env.OWNER_EMAIL || "owner@dhagaji.local",
-  password: process.env.OWNER_PASSWORD || "Dhagaji@123", // change immediately
+  password: process.env.OWNER_PASSWORD,
   role: "owner",
   isActive: true,
   loginAttempts: 0,

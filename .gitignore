@@ -23,6 +23,10 @@ pnpm-debug.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env*
+
+# allow committed env templates
+!.env.example
 
 # test coverage
 coverage/
@@ -35,4 +39,3 @@ next-env.d.ts
 .vscode/
 .idea/
 .vercel
-.env*
