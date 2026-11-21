@@ -30,6 +30,10 @@ class InvalidPasswordError extends CredentialsSignin {
   code = "invalid_password";
 }
 
+class DatabaseUnavailableError extends CredentialsSignin {
+  code = "database_unavailable";
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MAX_ATTEMPTS = 5;
@@ -51,7 +55,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) throw new InvalidEmailError();
 
-        await connectDB();
+        try {
+          await connectDB();
+        } catch (err) {
+          console.error("[auth] MongoDB connect failed:", err);
+          // Avoid Auth.js generic "server configuration" for DB outages
+          throw new DatabaseUnavailableError();
+        }
 
         // Fetch user with all security-sensitive fields (select: false by default)
         const user = await User.findOne({ email: parsed.data.username }).select(

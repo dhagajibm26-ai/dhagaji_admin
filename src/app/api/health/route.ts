@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 /**
  * Public health check — does NOT expose secret values.
- * Use to verify Vercel Production env is wired correctly.
+ * Use to verify Vercel Production env + Mongo connectivity.
  */
 export async function GET() {
   const hasAuthSecret = Boolean(
@@ -14,7 +14,21 @@ export async function GET() {
     process.env.OWNER_EMAIL && process.env.OWNER_PASSWORD
   );
 
-  const ok = hasAuthSecret && hasMongo;
+  let mongo: { ok: boolean; error?: string } = { ok: false };
+  if (hasMongo) {
+    try {
+      const { connectDB } = await import("@/lib/mongodb");
+      await connectDB();
+      mongo = { ok: true };
+    } catch (err) {
+      mongo = {
+        ok: false,
+        error: err instanceof Error ? err.message : "mongo_connect_failed",
+      };
+    }
+  }
+
+  const ok = hasAuthSecret && hasMongo && mongo.ok;
 
   return NextResponse.json(
     {
@@ -27,6 +41,7 @@ export async function GET() {
         OWNER_EMAIL: hasOwner,
         AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST === "true",
       },
+      mongo,
     },
     { status: ok ? 200 : 503 }
   );

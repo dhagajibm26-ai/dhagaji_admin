@@ -29,6 +29,10 @@ const ERROR_MAP: Record<string, { title: string; text: string }> = {
     title: "Server Error",
     text: "Authentication is not configured correctly. Contact the admin.",
   },
+  database_unavailable: {
+    title: "Database Offline",
+    text: "Cannot reach MongoDB. Check Atlas Network Access (allow 0.0.0.0/0) and MONGODB_URI.",
+  },
   default: {
     title: "Error",
     text: "Something went wrong. Please try again.",

@@ -33,6 +33,8 @@ export async function connectDB(): Promise<typeof mongoose> {
       bufferCommands: false,
       // Keep pools small on serverless (Vercel) to avoid Atlas connection exhaustion
       maxPoolSize: 10,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
     });
   }
 
