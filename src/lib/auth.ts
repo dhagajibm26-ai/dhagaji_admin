@@ -39,6 +39,7 @@ const LOCK_DURATION_MS = 60 * 60 * 1000; // 1 hour
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
+  secret: process.env.AUTH_SECRET,
   providers: [
     Credentials({
       name: "credentials",
