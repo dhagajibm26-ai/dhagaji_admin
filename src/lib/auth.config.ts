@@ -16,6 +16,8 @@ const INACTIVITY_MS = 30 * 60 * 1000;
 export const authConfig = {
   // Required for custom domains (e.g. admin.dhagajicreation.com)
   trustHost: true,
+  // Prefer AUTH_SECRET; keep NEXTAUTH_SECRET as fallback for Vercel misconfig
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/login",
     error: "/login",
@@ -37,8 +39,9 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const { pathname } = nextUrl;
 
-      // Always allow next-auth's own API routes
+      // Always allow next-auth's own API routes + public health check
       if (pathname.startsWith("/api/auth")) return true;
+      if (pathname === "/api/health") return true;
 
       // Login page: redirect authenticated users to dashboard
       if (pathname === "/login") {
