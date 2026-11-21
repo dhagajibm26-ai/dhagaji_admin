@@ -37,5 +37,10 @@ export async function connectDB(): Promise<typeof mongoose> {
   }
 
   cached.conn = await cached.promise;
+
+  // First connect: create owner from OWNER_* env if that account is missing
+  const { ensureOwnerFromEnv } = await import("@/lib/ensureOwner");
+  await ensureOwnerFromEnv();
+
   return cached.conn;
 }

@@ -14,6 +14,8 @@ import { NextResponse } from "next/server";
 const INACTIVITY_MS = 30 * 60 * 1000;
 
 export const authConfig = {
+  // Required for custom domains (e.g. admin.dhagajicreation.com)
+  trustHost: true,
   pages: {
     signIn: "/login",
     error: "/login",
