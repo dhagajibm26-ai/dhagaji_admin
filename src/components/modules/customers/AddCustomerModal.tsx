@@ -13,11 +13,11 @@ import type { ICustomer } from "@/types";
 
 // Schema for form input (wrapping strings in objects for react-hook-form useFieldArray)
 const customerFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().trim().min(1, "Name is required"),
   mobileNumbers: z
     .array(
       z.object({
-        value: z.string().min(1, "Mobile number cannot be empty"),
+        value: z.string().trim().min(1, "Mobile number cannot be empty"),
       })
     )
     .min(1, "At least one mobile number is required"),
@@ -34,6 +34,7 @@ interface AddCustomerModalProps {
 }
 
 export function AddCustomerModal({ isOpen, onClose, customer }: AddCustomerModalProps) {
+  "use no memo";
   const isEdit = !!customer;
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
@@ -47,6 +48,8 @@ export function AddCustomerModal({ isOpen, onClose, customer }: AddCustomerModal
     formState: { errors },
   } = useForm<CustomerFormInput>({
     resolver: zodResolver(customerFormSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       name: "",
       mobileNumbers: [{ value: "" }],
@@ -87,7 +90,7 @@ export function AddCustomerModal({ isOpen, onClose, customer }: AddCustomerModal
 
   function onSubmit(data: CustomerFormInput) {
     const payload = {
-      name: data.name,
+      name: data.name.trim(),
       mobileNumbers: data.mobileNumbers.map((m) => m.value.trim()),
       address: data.address?.trim() || undefined,
       email: data.email?.trim() || undefined,
